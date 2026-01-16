@@ -5,6 +5,7 @@ import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getDeck, getCardsForDeck, getTagsForDeck, createCard, updateCard, deleteCard, deleteDeck } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CardModal } from "@/components/CardModal";
+import { CodeBlock } from "@/components/CodeEditor";
 
 type FilterLogic = "any" | "all";
 
@@ -409,45 +410,81 @@ function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
   const isCodeFront = card.frontType === "CODE";
   const isCodeBack = card.backType === "CODE";
 
+  // Truncate code to first few lines for preview
+  const truncateCode = (code: string, maxLines: number = 3) => {
+    const lines = code.split("\n");
+    if (lines.length <= maxLines) return code;
+    return lines.slice(0, maxLines).join("\n") + "\n...";
+  };
+
   return (
     <div
       className="px-6 py-4 hover:bg-[#5b595c]/20 transition-colors cursor-pointer"
       onClick={onClick}
     >
       <div className="flex justify-between items-start">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Front */}
             <div>
-              <div className="text-xs text-[#939293] uppercase tracking-wider mb-1">Front</div>
-              <div className={`text-[#fcfcfa] ${isCodeFront ? "font-mono text-sm" : ""}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs text-[#939293] uppercase tracking-wider">Front</span>
                 {isCodeFront && (
-                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded mr-2">
+                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded">
                     {CODE_LANGUAGE_LABELS[card.frontLanguage || "PLAINTEXT"]}
                   </span>
                 )}
-                <span className="line-clamp-2">{card.front}</span>
               </div>
+              {isCodeFront ? (
+                <div className="max-h-24 overflow-hidden rounded-lg">
+                  <CodeBlock
+                    code={truncateCode(card.front)}
+                    language={card.frontLanguage}
+                  />
+                </div>
+              ) : (
+                <div className="text-[#fcfcfa] line-clamp-3 whitespace-pre-wrap">
+                  {card.front}
+                </div>
+              )}
             </div>
+
+            {/* Back */}
             <div>
-              <div className="text-xs text-[#939293] uppercase tracking-wider mb-1">Back</div>
-              <div className={`text-[#fcfcfa] ${isCodeBack ? "font-mono text-sm" : ""}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs text-[#939293] uppercase tracking-wider">Back</span>
                 {isCodeBack && (
-                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded mr-2">
+                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded">
                     {CODE_LANGUAGE_LABELS[card.backLanguage || "PLAINTEXT"]}
                   </span>
                 )}
-                <span className="line-clamp-2">{card.back}</span>
               </div>
+              {isCodeBack ? (
+                <div className="max-h-24 overflow-hidden rounded-lg">
+                  <CodeBlock
+                    code={truncateCode(card.back)}
+                    language={card.backLanguage}
+                  />
+                </div>
+              ) : (
+                <div className="text-[#fcfcfa] line-clamp-3 whitespace-pre-wrap">
+                  {card.back}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Notes */}
           {card.notes && (
-            <div className="mt-2">
-              <div className="text-xs text-[#939293] uppercase tracking-wider">Notes</div>
+            <div className="mt-3">
+              <div className="text-xs text-[#939293] uppercase tracking-wider mb-1">Notes</div>
               <div className="text-sm text-[#939293] line-clamp-1">{card.notes}</div>
             </div>
           )}
+
+          {/* Tags */}
           {card.tags && card.tags.length > 0 && (
-            <div className="mt-2 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {card.tags.map((tag) => (
                 <span
                   key={tag.id}
@@ -459,14 +496,16 @@ function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
             </div>
           )}
         </div>
-        <div className="ml-4 flex space-x-2">
+
+        {/* Edit Button */}
+        <div className="ml-4 flex-shrink-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onClick();
             }}
-            className="text-[#78dce8] hover:text-[#ffd866] transition-colors"
-            title="Edit card"
+            className="text-[#78dce8] hover:text-[#ffd866] transition-colors p-1"
+            title="View/Edit card"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
