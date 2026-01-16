@@ -78,8 +78,8 @@ export async function updateCard(
   return { ...card, tags: [] };
 }
 
-export async function deleteCard(id: string): Promise<void> {
-  return invoke("delete_card", { id });
+export async function deleteCard(id: string, deckId: string): Promise<void> {
+  return invoke("delete_card", { id, deckId });
 }
 
 // ============================================
@@ -94,21 +94,66 @@ export async function createTag(deckId: string, name: string): Promise<Tag> {
   return invoke<Tag>("create_tag", { deckId, name });
 }
 
-export async function deleteTag(id: string): Promise<void> {
-  return invoke("delete_tag", { id });
+export async function deleteTag(deckId: string, id: string): Promise<void> {
+  return invoke("delete_tag", { deckId, id });
 }
 
 export async function addTagToCard(
+  deckId: string,
   cardId: string,
   tagId: string
 ): Promise<void> {
-  return invoke("add_tag_to_card", { cardId, tagId });
+  return invoke("add_tag_to_card", { deckId, cardId, tagId });
 }
 
 export async function removeTagFromCard(
+  deckId: string,
   cardId: string,
   tagId: string
 ): Promise<void> {
-  return invoke("remove_tag_from_card", { cardId, tagId });
+  return invoke("remove_tag_from_card", { deckId, cardId, tagId });
+}
+
+// ============================================
+// Import/Export Operations
+// ============================================
+
+export interface ImportResult {
+  deck: Deck;
+  cardsImported: number;
+  synced: boolean;
+}
+
+export interface DeckExport {
+  name: string;
+  description: string | null;
+  cards: CardExport[];
+  exportedAt: string;
+}
+
+export interface CardExport {
+  front: string;
+  back: string;
+  frontType: string;
+  backType: string;
+  frontLanguage: string | null;
+  backLanguage: string | null;
+  notes: string | null;
+}
+
+export async function importDeck(filePath: string): Promise<ImportResult> {
+  return invoke<ImportResult>("import_deck", { filePath });
+}
+
+export async function exportDeck(deckId: string): Promise<DeckExport> {
+  return invoke<DeckExport>("export_deck", { deckId });
+}
+
+export async function syncPending(): Promise<number> {
+  return invoke<number>("sync_pending");
+}
+
+export async function getPendingCount(): Promise<number> {
+  return invoke<number>("get_pending_count");
 }
 

@@ -98,6 +98,8 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             auth::login,
@@ -121,6 +123,11 @@ pub fn run() {
             db::delete_tag,
             db::add_tag_to_card,
             db::remove_tag_from_card,
+            // Import/Export commands
+            db::import_deck,
+            db::export_deck,
+            db::sync_pending,
+            db::get_pending_count,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
