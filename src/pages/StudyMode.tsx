@@ -1,30 +1,44 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import type { Card } from "@/types";
+import type { Card, Deck } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
-import { getCardsForDeck } from "@/lib/db";
+import { getCardsForDeck, getDeck } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
 
 export function StudyMode() {
   const { id } = useParams<{ id: string }>();
+  const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [shuffled, setShuffled] = useState(false);
+  const [studyComplete, setStudyComplete] = useState(false);
+
+  // Animation states
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [exitTransform, setExitTransform] = useState<string | null>(null);
+  const [showCard, setShowCard] = useState(true);
+  const [swipeOffset, setSwipeOffset] = useState(0);
 
   // Touch handling for swipe gestures
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchCurrentX = useRef<number | null>(null);
+  const minSwipeDistance = 50;
 
   useEffect(() => {
-    async function loadCards() {
+    async function loadDeckAndCards() {
       if (!id) return;
       try {
         if (isTauri()) {
-          const data = await getCardsForDeck(id);
-          setCards(data);
+          const [deckData, cardsData] = await Promise.all([
+            getDeck(id),
+            getCardsForDeck(id),
+          ]);
+          setDeck(deckData);
+          // Shuffle cards for study session
+          const shuffled = [...cardsData].sort(() => Math.random() - 0.5);
+          setCards(shuffled);
         }
       } catch (error) {
         console.error("Failed to load cards:", error);
@@ -32,47 +46,88 @@ export function StudyMode() {
         setLoading(false);
       }
     }
-    loadCards();
+    loadDeckAndCards();
   }, [id]);
 
   const currentCard = cards[currentIndex];
   const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
 
   const handleFlip = useCallback(() => {
-    setIsFlipped((f) => !f);
-  }, []);
+    if (!isAnimating) {
+      setIsFlipped((f) => !f);
+    }
+  }, [isAnimating]);
+
+  const animateToNext = useCallback(() => {
+    if (isAnimating) return;
+
+    if (currentIndex < cards.length - 1) {
+      setIsAnimating(true);
+      setIsFlipped(false);
+      setExitTransform("translateX(-120%) rotate(-10deg)");
+
+      setTimeout(() => {
+        setShowCard(false);
+        setCurrentIndex((prev) => prev + 1);
+        setSwipeOffset(0);
+        setExitTransform(null);
+
+        requestAnimationFrame(() => {
+          setShowCard(true);
+          setIsAnimating(false);
+        });
+      }, 280);
+    } else {
+      setStudyComplete(true);
+    }
+  }, [currentIndex, cards.length, isAnimating]);
+
+  const animateToPrevious = useCallback(() => {
+    if (isAnimating) return;
+
+    if (currentIndex > 0) {
+      setIsAnimating(true);
+      setIsFlipped(false);
+      setExitTransform("translateX(120%) rotate(10deg)");
+
+      setTimeout(() => {
+        setShowCard(false);
+        setCurrentIndex((prev) => prev - 1);
+        setSwipeOffset(0);
+        setExitTransform(null);
+
+        requestAnimationFrame(() => {
+          setShowCard(true);
+          setIsAnimating(false);
+        });
+      }, 280);
+    }
+  }, [currentIndex, isAnimating]);
 
   const handleNext = useCallback(() => {
-    if (currentIndex < cards.length - 1) {
-      setIsFlipped(false);
-      setCurrentIndex((i) => i + 1);
-    }
-  }, [currentIndex, cards.length]);
+    animateToNext();
+  }, [animateToNext]);
 
   const handlePrev = useCallback(() => {
-    if (currentIndex > 0) {
-      setIsFlipped(false);
-      setCurrentIndex((i) => i - 1);
-    }
-  }, [currentIndex]);
+    animateToPrevious();
+  }, [animateToPrevious]);
 
-  const handleShuffle = useCallback(() => {
-    const shuffledCards = [...cards].sort(() => Math.random() - 0.5);
-    setCards(shuffledCards);
+  const handleRestart = useCallback(() => {
     setCurrentIndex(0);
     setIsFlipped(false);
-    setShuffled(true);
+    setStudyComplete(false);
+    setExitTransform(null);
+    setSwipeOffset(0);
+    setShowCard(true);
+    // Reshuffle
+    const shuffled = [...cards].sort(() => Math.random() - 0.5);
+    setCards(shuffled);
   }, [cards]);
-
-  const handleReset = useCallback(() => {
-    setCurrentIndex(0);
-    setIsFlipped(false);
-  }, []);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
+      if (studyComplete) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -84,75 +139,74 @@ export function StudyMode() {
           handleFlip();
           break;
         case "ArrowRight":
-        case "j":
           e.preventDefault();
           handleNext();
           break;
         case "ArrowLeft":
-        case "k":
           e.preventDefault();
           handlePrev();
-          break;
-        case "r":
-          e.preventDefault();
-          handleReset();
-          break;
-        case "s":
-          e.preventDefault();
-          handleShuffle();
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleFlip, handleNext, handlePrev, handleReset, handleShuffle]);
+  }, [handleFlip, handleNext, handlePrev, studyComplete]);
 
   // Touch gesture handling
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartRef.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-    };
-  };
+  const onTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (isAnimating) return;
+      touchCurrentX.current = null;
+      touchStartX.current = e.targetTouches[0].clientX;
+    },
+    [isAnimating]
+  );
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
+  const onTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (isAnimating || !touchStartX.current) return;
+      touchCurrentX.current = e.targetTouches[0].clientX;
+      const diff = touchCurrentX.current - touchStartX.current;
+      setSwipeOffset(diff);
+    },
+    [isAnimating]
+  );
 
-    const touchEnd = {
-      x: e.changedTouches[0].clientX,
-      y: e.changedTouches[0].clientY,
-    };
-
-    const deltaX = touchEnd.x - touchStartRef.current.x;
-    const deltaY = touchEnd.y - touchStartRef.current.y;
-
-    // Minimum swipe distance threshold
-    const minSwipeDistance = 50;
-
-    // Determine if swipe is more horizontal than vertical
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX > minSwipeDistance) {
-        // Swipe right - previous card
-        handlePrev();
-      } else if (deltaX < -minSwipeDistance) {
-        // Swipe left - next card
-        handleNext();
-      }
-    } else {
-      if (Math.abs(deltaY) > minSwipeDistance) {
-        // Vertical swipe - flip card
-        handleFlip();
-      }
+  const onTouchEnd = useCallback(() => {
+    if (!touchStartX.current || isAnimating) {
+      setSwipeOffset(0);
+      return;
     }
 
-    touchStartRef.current = null;
-  };
+    const distance = swipeOffset;
+    const isLeftSwipe = distance < -minSwipeDistance;
+    const isRightSwipe = distance > minSwipeDistance;
+
+    touchStartX.current = null;
+    touchCurrentX.current = null;
+
+    if (studyComplete) {
+      setSwipeOffset(0);
+      return;
+    }
+
+    if (isLeftSwipe && currentIndex < cards.length - 1) {
+      animateToNext();
+    } else if (isRightSwipe && currentIndex > 0) {
+      animateToPrevious();
+    } else {
+      setSwipeOffset(0);
+    }
+  }, [studyComplete, currentIndex, cards.length, swipeOffset, isAnimating, animateToNext, animateToPrevious]);
 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[#2d2a2e]">
-        <div className="w-96 h-64 rounded-xl bg-[#403e41] animate-pulse" />
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#ffd866] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#939293]">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -179,185 +233,267 @@ export function StudyMode() {
   const isCodeBack = currentCard?.backType === "CODE";
 
   return (
-    <div className="h-full flex flex-col bg-[#2d2a2e]">
-      {/* Progress bar */}
-      <div className="h-1 bg-[#403e41]">
-        <div
-          className="h-full bg-[#ffd866] transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
+    <div
+      className="h-full bg-[#2d2a2e] flex flex-col overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4">
-        <Link
-          to={`/decks/${id}`}
-          className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-        >
-          ← Back to Deck
-        </Link>
-        <div className="flex items-center gap-4">
-          {shuffled && (
-            <span className="text-xs text-[#ab9df2] bg-[#ab9df2]/20 px-2 py-1 rounded">
-              Shuffled
-            </span>
-          )}
-          <span className="text-[#939293]">
-            {currentIndex + 1} / {cards.length}
-          </span>
-        </div>
-      </div>
-
-      {/* Card Area */}
-      <div
-        className="flex-1 flex items-center justify-center p-6"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          ref={cardRef}
-          className="card-flip w-full max-w-3xl min-h-[300px] cursor-pointer"
-          onClick={handleFlip}
-          style={{ perspective: "1000px" }}
-        >
-          <div
-            className={`card-flip-inner w-full h-full transition-transform duration-500 ${
-              isFlipped ? "flipped" : ""
-            }`}
-            style={{
-              transformStyle: "preserve-3d",
-              transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            }}
-          >
-            {/* Front */}
-            <div
-              className="card-front absolute inset-0 bg-[#403e41] border border-[#5b595c] rounded-xl p-6 shadow-lg shadow-[#ffd866]/10 overflow-auto"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-              }}
+      <div className="bg-[#403e41] border-b border-[#5b595c] flex-shrink-0">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <Link
+              to={`/decks/${id}`}
+              className="text-[#78dce8] hover:text-[#ffd866] flex items-center transition-colors"
             >
-              <div className="min-h-[280px] flex flex-col">
-                {isCodeFront && (
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-[#ffd866]">Question (Code)</span>
-                    <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
-                      {CODE_LANGUAGE_LABELS[currentCard?.frontLanguage || "PLAINTEXT"]}
-                    </span>
-                  </div>
-                )}
-                <div className="flex-1 flex items-center justify-center" data-selectable="true">
-                  {isCodeFront ? (
-                    <div className="w-full">
-                      <CodeBlock
-                        code={currentCard?.front || ""}
-                        language={currentCard?.frontLanguage}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-xl text-center whitespace-pre-wrap text-[#fcfcfa]">
-                      {currentCard?.front}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Deck
+            </Link>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-[#fcfcfa] font-mono truncate max-w-[300px]">
+                {deck?.name}
+              </h1>
+              <p className="text-sm text-[#939293]">
+                {studyComplete ? "Complete!" : `Card ${currentIndex + 1} of ${cards.length}`}
+              </p>
             </div>
-
-            {/* Back */}
-            <div
-              className="card-back absolute inset-0 bg-[#403e41] border border-[#5b595c] rounded-xl p-6 shadow-lg shadow-[#a9dc76]/10 overflow-auto"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg)",
-              }}
-            >
-              <div className="min-h-[280px] flex flex-col">
-                {isCodeBack && (
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-[#a9dc76]">Answer (Code)</span>
-                    <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
-                      {CODE_LANGUAGE_LABELS[currentCard?.backLanguage || "PLAINTEXT"]}
-                    </span>
-                  </div>
-                )}
-                <div className="flex-1 flex flex-col items-center justify-center" data-selectable="true">
-                  {isCodeBack ? (
-                    <div className="w-full">
-                      <CodeBlock
-                        code={currentCard?.back || ""}
-                        language={currentCard?.backLanguage}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-xl text-center whitespace-pre-wrap text-[#fcfcfa]">
-                      {currentCard?.back}
-                    </p>
-                  )}
-                  {currentCard?.notes && (
-                    <p className="text-[#939293] text-sm mt-6 text-center border-t border-[#5b595c] pt-4 w-full">
-                      {currentCard.notes}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <div className="w-24" /> {/* Spacer for centering */}
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-center gap-4 pb-6">
-        <button
-          onClick={handlePrev}
-          disabled={currentIndex === 0}
-          className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
-        >
-          ← Previous
-        </button>
-        <button
-          onClick={handleFlip}
-          className="px-8 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
-        >
-          Flip
-        </button>
-        <button
-          onClick={handleNext}
-          disabled={currentIndex === cards.length - 1}
-          className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
-        >
-          Next →
-        </button>
-      </div>
+      {/* Main Study Area */}
+      <div className="flex-1 flex flex-col max-w-4xl mx-auto px-6 py-8 w-full overflow-hidden">
+        {studyComplete ? (
+          /* Completion Screen */
+          <div className="flex-1 flex items-center justify-center">
+            <div className="bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 text-center">
+              <div className="mb-6">
+                <svg
+                  className="mx-auto h-20 w-20 text-[#a9dc76]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-[#fcfcfa] font-mono mb-2">
+                Great Job!
+              </h2>
+              <p className="text-[#939293] mb-8">
+                You've completed all {cards.length} cards in this deck.
+              </p>
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={handleRestart}
+                  className="px-6 py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+                >
+                  Study Again
+                </button>
+                <Link
+                  to={`/decks/${id}`}
+                  className="px-6 py-3 border border-[#5b595c] rounded-lg text-[#fcfcfa] hover:bg-[#5b595c]/30 font-medium transition-colors"
+                >
+                  Back to Deck
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Flashcard */
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Progress Bar */}
+            <div className="mb-6 flex-shrink-0">
+              <div className="bg-[#5b595c] rounded-full h-2">
+                <div
+                  className="bg-[#ffd866] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
 
-      {/* Extra Actions */}
-      <div className="flex items-center justify-center gap-4 pb-4">
-        <button
-          onClick={handleShuffle}
-          className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
-        >
-          🔀 Shuffle
-        </button>
-        <span className="text-[#939293]">•</span>
-        <button
-          onClick={handleReset}
-          className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
-        >
-          ↺ Restart
-        </button>
-      </div>
+            {/* Card Container with Swipe Animation */}
+            <div
+              className="flex-1 min-h-0 overflow-hidden"
+              style={{ perspective: "1000px" }}
+            >
+              <div
+                onClick={handleFlip}
+                className={`w-full h-full cursor-pointer ${
+                  showCard && !exitTransform && !swipeOffset ? "animate-slide-in" : ""
+                }`}
+                style={{
+                  transform:
+                    exitTransform ||
+                    (swipeOffset
+                      ? `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.02}deg)`
+                      : undefined),
+                  transition:
+                    swipeOffset && !exitTransform
+                      ? "none"
+                      : "transform 0.28s ease-out, opacity 0.28s ease-out",
+                  opacity: showCard ? 1 : 0,
+                }}
+              >
+                {/* 3D Flip Card */}
+                <div
+                  className="relative w-full h-full transition-transform duration-500"
+                  style={{
+                    transformStyle: "preserve-3d",
+                    transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                  }}
+                >
+                  {/* Front Face */}
+                  <div
+                    className="absolute inset-0 bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto"
+                    style={{ backfaceVisibility: "hidden" }}
+                  >
+                    <div className="text-center w-full max-w-2xl" data-selectable="true">
+                      <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
+                        Front
+                      </div>
+                      {isCodeFront && (
+                        <div className="flex items-center justify-center mb-3">
+                          <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
+                            {CODE_LANGUAGE_LABELS[currentCard?.frontLanguage || "PLAINTEXT"]}
+                          </span>
+                        </div>
+                      )}
+                      <div className="mb-6">
+                        {isCodeFront ? (
+                          <div className="w-full">
+                            <CodeBlock
+                              code={currentCard?.front || ""}
+                              language={currentCard?.frontLanguage}
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
+                            {currentCard?.front}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-8 text-sm text-[#939293]">
+                      Click or press Space to flip
+                    </div>
+                  </div>
 
-      {/* Keyboard hints */}
-      <div className="text-center text-[#939293] text-xs pb-4">
-        <span className="bg-[#403e41] px-2 py-1 rounded mr-2">Space</span>
-        flip
-        <span className="bg-[#403e41] px-2 py-1 rounded mx-2 ml-4">←</span>
-        <span className="bg-[#403e41] px-2 py-1 rounded mr-2">→</span>
-        navigate
-        <span className="bg-[#403e41] px-2 py-1 rounded mx-2 ml-4">S</span>
-        shuffle
-        <span className="bg-[#403e41] px-2 py-1 rounded mx-2 ml-4">R</span>
-        restart
+                  {/* Back Face */}
+                  <div
+                    className="absolute inset-0 bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto"
+                    style={{
+                      backfaceVisibility: "hidden",
+                      transform: "rotateY(180deg)",
+                    }}
+                  >
+                    <div className="text-center w-full max-w-2xl" data-selectable="true">
+                      <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
+                        Back
+                      </div>
+                      {isCodeBack && (
+                        <div className="flex items-center justify-center mb-3">
+                          <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
+                            {CODE_LANGUAGE_LABELS[currentCard?.backLanguage || "PLAINTEXT"]}
+                          </span>
+                        </div>
+                      )}
+                      <div className="mb-6">
+                        {isCodeBack ? (
+                          <div className="w-full">
+                            <CodeBlock
+                              code={currentCard?.back || ""}
+                              language={currentCard?.backLanguage}
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
+                            {currentCard?.back}
+                          </p>
+                        )}
+                      </div>
+                      {currentCard?.notes && (
+                        <div className="mt-8 pt-6 border-t border-[#5b595c]">
+                          <div className="text-sm text-[#939293] uppercase tracking-wider mb-2">
+                            Notes
+                          </div>
+                          <div className="text-[#939293] text-base">{currentCard.notes}</div>
+                        </div>
+                      )}
+                      {currentCard?.tags && currentCard.tags.length > 0 && (
+                        <div className="mt-4 flex justify-center gap-2 flex-wrap">
+                          {currentCard.tags.map((tag) => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2]"
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="mt-6 flex justify-between items-center flex-shrink-0">
+              <button
+                onClick={handlePrev}
+                disabled={currentIndex === 0}
+                className="px-6 py-3 bg-[#403e41] border border-[#5b595c] rounded-lg hover:bg-[#5b595c]/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium text-[#fcfcfa] transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+
+              <button
+                onClick={handleFlip}
+                className="px-8 py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+              >
+                {isFlipped ? "Hide" : "Show"} Answer
+              </button>
+
+              <button
+                onClick={handleNext}
+                className="px-6 py-3 bg-[#403e41] border border-[#5b595c] rounded-lg hover:bg-[#5b595c]/30 flex items-center gap-2 font-medium text-[#fcfcfa] transition-colors"
+              >
+                {currentIndex === cards.length - 1 ? "Finish" : "Next"}
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Keyboard hints */}
+            <div className="mt-8 text-center text-sm text-[#939293] flex-shrink-0">
+              <div className="inline-flex items-center gap-6">
+                <span>
+                  <kbd className="px-2 py-1 bg-[#5b595c]/50 rounded text-xs text-[#fcfcfa]">Space</kbd> Flip
+                </span>
+                <span>
+                  <kbd className="px-2 py-1 bg-[#5b595c]/50 rounded text-xs text-[#fcfcfa]">←</kbd> Previous
+                </span>
+                <span>
+                  <kbd className="px-2 py-1 bg-[#5b595c]/50 rounded text-xs text-[#fcfcfa]">→</kbd> Next
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
