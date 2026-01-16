@@ -1,14 +1,24 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { ConnectionIndicator } from "./ConnectionIndicator";
+import { useAuth } from "@/context/AuthContext";
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const isActive = (path: string) => {
     if (path === "/") {
       return location.pathname === "/";
     }
     return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
 
   return (
@@ -50,8 +60,100 @@ export function Layout() {
             </nav>
           </div>
 
-          {/* Connection Status */}
-          <ConnectionIndicator />
+          <div className="flex items-center gap-4">
+            {/* Connection Status */}
+            <ConnectionIndicator />
+
+            {/* User Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background-lighter hover:bg-background-lighter/80 transition-colors"
+              >
+                <div className="w-6 h-6 rounded-full bg-purple flex items-center justify-center text-xs font-medium text-background">
+                  {(user?.displayName || user?.email || "U")[0].toUpperCase()}
+                </div>
+                <span className="text-sm text-foreground max-w-[120px] truncate">
+                  {user?.displayName || user?.email || "User"}
+                </span>
+                <svg
+                  className={`w-4 h-4 text-foreground-dim transition-transform ${
+                    showUserMenu ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-56 bg-background-light border border-background-lighter rounded-lg shadow-lg z-20 py-1">
+                    {/* User Info */}
+                    <div className="px-4 py-3 border-b border-background-lighter">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {user?.displayName || "Local User"}
+                      </p>
+                      {user?.email && (
+                        <p className="text-xs text-foreground-dim truncate">
+                          {user.email}
+                        </p>
+                      )}
+                      <div className="mt-1">
+                        {user?.isLinked ? (
+                          <span className="text-xs text-green">
+                            Linked to server
+                          </span>
+                        ) : (
+                          <span className="text-xs text-orange">
+                            Local only
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <Link
+                      to="/settings"
+                      onClick={() => setShowUserMenu(false)}
+                      className="block px-4 py-2 text-sm text-foreground hover:bg-background-lighter"
+                    >
+                      Settings
+                    </Link>
+
+                    {!user?.isLinked && (
+                      <Link
+                        to="/settings"
+                        onClick={() => setShowUserMenu(false)}
+                        className="block px-4 py-2 text-sm text-cyan hover:bg-background-lighter"
+                      >
+                        Link Remote Account
+                      </Link>
+                    )}
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-pink hover:bg-background-lighter"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 

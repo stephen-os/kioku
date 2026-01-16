@@ -1,3 +1,4 @@
+mod auth;
 mod db;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -9,14 +10,29 @@ pub fn run() {
             version: 1,
             description: "create_initial_tables",
             sql: r#"
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE,
+                    password_hash TEXT,
+                    display_name TEXT,
+                    server_id INTEGER,
+                    server_token TEXT,
+                    server_token_expires_at TEXT,
+                    is_current INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS decks (
                     id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
                     name TEXT NOT NULL,
                     description TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    sync_status TEXT NOT NULL DEFAULT 'synced',
-                    server_id INTEGER
+                    sync_status TEXT NOT NULL DEFAULT 'local',
+                    server_id INTEGER,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS cards (
@@ -31,7 +47,7 @@ pub fn run() {
                     notes TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    sync_status TEXT NOT NULL DEFAULT 'synced',
+                    sync_status TEXT NOT NULL DEFAULT 'local',
                     server_id INTEGER,
                     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
                 );
@@ -40,7 +56,7 @@ pub fn run() {
                     id TEXT PRIMARY KEY,
                     deck_id TEXT NOT NULL,
                     name TEXT NOT NULL,
-                    sync_status TEXT NOT NULL DEFAULT 'synced',
+                    sync_status TEXT NOT NULL DEFAULT 'local',
                     server_id INTEGER,
                     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
                 );
@@ -55,11 +71,13 @@ pub fn run() {
 
                 CREATE TABLE IF NOT EXISTS sync_queue (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
                     entity_type TEXT NOT NULL,
                     entity_id TEXT NOT NULL,
                     operation TEXT NOT NULL,
                     payload TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS settings (
@@ -67,10 +85,12 @@ pub fn run() {
                     value TEXT NOT NULL
                 );
 
+                CREATE INDEX IF NOT EXISTS idx_decks_user_id ON decks(user_id);
                 CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
                 CREATE INDEX IF NOT EXISTS idx_tags_deck_id ON tags(deck_id);
                 CREATE INDEX IF NOT EXISTS idx_card_tags_card_id ON card_tags(card_id);
                 CREATE INDEX IF NOT EXISTS idx_card_tags_tag_id ON card_tags(tag_id);
+                CREATE INDEX IF NOT EXISTS idx_sync_queue_user_id ON sync_queue(user_id);
             "#,
             kind: MigrationKind::Up,
         },
@@ -84,16 +104,27 @@ pub fn run() {
         )
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
+            // Auth commands
+            auth::create_local_user,
+            auth::login_local,
+            auth::login_remote,
+            auth::logout,
+            auth::get_current_user,
+            auth::link_remote_account,
+            auth::unlink_remote_account,
+            // Deck commands
             db::get_all_decks,
             db::get_deck,
             db::create_deck,
             db::update_deck,
             db::delete_deck,
+            // Card commands
             db::get_cards_for_deck,
             db::get_card,
             db::create_card,
             db::update_card,
             db::delete_card,
+            // Tag commands
             db::get_tags_for_deck,
             db::create_tag,
             db::delete_tag,

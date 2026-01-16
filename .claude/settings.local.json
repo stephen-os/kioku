@@ -10,7 +10,8 @@
       "Bash(cargo build:*)",
       "Bash(npm run tauri:dev:*)",
       "Bash(npx tauri:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(cargo check:*)"
     ]
   }
 }

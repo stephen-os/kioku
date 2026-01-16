@@ -4,10 +4,21 @@
 
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
+  displayName: string | null;
+  serverId: number | null;
+  isLinked: boolean; // true if connected to remote server
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface AuthResponse {
+export interface LocalAuthResponse {
+  user: User;
+  isNew: boolean;
+}
+
+// Remote server auth response (from kioku-api)
+export interface RemoteAuthResponse {
   token: string;
   type: string;
   userId: number;
@@ -308,10 +319,11 @@ export interface MessageResponse {
 // Desktop-Specific Types (Sync)
 // ============================================
 
-export type SyncStatus = "synced" | "pending" | "conflict";
+export type SyncStatus = "local" | "synced" | "pending" | "conflict";
 
 export interface SyncQueueItem {
   id: number;
+  userId: string;
   entityType: "deck" | "card" | "tag";
   entityId: string;
   operation: "create" | "update" | "delete";
@@ -330,4 +342,31 @@ export interface ConnectionStatus {
   online: boolean;
   lastSyncAt: string | null;
   pendingChanges: number;
+}
+
+// ============================================
+// Desktop Auth Types
+// ============================================
+
+export interface CreateLocalUserRequest {
+  displayName: string;
+  email?: string;
+  password?: string;
+}
+
+export interface LocalLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RemoteLoginRequest {
+  email: string;
+  password: string;
+  apiUrl: string;
+}
+
+export interface LinkAccountRequest {
+  email: string;
+  password: string;
+  apiUrl: string;
 }
