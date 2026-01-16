@@ -90,9 +90,9 @@ export function DeckView() {
 
   const hasActiveFilters = searchTerm.trim() !== "" || selectedTagFilters.length > 0;
 
-  const handleViewCard = (card: Card) => {
+  const handleEditCard = (card: Card) => {
     setSelectedCard(card);
-    setModalMode("view");
+    setModalMode("edit");
     setModalOpen(true);
   };
 
@@ -382,7 +382,8 @@ export function DeckView() {
                   <CardRow
                     key={card.id}
                     card={card}
-                    onClick={() => handleViewCard(card)}
+                    onEdit={() => handleEditCard(card)}
+                    onDelete={() => handleDeleteCard(card.id)}
                   />
                 ))}
               </div>
@@ -406,7 +407,16 @@ export function DeckView() {
   );
 }
 
-function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
+function CardRow({
+  card,
+  onEdit,
+  onDelete,
+}: {
+  card: Card;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isCodeFront = card.frontType === "CODE";
   const isCodeBack = card.backType === "CODE";
 
@@ -417,11 +427,13 @@ function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
     return lines.slice(0, maxLines).join("\n") + "\n...";
   };
 
+  const handleDelete = () => {
+    onDelete();
+    setShowDeleteConfirm(false);
+  };
+
   return (
-    <div
-      className="px-6 py-4 hover:bg-[#5b595c]/20 transition-colors cursor-pointer"
-      onClick={onClick}
-    >
+    <div className="px-6 py-4 hover:bg-[#5b595c]/10 transition-colors">
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -495,17 +507,35 @@ function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
               ))}
             </div>
           )}
+
+          {/* Delete Confirmation */}
+          {showDeleteConfirm && (
+            <div className="mt-3 p-3 bg-[#ff6188]/10 border border-[#ff6188]/30 rounded-lg">
+              <p className="text-sm text-[#ff6188] mb-2">Delete this card?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDelete}
+                  className="px-3 py-1 bg-[#ff6188] text-[#2d2a2e] rounded text-sm font-medium hover:bg-[#ff6188]/90 transition-colors"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-3 py-1 border border-[#5b595c] text-[#fcfcfa] rounded text-sm hover:bg-[#5b595c]/30 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Edit Button */}
-        <div className="ml-4 flex-shrink-0">
+        {/* Action Buttons */}
+        <div className="ml-4 flex-shrink-0 flex items-center gap-1">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick();
-            }}
-            className="text-[#78dce8] hover:text-[#ffd866] transition-colors p-1"
-            title="View/Edit card"
+            onClick={onEdit}
+            className="text-[#78dce8] hover:text-[#ffd866] transition-colors p-1.5"
+            title="Edit card"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -513,6 +543,20 @@ function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-[#ff6188] hover:text-[#ff6188]/80 transition-colors p-1.5"
+            title="Delete card"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
           </button>
