@@ -119,6 +119,7 @@ pub fn run() {
             db::delete_card,
             // Tag commands
             db::get_tags_for_deck,
+            db::get_tags_for_card,
             db::create_tag,
             db::delete_tag,
             db::add_tag_to_card,

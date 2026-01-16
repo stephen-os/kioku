@@ -22,6 +22,13 @@ pub struct Deck {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct CardTag {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Card {
     pub id: String,
     pub deck_id: String,
@@ -36,6 +43,8 @@ pub struct Card {
     pub updated_at: String,
     pub sync_status: String,
     pub server_id: Option<i64>,
+    #[serde(default)]
+    pub tags: Vec<CardTag>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -102,6 +111,13 @@ struct RemoteDeck {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct RemoteCardTag {
+    id: i64,
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RemoteCard {
     id: i64,
     front: String,
@@ -113,6 +129,8 @@ struct RemoteCard {
     notes: Option<String>,
     created_at: String,
     updated_at: String,
+    #[serde(default)]
+    tags: Vec<RemoteCardTag>,
 }
 
 // ============================================
@@ -354,6 +372,10 @@ pub async fn get_cards_for_deck(app: AppHandle, deck_id: String) -> Result<Vec<C
             updated_at: c.updated_at,
             sync_status: "synced".to_string(),
             server_id: Some(c.id),
+            tags: c.tags.into_iter().map(|t| CardTag {
+                id: t.id.to_string(),
+                name: t.name,
+            }).collect(),
         })
         .collect();
 
@@ -405,6 +427,10 @@ pub async fn create_card(app: AppHandle, deck_id: String, request: CreateCardReq
         updated_at: remote_card.updated_at,
         sync_status: "synced".to_string(),
         server_id: Some(remote_card.id),
+        tags: remote_card.tags.into_iter().map(|t| CardTag {
+            id: t.id.to_string(),
+            name: t.name,
+        }).collect(),
     })
 }
 
@@ -446,6 +472,10 @@ pub async fn update_card(app: AppHandle, id: String, deck_id: String, request: U
         updated_at: remote_card.updated_at,
         sync_status: "synced".to_string(),
         server_id: Some(remote_card.id),
+        tags: remote_card.tags.into_iter().map(|t| CardTag {
+            id: t.id.to_string(),
+            name: t.name,
+        }).collect(),
     })
 }
 
@@ -573,6 +603,42 @@ pub async fn delete_tag(app: AppHandle, deck_id: String, id: String) -> Result<(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_tags_for_card(app: AppHandle, deck_id: String, card_id: String) -> Result<Vec<Tag>, String> {
+    let session = load_session(&app)?;
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(format!("{}/decks/{}/cards/{}/tags", session.api_url, deck_id, card_id))
+        .header("Authorization", format!("Bearer {}", session.token))
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    if !response.status().is_success() {
+        // If endpoint doesn't exist or fails, return empty
+        return Ok(vec![]);
+    }
+
+    let remote_tags: Vec<RemoteTag> = response
+        .json()
+        .await
+        .unwrap_or_default();
+
+    let tags = remote_tags
+        .into_iter()
+        .map(|t| Tag {
+            id: t.id.to_string(),
+            deck_id: deck_id.clone(),
+            name: t.name,
+            sync_status: "synced".to_string(),
+            server_id: Some(t.id),
+        })
+        .collect();
+
+    Ok(tags)
 }
 
 #[tauri::command]

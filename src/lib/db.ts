@@ -39,30 +39,83 @@ export async function deleteDeck(id: string): Promise<void> {
 // Card Operations
 // ============================================
 
-export async function getCardsForDeck(deckId: string): Promise<Card[]> {
-  const cards = await invoke<Omit<Card, "tags">[]>("get_cards_for_deck", {
-    deckId,
-  });
-  // Fetch tags for each card
-  // For now, return cards with empty tags array
-  return cards.map((card) => ({ ...card, tags: [] }));
+// Card tag type from API (simpler than full Tag)
+interface CardTagResponse {
+  id: string;
+  name: string;
 }
 
-export async function getCard(id: string): Promise<Card | null> {
-  const card = await invoke<Omit<Card, "tags"> | null>("get_card", { id });
+// Card response type from API
+interface CardResponse {
+  id: string;
+  deckId: string;
+  front: string;
+  frontType: string;
+  frontLanguage: string | null;
+  back: string;
+  backType: string;
+  backLanguage: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus: string;
+  serverId: number | null;
+  tags: CardTagResponse[];
+}
+
+export async function getCardsForDeck(deckId: string): Promise<Card[]> {
+  const cards = await invoke<CardResponse[]>("get_cards_for_deck", {
+    deckId,
+  });
+
+  // Transform card tags to full Tag format
+  return cards.map((card) => ({
+    ...card,
+    tags: card.tags.map((t) => ({
+      id: t.id,
+      serverId: parseInt(t.id) || null,
+      deckId: deckId,
+      name: t.name,
+      syncStatus: "synced" as const,
+    })),
+  })) as Card[];
+}
+
+export async function getCard(id: string, deckId?: string): Promise<Card | null> {
+  const card = await invoke<CardResponse | null>("get_card", { id });
   if (!card) return null;
-  return { ...card, tags: [] };
+
+  return {
+    ...card,
+    tags: card.tags.map((t) => ({
+      id: t.id,
+      serverId: parseInt(t.id) || null,
+      deckId: deckId || card.deckId,
+      name: t.name,
+      syncStatus: "synced" as const,
+    })),
+  } as Card;
 }
 
 export async function createCard(
   deckId: string,
   request: CreateCardRequest
 ): Promise<Card> {
-  const card = await invoke<Omit<Card, "tags">>("create_card", {
+  const card = await invoke<CardResponse>("create_card", {
     deckId,
     request,
   });
-  return { ...card, tags: [] };
+  // New cards have no tags
+  return {
+    ...card,
+    tags: card.tags?.map((t) => ({
+      id: t.id,
+      serverId: parseInt(t.id) || null,
+      deckId: deckId,
+      name: t.name,
+      syncStatus: "synced" as const,
+    })) || [],
+  } as Card;
 }
 
 export async function updateCard(
@@ -70,12 +123,21 @@ export async function updateCard(
   deckId: string,
   request: UpdateCardRequest
 ): Promise<Card> {
-  const card = await invoke<Omit<Card, "tags">>("update_card", {
+  const card = await invoke<CardResponse>("update_card", {
     id,
     deckId,
     request,
   });
-  return { ...card, tags: [] };
+  return {
+    ...card,
+    tags: card.tags?.map((t) => ({
+      id: t.id,
+      serverId: parseInt(t.id) || null,
+      deckId: deckId,
+      name: t.name,
+      syncStatus: "synced" as const,
+    })) || [],
+  } as Card;
 }
 
 export async function deleteCard(id: string, deckId: string): Promise<void> {
