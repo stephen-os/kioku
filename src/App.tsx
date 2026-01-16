@@ -7,16 +7,18 @@ import { StudyMode } from "./pages/StudyMode";
 import { NewDeck } from "./pages/NewDeck";
 import { Settings } from "./pages/Settings";
 import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
 
-// Protected route wrapper
+// Protected route wrapper - requires authentication
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-foreground-dim">Loading...</div>
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="text-3xl font-bold text-yellow mb-2">Kioku</div>
+          <div className="text-foreground-dim">Loading...</div>
+        </div>
       </div>
     );
   }
@@ -28,14 +30,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Public route wrapper (redirects to dashboard if already logged in)
-function PublicRoute({ children }: { children: React.ReactNode }) {
+// Login route - only shown if not logged in
+function LoginRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-foreground-dim">Loading...</div>
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="text-3xl font-bold text-yellow mb-2">Kioku</div>
+          <div className="text-foreground-dim">Loading...</div>
+        </div>
       </div>
     );
   }
@@ -50,21 +55,13 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public routes */}
+      {/* Login route */}
       <Route
         path="/login"
         element={
-          <PublicRoute>
+          <LoginRoute>
             <Login />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicRoute>
-            <Register />
-          </PublicRoute>
+          </LoginRoute>
         }
       />
 
@@ -83,6 +80,9 @@ function AppRoutes() {
         <Route path="decks/:id/study" element={<StudyMode />} />
         <Route path="settings" element={<Settings />} />
       </Route>
+
+      {/* Catch-all redirect */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -1,43 +1,42 @@
 // ============================================
-// Core Domain Types
+// Session (Remote-first auth)
 // ============================================
 
-export interface User {
-  id: string;
-  email: string | null;
-  displayName: string | null;
-  serverId: number | null;
-  isLinked: boolean; // true if connected to remote server
+export interface Session {
+  userId: number;
+  email: string;
+  token: string;
+  apiUrl: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface LocalAuthResponse {
-  user: User;
-  isNew: boolean;
+export interface LoginRequest {
+  email: string;
+  password: string;
+  apiUrl: string;
 }
 
-// Remote server auth response (from kioku-api)
-export interface RemoteAuthResponse {
-  token: string;
-  type: string;
-  userId: number;
-  email: string;
-}
+// Default API URL (can be changed on login screen)
+export const DEFAULT_API_URL = "https://kioku-api-production.up.railway.app/api";
+
+// ============================================
+// Core Domain Types
+// ============================================
 
 export interface Deck {
   id: string;
+  serverId: number | null;
   name: string;
   description: string | null;
   createdAt: string;
   updatedAt: string;
-  // Desktop-specific fields for sync
-  syncStatus?: SyncStatus;
-  serverId?: number; // ID from remote server
+  syncStatus: SyncStatus;
 }
 
 export interface Card {
   id: string;
+  serverId: number | null;
   deckId: string;
   front: string;
   frontType: ContentType;
@@ -49,18 +48,15 @@ export interface Card {
   tags: Tag[];
   createdAt: string;
   updatedAt: string;
-  // Desktop-specific fields for sync
-  syncStatus?: SyncStatus;
-  serverId?: number;
+  syncStatus: SyncStatus;
 }
 
 export interface Tag {
   id: string;
+  serverId: number | null;
   deckId: string;
   name: string;
-  // Desktop-specific fields for sync
-  syncStatus?: SyncStatus;
-  serverId?: number;
+  syncStatus: SyncStatus;
 }
 
 // ============================================
@@ -225,148 +221,17 @@ export interface UpdateCardRequest {
   notes?: string;
 }
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
 // ============================================
-// Import/Export Types
+// Sync Types
 // ============================================
 
-export interface DeckImportRequest {
-  name: string;
-  description?: string;
-  cards: CardImport[];
-  tags?: TagImport[];
-}
-
-export interface CardImport {
-  front: string;
-  frontType?: ContentType;
-  frontLanguage?: CodeLanguage;
-  back: string;
-  backType?: ContentType;
-  backLanguage?: CodeLanguage;
-  notes?: string;
-  tags?: string[];
-}
-
-export interface TagImport {
-  name: string;
-}
-
-export interface DeckExport {
-  name: string;
-  description: string | null;
-  cards: CardExport[];
-  tags: TagExport[];
-  exportedAt: string;
-}
-
-export interface CardExport {
-  front: string;
-  frontType: ContentType;
-  frontLanguage: CodeLanguage | null;
-  back: string;
-  backType: ContentType;
-  backLanguage: CodeLanguage | null;
-  notes: string | null;
-  tags: string[];
-}
-
-export interface TagExport {
-  name: string;
-}
-
-// ============================================
-// Account Types
-// ============================================
-
-export interface AccountResponse {
-  id: number;
-  email: string;
-  emailVerified: boolean;
-  status: "ACTIVE" | "SUSPENDED" | "DELETED" | "PENDING_VERIFICATION";
-  createdAt: string;
-  lastLoginAt: string | null;
-}
-
-export interface UpdateEmailRequest {
-  currentPassword: string;
-  newEmail: string;
-}
-
-export interface UpdatePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
-}
-
-export interface DeleteAccountRequest {
-  currentPassword: string;
-}
-
-export interface MessageResponse {
-  message: string;
-}
-
-// ============================================
-// Desktop-Specific Types (Sync)
-// ============================================
-
-export type SyncStatus = "local" | "synced" | "pending" | "conflict";
+export type SyncStatus = "synced" | "pending" | "conflict";
 
 export interface SyncQueueItem {
   id: number;
-  userId: string;
   entityType: "deck" | "card" | "tag";
   entityId: string;
   operation: "create" | "update" | "delete";
-  payload: string; // JSON string
+  payload: string;
   createdAt: string;
-}
-
-export interface AppSettings {
-  apiUrl: string;
-  autoSync: boolean;
-  syncInterval: number; // minutes
-  theme: "dark" | "light";
-}
-
-export interface ConnectionStatus {
-  online: boolean;
-  lastSyncAt: string | null;
-  pendingChanges: number;
-}
-
-// ============================================
-// Desktop Auth Types
-// ============================================
-
-export interface CreateLocalUserRequest {
-  displayName: string;
-  email?: string;
-  password?: string;
-}
-
-export interface LocalLoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RemoteLoginRequest {
-  email: string;
-  password: string;
-  apiUrl: string;
-}
-
-export interface LinkAccountRequest {
-  email: string;
-  password: string;
-  apiUrl: string;
 }

@@ -4,4 +4,3 @@ export { StudyMode } from "./StudyMode";
 export { NewDeck } from "./NewDeck";
 export { Settings } from "./Settings";
 export { Login } from "./Login";
-export { Register } from "./Register";

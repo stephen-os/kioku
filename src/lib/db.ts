@@ -112,13 +112,3 @@ export async function removeTagFromCard(
   return invoke("remove_tag_from_card", { cardId, tagId });
 }
 
-// ============================================
-// Utility Functions
-// ============================================
-
-/**
- * Check if running inside Tauri (desktop app)
- */
-export function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI__" in window;
-}

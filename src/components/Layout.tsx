@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { session, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const isActive = (path: string) => {
@@ -71,10 +71,10 @@ export function Layout() {
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background-lighter hover:bg-background-lighter/80 transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-purple flex items-center justify-center text-xs font-medium text-background">
-                  {(user?.displayName || user?.email || "U")[0].toUpperCase()}
+                  {(session?.email || "U")[0].toUpperCase()}
                 </div>
                 <span className="text-sm text-foreground max-w-[120px] truncate">
-                  {user?.displayName || user?.email || "User"}
+                  {session?.email || "User"}
                 </span>
                 <svg
                   className={`w-4 h-4 text-foreground-dim transition-transform ${
@@ -104,24 +104,9 @@ export function Layout() {
                     {/* User Info */}
                     <div className="px-4 py-3 border-b border-background-lighter">
                       <p className="text-sm font-medium text-foreground truncate">
-                        {user?.displayName || "Local User"}
+                        {session?.email || "User"}
                       </p>
-                      {user?.email && (
-                        <p className="text-xs text-foreground-dim truncate">
-                          {user.email}
-                        </p>
-                      )}
-                      <div className="mt-1">
-                        {user?.isLinked ? (
-                          <span className="text-xs text-green">
-                            Linked to server
-                          </span>
-                        ) : (
-                          <span className="text-xs text-orange">
-                            Local only
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-xs text-green">Synced</span>
                     </div>
 
                     {/* Menu Items */}
@@ -132,16 +117,6 @@ export function Layout() {
                     >
                       Settings
                     </Link>
-
-                    {!user?.isLinked && (
-                      <Link
-                        to="/settings"
-                        onClick={() => setShowUserMenu(false)}
-                        className="block px-4 py-2 text-sm text-cyan hover:bg-background-lighter"
-                      >
-                        Link Remote Account
-                      </Link>
-                    )}
 
                     <button
                       onClick={handleLogout}

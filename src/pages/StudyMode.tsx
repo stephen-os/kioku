@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import type { Card } from "@/types";
-import { getCardsForDeck, isTauri } from "@/lib/db";
+import { getCardsForDeck } from "@/lib/db";
+import { isTauri } from "@/lib/auth";
 
 export function StudyMode() {
   const { id } = useParams<{ id: string }>();

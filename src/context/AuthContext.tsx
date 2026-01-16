@@ -6,82 +6,51 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import type {
-  User,
-  CreateLocalUserRequest,
-  RemoteLoginRequest,
-} from "@/types";
+import type { Session, LoginRequest } from "@/types";
 import {
-  createLocalUser,
-  loginRemote,
+  login as loginService,
   logout as logoutService,
-  getCurrentUser,
-  storeUser,
-  getStoredUser,
-  clearStoredUser,
+  getSession,
   isTauri,
-} from "@/lib";
+} from "@/lib/auth";
 
 interface AuthContextType {
-  user: User | null;
+  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  createAccount: (request: CreateLocalUserRequest) => Promise<void>;
-  loginWithRemote: (request: RemoteLoginRequest) => Promise<void>;
+  login: (request: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user on mount
+  // Load session on mount (for auto-login)
   useEffect(() => {
-    async function loadUser() {
+    async function loadSession() {
       try {
-        // First check localStorage for quick load
-        const storedUser = getStoredUser();
-        if (storedUser) {
-          setUser(storedUser);
-        }
-
-        // Then verify with Tauri backend
         if (isTauri()) {
-          const currentUser = await getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            storeUser(currentUser);
-          } else if (storedUser) {
-            // Backend doesn't have user but localStorage does - clear it
-            clearStoredUser();
-            setUser(null);
+          const existingSession = await getSession();
+          if (existingSession) {
+            setSession(existingSession);
           }
         }
       } catch (error) {
-        console.error("Failed to load user:", error);
+        console.error("Failed to load session:", error);
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadUser();
+    loadSession();
   }, []);
 
-  const createAccount = useCallback(
-    async (request: CreateLocalUserRequest) => {
-      const response = await createLocalUser(request);
-      setUser(response.user);
-      storeUser(response.user);
-    },
-    []
-  );
-
-  const loginWithRemote = useCallback(async (request: RemoteLoginRequest) => {
-    const response = await loginRemote(request);
-    setUser(response.user);
-    storeUser(response.user);
+  const login = useCallback(async (request: LoginRequest) => {
+    const newSession = await loginService(request);
+    setSession(newSession);
   }, []);
 
   const logout = useCallback(async () => {
@@ -90,19 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await logoutService();
       }
     } finally {
-      clearStoredUser();
-      setUser(null);
+      setSession(null);
     }
   }, []);
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        session,
         isLoading,
-        isAuthenticated: user !== null,
-        createAccount,
-        loginWithRemote,
+        isAuthenticated: session !== null,
+        login,
         logout,
       }}
     >

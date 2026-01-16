@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import type { Deck } from "@/types";
-import { getAllDecks, isTauri } from "@/lib/db";
+import { getAllDecks } from "@/lib/db";
+import { isTauri } from "@/lib/auth";
 
 export function Dashboard() {
   const [decks, setDecks] = useState<Deck[]>([]);

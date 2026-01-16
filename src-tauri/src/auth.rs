@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
 
 // ============================================
 // Data Models
@@ -6,52 +9,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct User {
-    pub id: String,
-    pub email: Option<String>,
-    pub display_name: Option<String>,
-    pub server_id: Option<i64>,
-    pub is_linked: bool, // true if connected to remote server
+pub struct Session {
+    pub user_id: i64,
+    pub email: String,
+    pub token: String,
+    pub api_url: String,
     pub created_at: String,
     pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateLocalUserRequest {
-    pub display_name: String,
-    pub email: Option<String>,
-    pub password: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LocalLoginRequest {
-    pub email: String,
-    pub password: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RemoteLoginRequest {
+pub struct LoginRequest {
     pub email: String,
     pub password: String,
     pub api_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkAccountRequest {
-    pub email: String,
-    pub password: String,
-    pub api_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthResponse {
-    pub user: User,
-    pub is_new: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,56 +37,67 @@ struct RemoteAuthResponse {
 }
 
 // ============================================
+// Session Storage Helpers
+// ============================================
+
+fn get_session_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    // Ensure directory exists
+    fs::create_dir_all(&app_data)
+        .map_err(|e| format!("Failed to create app data dir: {}", e))?;
+
+    Ok(app_data.join("session.json"))
+}
+
+fn save_session(app: &AppHandle, session: &Session) -> Result<(), String> {
+    let path = get_session_path(app)?;
+    let json = serde_json::to_string_pretty(session)
+        .map_err(|e| format!("Failed to serialize session: {}", e))?;
+    fs::write(&path, json)
+        .map_err(|e| format!("Failed to write session: {}", e))?;
+    Ok(())
+}
+
+fn load_session(app: &AppHandle) -> Result<Option<Session>, String> {
+    let path = get_session_path(app)?;
+
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let json = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read session: {}", e))?;
+
+    let session: Session = serde_json::from_str(&json)
+        .map_err(|e| format!("Failed to parse session: {}", e))?;
+
+    Ok(Some(session))
+}
+
+fn clear_session(app: &AppHandle) -> Result<(), String> {
+    let path = get_session_path(app)?;
+
+    if path.exists() {
+        fs::remove_file(&path)
+            .map_err(|e| format!("Failed to delete session: {}", e))?;
+    }
+
+    Ok(())
+}
+
+// ============================================
 // Auth Commands
 // ============================================
 
-/// Create a new local user account (offline-capable)
+/// Login with remote server credentials
+/// Stores session locally for persistent login
 #[tauri::command]
-pub async fn create_local_user(request: CreateLocalUserRequest) -> Result<AuthResponse, String> {
-    let now = chrono::Utc::now().to_rfc3339();
-    let id = uuid::Uuid::new_v4().to_string();
-
-    // Hash password if provided
-    let _password_hash = if let Some(ref password) = request.password {
-        if password.len() < 6 {
-            return Err("Password must be at least 6 characters".to_string());
-        }
-        // In a real implementation, use bcrypt or argon2
-        // For now, we'll store a simple hash indicator
-        Some(format!("local:{}", password.len()))
-    } else {
-        None
-    };
-
-    let user = User {
-        id,
-        email: request.email,
-        display_name: Some(request.display_name),
-        server_id: None,
-        is_linked: false,
-        created_at: now.clone(),
-        updated_at: now,
-    };
-
-    Ok(AuthResponse {
-        user,
-        is_new: true,
-    })
-}
-
-/// Login with local credentials
-#[tauri::command]
-pub async fn login_local(request: LocalLoginRequest) -> Result<AuthResponse, String> {
-    let _ = request;
-    // This would query the local SQLite database for the user
-    // For now, return an error indicating no local users exist
-    Err("No local user found with that email".to_string())
-}
-
-/// Login with remote server credentials and create/update local user
-#[tauri::command]
-pub async fn login_remote(request: RemoteLoginRequest) -> Result<AuthResponse, String> {
-    // Call the remote API to authenticate
+pub async fn login(app: AppHandle, request: LoginRequest) -> Result<Session, String> {
+    // 1. Authenticate with remote API
     let client = reqwest::Client::new();
 
     let response = client
@@ -130,77 +113,7 @@ pub async fn login_remote(request: RemoteLoginRequest) -> Result<AuthResponse, S
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("Authentication failed ({}): {}", status, error_text));
-    }
-
-    let auth_response: RemoteAuthResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    let now = chrono::Utc::now().to_rfc3339();
-    let local_id = uuid::Uuid::new_v4().to_string();
-
-    // Create or update local user with remote credentials
-    let user = User {
-        id: local_id,
-        email: Some(auth_response.email),
-        display_name: None,
-        server_id: Some(auth_response.user_id),
-        is_linked: true,
-        created_at: now.clone(),
-        updated_at: now,
-    };
-
-    // In a full implementation, we would:
-    // 1. Check if a local user with this server_id already exists
-    // 2. If yes, update and return that user
-    // 3. If no, create a new local user
-    // 4. Store the JWT token for future API calls
-
-    Ok(AuthResponse {
-        user,
-        is_new: false,
-    })
-}
-
-/// Get the currently logged in user
-#[tauri::command]
-pub async fn get_current_user() -> Result<Option<User>, String> {
-    // Query SQLite for user where is_current = 1
-    // For now, return None
-    Ok(None)
-}
-
-/// Logout the current user
-#[tauri::command]
-pub async fn logout() -> Result<(), String> {
-    // Clear is_current flag and server_token from the user
-    // For now, just succeed
-    Ok(())
-}
-
-/// Link an existing local user to a remote account
-#[tauri::command]
-pub async fn link_remote_account(
-    user_id: String,
-    request: LinkAccountRequest,
-) -> Result<User, String> {
-    // 1. Authenticate with remote server
-    let client = reqwest::Client::new();
-
-    let response = client
-        .post(format!("{}/auth/login", request.api_url))
-        .json(&serde_json::json!({
-            "email": request.email,
-            "password": request.password
-        }))
-        .send()
-        .await
-        .map_err(|e| format!("Network error: {}", e))?;
-
-    if !response.status().is_success() {
-        return Err("Failed to authenticate with remote server".to_string());
+        return Err(format!("Login failed ({}): {}", status, error_text));
     }
 
     let auth_response: RemoteAuthResponse = response
@@ -210,40 +123,29 @@ pub async fn link_remote_account(
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    // 2. Update local user with remote credentials
-    let user = User {
-        id: user_id,
-        email: Some(auth_response.email),
-        display_name: None,
-        server_id: Some(auth_response.user_id),
-        is_linked: true,
+    let session = Session {
+        user_id: auth_response.user_id,
+        email: auth_response.email,
+        token: auth_response.token,
+        api_url: request.api_url,
         created_at: now.clone(),
         updated_at: now,
     };
 
-    // In full implementation:
-    // - Store server_token and server_token_expires_at
-    // - Update server_id on the user
-    // - Potentially trigger a sync of local data to remote
+    // 2. Store session locally
+    save_session(&app, &session)?;
 
-    Ok(user)
+    Ok(session)
 }
 
-/// Unlink a local user from their remote account
+/// Get the current session (for auto-login on app start)
 #[tauri::command]
-pub async fn unlink_remote_account(user_id: String) -> Result<User, String> {
-    let now = chrono::Utc::now().to_rfc3339();
+pub async fn get_session(app: AppHandle) -> Result<Option<Session>, String> {
+    load_session(&app)
+}
 
-    // Clear remote connection but keep local data
-    let user = User {
-        id: user_id,
-        email: None,
-        display_name: Some("Local User".to_string()),
-        server_id: None,
-        is_linked: false,
-        created_at: now.clone(),
-        updated_at: now,
-    };
-
-    Ok(user)
+/// Logout - clears session
+#[tauri::command]
+pub async fn logout(app: AppHandle) -> Result<(), String> {
+    clear_session(&app)
 }

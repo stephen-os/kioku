@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import type { Deck, Card } from "@/types";
-import { getDeck, getCardsForDeck, isTauri } from "@/lib/db";
+import { getDeck, getCardsForDeck } from "@/lib/db";
+import { isTauri } from "@/lib/auth";
 
 export function DeckView() {
   const { id } = useParams<{ id: string }>();

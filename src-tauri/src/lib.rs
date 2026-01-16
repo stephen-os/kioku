@@ -10,33 +10,32 @@ pub fn run() {
             version: 1,
             description: "create_initial_tables",
             sql: r#"
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    email TEXT UNIQUE,
-                    password_hash TEXT,
-                    display_name TEXT,
-                    server_id INTEGER,
-                    server_token TEXT,
-                    server_token_expires_at TEXT,
-                    is_current INTEGER NOT NULL DEFAULT 0,
+                -- Single user session (remote-first, one user at a time)
+                CREATE TABLE IF NOT EXISTS session (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    user_id INTEGER NOT NULL,
+                    email TEXT NOT NULL,
+                    token TEXT NOT NULL,
+                    api_url TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
 
+                -- Decks (cached from remote, single user so no user_id needed)
                 CREATE TABLE IF NOT EXISTS decks (
                     id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
+                    server_id INTEGER UNIQUE,
                     name TEXT NOT NULL,
                     description TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    sync_status TEXT NOT NULL DEFAULT 'local',
-                    server_id INTEGER,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    sync_status TEXT NOT NULL DEFAULT 'synced'
                 );
 
+                -- Cards
                 CREATE TABLE IF NOT EXISTS cards (
                     id TEXT PRIMARY KEY,
+                    server_id INTEGER UNIQUE,
                     deck_id TEXT NOT NULL,
                     front TEXT NOT NULL,
                     front_type TEXT NOT NULL DEFAULT 'TEXT',
@@ -47,20 +46,21 @@ pub fn run() {
                     notes TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    sync_status TEXT NOT NULL DEFAULT 'local',
-                    server_id INTEGER,
+                    sync_status TEXT NOT NULL DEFAULT 'synced',
                     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
                 );
 
+                -- Tags
                 CREATE TABLE IF NOT EXISTS tags (
                     id TEXT PRIMARY KEY,
+                    server_id INTEGER UNIQUE,
                     deck_id TEXT NOT NULL,
                     name TEXT NOT NULL,
-                    sync_status TEXT NOT NULL DEFAULT 'local',
-                    server_id INTEGER,
+                    sync_status TEXT NOT NULL DEFAULT 'synced',
                     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
                 );
 
+                -- Card-Tag relationships
                 CREATE TABLE IF NOT EXISTS card_tags (
                     card_id TEXT NOT NULL,
                     tag_id TEXT NOT NULL,
@@ -69,28 +69,23 @@ pub fn run() {
                     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
                 );
 
+                -- Sync queue for offline changes
                 CREATE TABLE IF NOT EXISTS sync_queue (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
                     entity_type TEXT NOT NULL,
                     entity_id TEXT NOT NULL,
                     operation TEXT NOT NULL,
                     payload TEXT,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_decks_user_id ON decks(user_id);
+                -- Indexes
                 CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
                 CREATE INDEX IF NOT EXISTS idx_tags_deck_id ON tags(deck_id);
                 CREATE INDEX IF NOT EXISTS idx_card_tags_card_id ON card_tags(card_id);
                 CREATE INDEX IF NOT EXISTS idx_card_tags_tag_id ON card_tags(tag_id);
-                CREATE INDEX IF NOT EXISTS idx_sync_queue_user_id ON sync_queue(user_id);
+                CREATE INDEX IF NOT EXISTS idx_decks_server_id ON decks(server_id);
+                CREATE INDEX IF NOT EXISTS idx_cards_server_id ON cards(server_id);
             "#,
             kind: MigrationKind::Up,
         },
@@ -105,13 +100,9 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             // Auth commands
-            auth::create_local_user,
-            auth::login_local,
-            auth::login_remote,
+            auth::login,
             auth::logout,
-            auth::get_current_user,
-            auth::link_remote_account,
-            auth::unlink_remote_account,
+            auth::get_session,
             // Deck commands
             db::get_all_decks,
             db::get_deck,
