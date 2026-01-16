@@ -36,29 +36,34 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#2d2a2e] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-yellow mb-2">Kioku</h1>
-          <p className="text-foreground-dim">
+          <div className="inline-flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-[#ffd866] flex items-center justify-center">
+              <span className="text-[#2d2a2e] font-bold text-xl font-mono">K</span>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-[#fcfcfa] font-mono">kioku</h1>
+          <p className="text-[#939293] mt-2">
             Your personal flashcard study app
           </p>
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="card space-y-6">
+        <form onSubmit={handleSubmit} className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 space-y-6">
           <div className="text-center">
-            <h2 className="text-xl font-semibold text-foreground">
+            <h2 className="text-xl font-semibold text-[#fcfcfa]">
               Welcome back
             </h2>
-            <p className="text-foreground-dim text-sm mt-1">
+            <p className="text-[#939293] text-sm mt-1">
               Sign in to access your decks
             </p>
           </div>
 
           {error && (
-            <div className="bg-pink/10 border border-pink text-pink px-4 py-2 rounded-lg text-sm">
+            <div className="bg-[#ff6188]/10 border border-[#ff6188]/30 text-[#ff6188] px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -66,7 +71,7 @@ export function Login() {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-foreground-dim mb-2"
+              className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5"
             >
               Email
             </label>
@@ -75,7 +80,7 @@ export function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
               placeholder="your@email.com"
               autoFocus
             />
@@ -84,7 +89,7 @@ export function Login() {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-foreground-dim mb-2"
+              className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5"
             >
               Password
             </label>
@@ -93,7 +98,7 @@ export function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
               placeholder="Enter your password"
             />
           </div>
@@ -103,7 +108,7 @@ export function Login() {
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-foreground-dim hover:text-foreground"
+              className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
             >
               {showAdvanced ? "Hide" : "Show"} advanced settings
             </button>
@@ -112,7 +117,7 @@ export function Login() {
               <div className="mt-3">
                 <label
                   htmlFor="apiUrl"
-                  className="block text-sm font-medium text-foreground-dim mb-2"
+                  className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5"
                 >
                   Server URL
                 </label>
@@ -121,7 +126,7 @@ export function Login() {
                   type="url"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  className="input text-sm"
+                  className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors text-sm"
                   placeholder={DEFAULT_API_URL}
                 />
               </div>
@@ -130,19 +135,19 @@ export function Login() {
 
           <button
             type="submit"
-            className="btn btn-primary w-full py-3 text-lg"
+            className="w-full px-4 py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 disabled:opacity-50 font-medium text-lg transition-colors"
             disabled={loading}
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
 
-          <p className="text-center text-xs text-foreground-dim">
+          <p className="text-center text-xs text-[#939293]">
             Don't have an account?{" "}
             <a
               href="https://kioku.vercel.app/register"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-cyan hover:underline"
+              className="text-[#78dce8] hover:underline"
             >
               Create one on the web
             </a>

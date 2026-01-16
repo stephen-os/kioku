@@ -212,30 +212,3 @@ pre {
     opacity: 1;
   }
 }
-
-/* Button styles */
-.btn {
-  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
-}
-
-.btn-primary {
-  @apply bg-yellow text-background hover:brightness-110;
-}
-
-.btn-secondary {
-  @apply bg-background-light text-foreground hover:bg-background-lighter;
-}
-
-.btn-danger {
-  @apply bg-pink text-foreground hover:brightness-110;
-}
-
-/* Input styles */
-.input {
-  @apply w-full px-4 py-2 bg-background-light border border-background-lighter rounded-lg text-foreground placeholder-foreground-dim focus:border-yellow focus:outline-none transition-colors;
-}
-
-/* Card container */
-.card {
-  @apply bg-background-light rounded-xl p-6 border border-background-lighter;
-}

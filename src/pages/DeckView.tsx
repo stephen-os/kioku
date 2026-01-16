@@ -6,7 +6,7 @@ import { getDeck, getCardsForDeck, getTagsForDeck, createCard, updateCard, delet
 import { isTauri } from "@/lib/auth";
 import { CardModal } from "@/components/CardModal";
 
-type FilterLogic = "AND" | "OR";
+type FilterLogic = "any" | "all";
 
 export function DeckView() {
   const { id } = useParams<{ id: string }>();
@@ -17,18 +17,19 @@ export function DeckView() {
   const [loading, setLoading] = useState(true);
 
   // Search and filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [filterLogic, setFilterLogic] = useState<FilterLogic>("OR");
-  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create">("view");
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
+  // Add card form visibility
+  const [showAddCard, setShowAddCard] = useState(false);
+
   // Deck actions state
-  const [showDeckMenu, setShowDeckMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState(false);
 
@@ -61,30 +62,32 @@ export function DeckView() {
     let result = cards;
 
     // Text search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
       result = result.filter(
         (card) =>
-          card.front.toLowerCase().includes(query) ||
-          card.back.toLowerCase().includes(query) ||
-          (card.notes && card.notes.toLowerCase().includes(query))
+          card.front.toLowerCase().includes(term) ||
+          card.back.toLowerCase().includes(term) ||
+          (card.notes && card.notes.toLowerCase().includes(term))
       );
     }
 
     // Tag filter
-    if (selectedTags.length > 0) {
+    if (selectedTagFilters.length > 0) {
       result = result.filter((card) => {
         const cardTagIds = card.tags.map((t) => t.id);
-        if (filterLogic === "AND") {
-          return selectedTags.every((tagId) => cardTagIds.includes(tagId));
+        if (tagFilterMode === "all") {
+          return selectedTagFilters.every((tagId) => cardTagIds.includes(tagId));
         } else {
-          return selectedTags.some((tagId) => cardTagIds.includes(tagId));
+          return selectedTagFilters.some((tagId) => cardTagIds.includes(tagId));
         }
       });
     }
 
     return result;
-  }, [cards, searchQuery, selectedTags, filterLogic]);
+  }, [cards, searchTerm, selectedTagFilters, tagFilterMode]);
+
+  const hasActiveFilters = searchTerm.trim() !== "" || selectedTagFilters.length > 0;
 
   const handleCreateCard = () => {
     setSelectedCard(null);
@@ -104,6 +107,7 @@ export function DeckView() {
     if (modalMode === "create") {
       const newCard = await createCard(id, request as CreateCardRequest);
       setCards((prev) => [...prev, newCard]);
+      setShowAddCard(false);
     } else if (selectedCard) {
       const updatedCard = await updateCard(selectedCard.id, id, request as UpdateCardRequest);
       setCards((prev) =>
@@ -131,26 +135,26 @@ export function DeckView() {
     }
   };
 
-  const toggleTag = (tagId: string) => {
-    setSelectedTags((prev) =>
+  const handleToggleTagFilter = (tagId: string) => {
+    setSelectedTagFilters((prev) =>
       prev.includes(tagId)
         ? prev.filter((t) => t !== tagId)
         : [...prev, tagId]
     );
   };
 
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedTagFilters([]);
+    setTagFilterMode("any");
+  };
+
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="skeleton h-8 w-64 rounded mb-4" />
-        <div className="skeleton h-4 w-48 rounded mb-8" />
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="card">
-              <div className="skeleton h-5 w-3/4 rounded mb-2" />
-              <div className="skeleton h-4 w-1/2 rounded" />
-            </div>
-          ))}
+      <div className="min-h-full flex items-center justify-center bg-[#2d2a2e]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#ffd866] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#939293]">Loading...</p>
         </div>
       </div>
     );
@@ -158,273 +162,251 @@ export function DeckView() {
 
   if (!deck) {
     return (
-      <div className="p-6 text-center">
-        <h1 className="text-xl font-semibold text-pink">Deck not found</h1>
-        <Link to="/" className="text-cyan hover:underline mt-2 inline-block">
-          Back to Dashboard
-        </Link>
+      <div className="min-h-full flex items-center justify-center bg-[#2d2a2e]">
+        <p className="text-[#939293]">Deck not found</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 text-sm text-foreground-dim mb-1">
-            <Link to="/" className="hover:text-foreground">
-              Decks
-            </Link>
-            <span>/</span>
-            <span className="text-foreground">{deck.name}</span>
-          </div>
-          <h1 className="text-2xl font-bold">{deck.name}</h1>
-          {deck.description && (
-            <p className="text-foreground-dim mt-1">{deck.description}</p>
-          )}
-        </div>
-
-        <div className="flex gap-2 items-center">
-          <Link to={`/decks/${id}/study`} className="btn btn-primary">
-            Study
-          </Link>
-
-          {/* Deck menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowDeckMenu(!showDeckMenu)}
-              className="btn btn-secondary p-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
-            </button>
-
-            {showDeckMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowDeckMenu(false)} />
-                <div className="absolute right-0 mt-2 w-48 bg-background-light border border-background-lighter rounded-lg shadow-lg z-20 py-1">
-                  <button
-                    onClick={() => {
-                      // TODO: Edit deck
-                      setShowDeckMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-background-lighter"
-                  >
-                    Edit Deck
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDeleteConfirm(true);
-                      setShowDeckMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-pink hover:bg-background-lighter"
-                  >
-                    Delete Deck
-                  </button>
+    <div className="min-h-full bg-[#2d2a2e]">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0 fade-in">
+          {/* Deck Header */}
+          <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-[#fcfcfa] font-mono mb-2">{deck.name}</h1>
+                <p className="text-[#939293]">{deck.description || "No description"}</p>
+                <div className="mt-4 flex items-center space-x-4 text-sm text-[#939293]">
+                  <span className="text-[#ffd866]">{cards.length} cards</span>
+                  <span>Created {new Date(deck.createdAt).toLocaleDateString()}</span>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Delete Confirmation */}
-      {showDeleteConfirm && (
-        <div className="mb-6 p-4 bg-pink/10 border border-pink rounded-lg">
-          <p className="text-pink font-medium mb-2">Delete this deck?</p>
-          <p className="text-sm text-foreground-dim mb-4">
-            This will permanently delete "{deck.name}" and all {cards.length} cards. This action cannot be undone.
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={handleDeleteDeck}
-              disabled={deletingDeck}
-              className="btn btn-danger text-sm"
-            >
-              {deletingDeck ? "Deleting..." : "Yes, Delete Deck"}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="btn btn-secondary text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Search and Filter Bar */}
-      <div className="mb-6 space-y-3">
-        <div className="flex gap-3">
-          {/* Search Input */}
-          <div className="flex-1 relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-dim"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search cards..."
-              className="input pl-10 w-full"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-dim hover:text-foreground"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* Filter Toggle */}
-          {tags.length > 0 && (
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`btn ${showFilters || selectedTags.length > 0 ? "btn-primary" : "btn-secondary"}`}
-            >
-              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              Filter
-              {selectedTags.length > 0 && (
-                <span className="ml-1 bg-background text-xs px-1.5 py-0.5 rounded">
-                  {selectedTags.length}
-                </span>
-              )}
-            </button>
-          )}
-
-          {/* Add Card Button */}
-          <button onClick={handleCreateCard} className="btn btn-primary">
-            + Add Card
-          </button>
-        </div>
-
-        {/* Tag Filters */}
-        {showFilters && tags.length > 0 && (
-          <div className="p-4 bg-background-light border border-background-lighter rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-foreground-dim">Filter by tags:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-foreground-dim">Match:</span>
-                <button
-                  onClick={() => setFilterLogic("OR")}
-                  className={`text-xs px-2 py-1 rounded ${
-                    filterLogic === "OR"
-                      ? "bg-purple text-background"
-                      : "bg-background-lighter text-foreground-dim"
-                  }`}
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 w-full lg:w-auto">
+                <Link
+                  to={`/decks/${id}/study`}
+                  className="px-4 py-2 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-sm transition-colors text-center"
                 >
-                  Any (OR)
+                  Study
+                </Link>
+                <button
+                  onClick={() => setShowAddCard(!showAddCard)}
+                  className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium text-sm transition-colors text-center"
+                >
+                  + Add Card
                 </button>
-                <button
-                  onClick={() => setFilterLogic("AND")}
-                  className={`text-xs px-2 py-1 rounded ${
-                    filterLogic === "AND"
-                      ? "bg-purple text-background"
-                      : "bg-background-lighter text-foreground-dim"
-                  }`}
+                <Link
+                  to={`/decks/${id}/edit`}
+                  className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium text-sm transition-colors text-center"
                 >
-                  All (AND)
+                  Edit
+                </Link>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium text-sm transition-colors text-center"
+                >
+                  Delete
                 </button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => (
+          </div>
+
+          {/* Delete Confirmation */}
+          {showDeleteConfirm && (
+            <div className="mb-6 bg-[#ff6188]/10 border border-[#ff6188]/30 rounded-lg p-4">
+              <p className="text-[#ff6188] font-medium mb-2">Delete this deck?</p>
+              <p className="text-sm text-[#939293] mb-4">
+                This will permanently delete "{deck.name}" and all {cards.length} cards. This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
                 <button
-                  key={tag.id}
-                  onClick={() => toggleTag(tag.id)}
-                  className={`text-sm px-3 py-1 rounded-full transition-colors ${
-                    selectedTags.includes(tag.id)
-                      ? "bg-purple text-background"
-                      : "bg-purple/20 text-purple hover:bg-purple/30"
-                  }`}
+                  onClick={handleDeleteDeck}
+                  disabled={deletingDeck}
+                  className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium text-sm transition-colors disabled:opacity-50"
                 >
-                  {tag.name}
+                  {deletingDeck ? "Deleting..." : "Yes, Delete Deck"}
                 </button>
-              ))}
-              {selectedTags.length > 0 && (
                 <button
-                  onClick={() => setSelectedTags([])}
-                  className="text-sm text-foreground-dim hover:text-foreground"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 border border-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/30 text-sm transition-colors"
                 >
-                  Clear all
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Search and Filter Bar */}
+          <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-4 mb-6">
+            {/* Search Input */}
+            <div>
+              <input
+                type="text"
+                placeholder="Search cards..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
+              />
+            </div>
+
+            {/* Filter Action Buttons */}
+            {hasActiveFilters && (
+              <div className="flex justify-center gap-2 mt-4">
+                <button
+                  onClick={clearFilters}
+                  className="w-40 px-3 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium text-sm transition-colors text-center"
+                >
+                  Clear
+                </button>
+                <Link
+                  to={`/decks/${id}/study`}
+                  className="w-40 px-3 py-2 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-sm transition-colors text-center"
+                >
+                  Study Filtered ({filteredCards.length})
+                </Link>
+              </div>
+            )}
+
+            {/* Tag Filter Section */}
+            {tags.length > 0 && (
+              <div className="pt-4 mt-4 border-t border-[#5b595c]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-[#939293]">Tags:</span>
+
+                  {/* Tag Mode Toggle - only show when 2+ tags selected */}
+                  {selectedTagFilters.length > 1 && (
+                    <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5 mr-2">
+                      <button
+                        onClick={() => setTagFilterMode("any")}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          tagFilterMode === "any"
+                            ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                            : "text-[#939293] hover:text-[#fcfcfa]"
+                        }`}
+                      >
+                        Any
+                      </button>
+                      <button
+                        onClick={() => setTagFilterMode("all")}
+                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                          tagFilterMode === "all"
+                            ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                            : "text-[#939293] hover:text-[#fcfcfa]"
+                        }`}
+                      >
+                        All
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Tag Chips */}
+                  {tags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      onClick={() => handleToggleTagFilter(tag.id)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        selectedTagFilters.includes(tag.id)
+                          ? "bg-[#ab9df2] text-[#2d2a2e]"
+                          : "bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30"
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add Card Form */}
+          {showAddCard && (
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
+              <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Add New Card</h2>
+              <AddCardForm
+                onSave={handleSaveCard}
+                onCancel={() => setShowAddCard(false)}
+              />
+            </div>
+          )}
+
+          {/* Cards List */}
+          {filteredCards.length === 0 ? (
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-12 text-center">
+              <svg
+                className="mx-auto h-12 w-12 text-[#5b595c]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+                />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
+                {hasActiveFilters ? "No cards found" : "No cards yet"}
+              </h3>
+              <p className="mt-1 text-sm text-[#939293]">
+                {hasActiveFilters
+                  ? "Try adjusting your search or filter"
+                  : "Get started by adding your first flashcard"}
+              </p>
+              {!hasActiveFilters && (
+                <button
+                  onClick={() => setShowAddCard(true)}
+                  className="mt-4 px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+                >
+                  + Add Card
                 </button>
               )}
             </div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#5b595c]">
+                <h2 className="text-lg font-semibold text-[#fcfcfa]">
+                  Cards ({filteredCards.length}{hasActiveFilters ? ` of ${cards.length}` : ""})
+                  {searchTerm && (
+                    <span className="text-sm font-normal text-[#939293] ml-2">
+                      matching "{searchTerm}"
+                    </span>
+                  )}
+                  {selectedTagFilters.length > 0 && (
+                    <span className="text-sm font-normal text-[#939293] ml-2">
+                      {selectedTagFilters.length === 1
+                        ? `tagged "${tags.find((t) => t.id === selectedTagFilters[0])?.name}"`
+                        : `${selectedTagFilters.length} tags (${tagFilterMode})`}
+                    </span>
+                  )}
+                </h2>
+              </div>
+              <div className="divide-y divide-[#5b595c]">
+                {filteredCards.map((card) => (
+                  <CardRow
+                    key={card.id}
+                    card={card}
+                    onClick={() => handleViewCard(card)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
-      {/* Cards Section Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          {searchQuery || selectedTags.length > 0
-            ? `${filteredCards.length} of ${cards.length} cards`
-            : `${cards.length} cards`}
-        </h2>
-      </div>
-
-      {/* Cards List */}
-      {cards.length === 0 ? (
-        <div className="card text-center py-8">
-          <p className="text-foreground-dim mb-4">No cards in this deck yet</p>
-          <button onClick={handleCreateCard} className="btn btn-primary">
-            Add Your First Card
-          </button>
+          {/* Card Modal */}
+          <CardModal
+            card={selectedCard}
+            deckId={id || ""}
+            tags={tags}
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSave={handleSaveCard}
+            onDelete={handleDeleteCard}
+            mode={modalMode}
+          />
         </div>
-      ) : filteredCards.length === 0 ? (
-        <div className="card text-center py-8">
-          <p className="text-foreground-dim mb-2">No cards match your search</p>
-          <button
-            onClick={() => {
-              setSearchQuery("");
-              setSelectedTags([]);
-            }}
-            className="text-cyan hover:underline"
-          >
-            Clear filters
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredCards.map((card) => (
-            <CardRow
-              key={card.id}
-              card={card}
-              onClick={() => handleViewCard(card)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Card Modal */}
-      <CardModal
-        card={selectedCard}
-        deckId={id || ""}
-        tags={tags}
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSave={handleSaveCard}
-        onDelete={handleDeleteCard}
-        mode={modalMode}
-      />
+      </main>
     </div>
   );
 }
@@ -435,66 +417,167 @@ function CardRow({ card, onClick }: { card: Card; onClick: () => void }) {
 
   return (
     <div
-      className="card hover:border-yellow cursor-pointer transition-colors"
+      className="px-6 py-4 hover:bg-[#5b595c]/20 transition-colors cursor-pointer"
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            {isCodeFront && (
-              <span className="text-xs bg-cyan/20 text-cyan px-1.5 py-0.5 rounded">
-                {CODE_LANGUAGE_LABELS[card.frontLanguage || "PLAINTEXT"]}
-              </span>
-            )}
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-[#939293] uppercase tracking-wider mb-1">Front</div>
+              <div className={`text-[#fcfcfa] ${isCodeFront ? "font-mono text-sm" : ""}`}>
+                {isCodeFront && (
+                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded mr-2">
+                    {CODE_LANGUAGE_LABELS[card.frontLanguage || "PLAINTEXT"]}
+                  </span>
+                )}
+                <span className="line-clamp-2">{card.front}</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-[#939293] uppercase tracking-wider mb-1">Back</div>
+              <div className={`text-[#fcfcfa] ${isCodeBack ? "font-mono text-sm" : ""}`}>
+                {isCodeBack && (
+                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded mr-2">
+                    {CODE_LANGUAGE_LABELS[card.backLanguage || "PLAINTEXT"]}
+                  </span>
+                )}
+                <span className="line-clamp-2">{card.back}</span>
+              </div>
+            </div>
           </div>
-          <p className={`text-foreground truncate ${isCodeFront ? "font-mono text-sm" : ""}`}>
-            {card.front}
-          </p>
-          <div className="flex items-center gap-2 mt-2">
-            {isCodeBack && (
-              <span className="text-xs bg-green/20 text-green px-1.5 py-0.5 rounded">
-                {CODE_LANGUAGE_LABELS[card.backLanguage || "PLAINTEXT"]}
-              </span>
-            )}
-          </div>
-          <p className={`text-foreground-dim text-sm truncate mt-1 ${isCodeBack ? "font-mono" : ""}`}>
-            {card.back}
-          </p>
-        </div>
-
-        <div className="flex flex-col items-end gap-2">
-          {card.tags.length > 0 && (
-            <div className="flex gap-1 flex-wrap justify-end">
-              {card.tags.slice(0, 3).map((tag) => (
+          {card.notes && (
+            <div className="mt-2">
+              <div className="text-xs text-[#939293] uppercase tracking-wider">Notes</div>
+              <div className="text-sm text-[#939293] line-clamp-1">{card.notes}</div>
+            </div>
+          )}
+          {card.tags && card.tags.length > 0 && (
+            <div className="mt-2 flex gap-2">
+              {card.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="text-xs bg-purple/20 text-purple px-2 py-0.5 rounded"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2]"
                 >
                   {tag.name}
                 </span>
               ))}
-              {card.tags.length > 3 && (
-                <span className="text-xs text-foreground-dim">
-                  +{card.tags.length - 3}
-                </span>
-              )}
             </div>
           )}
-          <svg
-            className="w-5 h-5 text-foreground-dim"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        </div>
+        <div className="ml-4 flex space-x-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+            className="text-[#78dce8] hover:text-[#ffd866] transition-colors"
+            title="Edit card"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function AddCardForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (request: CreateCardRequest) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [front, setFront] = useState("");
+  const [back, setBack] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!front.trim() || !back.trim()) return;
+
+    setSaving(true);
+    try {
+      await onSave({
+        front: front.trim(),
+        back: back.trim(),
+        frontType: "TEXT",
+        backType: "TEXT",
+        notes: notes.trim() || undefined,
+      });
+      setFront("");
+      setBack("");
+      setNotes("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
+          Front
+        </label>
+        <textarea
+          value={front}
+          onChange={(e) => setFront(e.target.value)}
+          placeholder="e.g., What is the syntax for...?"
+          required
+          rows={3}
+          className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors resize-none"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
+          Back
+        </label>
+        <textarea
+          value={back}
+          onChange={(e) => setBack(e.target.value)}
+          placeholder="e.g., The answer or code example"
+          required
+          rows={3}
+          className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors resize-none"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
+          Notes (optional)
+        </label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Additional notes or hints"
+          rows={2}
+          className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors resize-none"
+        />
+      </div>
+      <div className="flex justify-end space-x-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 border border-[#5b595c] rounded-lg text-[#fcfcfa] hover:bg-[#5b595c]/30 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 disabled:opacity-50 font-medium transition-colors"
+        >
+          {saving ? "Adding..." : "Add Card"}
+        </button>
+      </div>
+    </form>
   );
 }
