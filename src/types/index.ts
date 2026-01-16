@@ -1,0 +1,333 @@
+// ============================================
+// Core Domain Types
+// ============================================
+
+export interface User {
+  id: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  type: string;
+  userId: number;
+  email: string;
+}
+
+export interface Deck {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Desktop-specific fields for sync
+  syncStatus?: SyncStatus;
+  serverId?: number; // ID from remote server
+}
+
+export interface Card {
+  id: string;
+  deckId: string;
+  front: string;
+  frontType: ContentType;
+  frontLanguage: CodeLanguage | null;
+  back: string;
+  backType: ContentType;
+  backLanguage: CodeLanguage | null;
+  notes: string | null;
+  tags: Tag[];
+  createdAt: string;
+  updatedAt: string;
+  // Desktop-specific fields for sync
+  syncStatus?: SyncStatus;
+  serverId?: number;
+}
+
+export interface Tag {
+  id: string;
+  deckId: string;
+  name: string;
+  // Desktop-specific fields for sync
+  syncStatus?: SyncStatus;
+  serverId?: number;
+}
+
+// ============================================
+// Content Types for Cards
+// ============================================
+
+export type ContentType = "TEXT" | "CODE";
+
+export type CodeLanguage =
+  // Plain text
+  | "PLAINTEXT"
+  // Web
+  | "JAVASCRIPT"
+  | "TYPESCRIPT"
+  | "HTML"
+  | "CSS"
+  // Systems
+  | "C"
+  | "CPP"
+  | "RUST"
+  | "GO"
+  // JVM
+  | "JAVA"
+  | "KOTLIN"
+  | "SCALA"
+  // Scripting
+  | "PYTHON"
+  | "RUBY"
+  | "PHP"
+  | "PERL"
+  // Mobile
+  | "SWIFT"
+  | "DART"
+  // .NET
+  | "CSHARP"
+  | "FSHARP"
+  // Functional
+  | "HASKELL"
+  | "ELIXIR"
+  | "CLOJURE"
+  // Data & Query
+  | "SQL"
+  | "GRAPHQL"
+  | "R"
+  // Config & Data Formats
+  | "JSON"
+  | "YAML"
+  | "XML"
+  | "TOML"
+  | "MARKDOWN"
+  // Shell
+  | "BASH"
+  | "POWERSHELL"
+  // Other
+  | "DOCKER"
+  | "REGEX";
+
+// Language display labels for UI
+export const CODE_LANGUAGE_LABELS: Record<CodeLanguage, string> = {
+  PLAINTEXT: "Plain Text",
+  JAVASCRIPT: "JavaScript",
+  TYPESCRIPT: "TypeScript",
+  HTML: "HTML",
+  CSS: "CSS",
+  C: "C",
+  CPP: "C++",
+  RUST: "Rust",
+  GO: "Go",
+  JAVA: "Java",
+  KOTLIN: "Kotlin",
+  SCALA: "Scala",
+  PYTHON: "Python",
+  RUBY: "Ruby",
+  PHP: "PHP",
+  PERL: "Perl",
+  SWIFT: "Swift",
+  DART: "Dart",
+  CSHARP: "C#",
+  FSHARP: "F#",
+  HASKELL: "Haskell",
+  ELIXIR: "Elixir",
+  CLOJURE: "Clojure",
+  SQL: "SQL",
+  GRAPHQL: "GraphQL",
+  R: "R",
+  JSON: "JSON",
+  YAML: "YAML",
+  XML: "XML",
+  TOML: "TOML",
+  MARKDOWN: "Markdown",
+  BASH: "Bash",
+  POWERSHELL: "PowerShell",
+  DOCKER: "Dockerfile",
+  REGEX: "Regex",
+};
+
+// All available languages for dropdowns
+export const CODE_LANGUAGES: CodeLanguage[] = [
+  "PLAINTEXT",
+  "JAVASCRIPT",
+  "TYPESCRIPT",
+  "HTML",
+  "CSS",
+  "C",
+  "CPP",
+  "RUST",
+  "GO",
+  "JAVA",
+  "KOTLIN",
+  "SCALA",
+  "PYTHON",
+  "RUBY",
+  "PHP",
+  "PERL",
+  "SWIFT",
+  "DART",
+  "CSHARP",
+  "FSHARP",
+  "HASKELL",
+  "ELIXIR",
+  "CLOJURE",
+  "SQL",
+  "GRAPHQL",
+  "R",
+  "JSON",
+  "YAML",
+  "XML",
+  "TOML",
+  "MARKDOWN",
+  "BASH",
+  "POWERSHELL",
+  "DOCKER",
+  "REGEX",
+];
+
+// ============================================
+// Request/Response Types
+// ============================================
+
+export interface CreateDeckRequest {
+  name: string;
+  description?: string;
+}
+
+export interface CreateCardRequest {
+  front: string;
+  frontType?: ContentType;
+  frontLanguage?: CodeLanguage;
+  back: string;
+  backType?: ContentType;
+  backLanguage?: CodeLanguage;
+  notes?: string;
+}
+
+export interface UpdateCardRequest {
+  front: string;
+  frontType?: ContentType;
+  frontLanguage?: CodeLanguage;
+  back: string;
+  backType?: ContentType;
+  backLanguage?: CodeLanguage;
+  notes?: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+// ============================================
+// Import/Export Types
+// ============================================
+
+export interface DeckImportRequest {
+  name: string;
+  description?: string;
+  cards: CardImport[];
+  tags?: TagImport[];
+}
+
+export interface CardImport {
+  front: string;
+  frontType?: ContentType;
+  frontLanguage?: CodeLanguage;
+  back: string;
+  backType?: ContentType;
+  backLanguage?: CodeLanguage;
+  notes?: string;
+  tags?: string[];
+}
+
+export interface TagImport {
+  name: string;
+}
+
+export interface DeckExport {
+  name: string;
+  description: string | null;
+  cards: CardExport[];
+  tags: TagExport[];
+  exportedAt: string;
+}
+
+export interface CardExport {
+  front: string;
+  frontType: ContentType;
+  frontLanguage: CodeLanguage | null;
+  back: string;
+  backType: ContentType;
+  backLanguage: CodeLanguage | null;
+  notes: string | null;
+  tags: string[];
+}
+
+export interface TagExport {
+  name: string;
+}
+
+// ============================================
+// Account Types
+// ============================================
+
+export interface AccountResponse {
+  id: number;
+  email: string;
+  emailVerified: boolean;
+  status: "ACTIVE" | "SUSPENDED" | "DELETED" | "PENDING_VERIFICATION";
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+export interface UpdateEmailRequest {
+  currentPassword: string;
+  newEmail: string;
+}
+
+export interface UpdatePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface DeleteAccountRequest {
+  currentPassword: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+// ============================================
+// Desktop-Specific Types (Sync)
+// ============================================
+
+export type SyncStatus = "synced" | "pending" | "conflict";
+
+export interface SyncQueueItem {
+  id: number;
+  entityType: "deck" | "card" | "tag";
+  entityId: string;
+  operation: "create" | "update" | "delete";
+  payload: string; // JSON string
+  createdAt: string;
+}
+
+export interface AppSettings {
+  apiUrl: string;
+  autoSync: boolean;
+  syncInterval: number; // minutes
+  theme: "dark" | "light";
+}
+
+export interface ConnectionStatus {
+  online: boolean;
+  lastSyncAt: string | null;
+  pendingChanges: number;
+}

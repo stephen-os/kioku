@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tauri init)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(cargo build:*)",
+      "Bash(npm run tauri:dev:*)",
+      "Bash(npx tauri:*)",
+      "Bash(timeout:*)"
+    ]
+  }
+}
