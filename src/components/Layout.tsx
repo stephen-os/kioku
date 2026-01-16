@@ -3,12 +3,29 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { ConnectionIndicator } from "./ConnectionIndicator";
 import { useAuth } from "@/context/AuthContext";
 
+// Generate a consistent color based on the first letter
+function getAvatarColor(letter: string): string {
+  const colors = [
+    "#ff6188", // pink
+    "#fc9867", // orange
+    "#ffd866", // yellow
+    "#a9dc76", // green
+    "#78dce8", // cyan
+    "#ab9df2", // purple
+  ];
+  const index = letter.toLowerCase().charCodeAt(0) % colors.length;
+  return colors[index];
+}
+
 export function Layout() {
   const _location = useLocation();
   void _location; // Reserved for future active link highlighting
   const navigate = useNavigate();
   const { session, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const firstLetter = session?.email?.charAt(0).toUpperCase() || "U";
+  const avatarColor = getAvatarColor(firstLetter);
 
   const handleLogout = async () => {
     await logout();
@@ -37,35 +54,16 @@ export function Layout() {
               >
                 My Decks
               </Link>
-              <Link
-                to="/settings"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
-                Settings
-              </Link>
 
               {/* User Menu */}
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 text-[#939293] hover:text-[#fcfcfa] transition-colors"
+                  className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-[#2d2a2e] transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: avatarColor }}
+                  title={session?.email || "User"}
                 >
-                  <span className="text-sm max-w-[120px] truncate">
-                    {session?.email || "User"}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${showUserMenu ? "rotate-180" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  {firstLetter}
                 </button>
 
                 {/* Dropdown Menu */}
@@ -75,13 +73,26 @@ export function Layout() {
                       className="fixed inset-0 z-10"
                       onClick={() => setShowUserMenu(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-56 bg-[#403e41] border border-[#5b595c] rounded-lg shadow-lg z-20 py-1">
+                    <div className="absolute right-0 mt-2 w-64 bg-[#403e41] border border-[#5b595c] rounded-lg shadow-lg z-20 py-1">
                       {/* User Info */}
                       <div className="px-4 py-3 border-b border-[#5b595c]">
-                        <p className="text-sm font-medium text-[#fcfcfa] truncate">
-                          {session?.email || "User"}
-                        </p>
-                        <span className="text-xs text-[#a9dc76]">Synced</span>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-[#2d2a2e] flex-shrink-0"
+                            style={{ backgroundColor: avatarColor }}
+                          >
+                            {firstLetter}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[#fcfcfa] truncate">
+                              {session?.email || "User"}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="w-2 h-2 rounded-full bg-[#a9dc76]" />
+                              <span className="text-xs text-[#a9dc76]">Synced</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Menu Items */}
