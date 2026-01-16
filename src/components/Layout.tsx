@@ -4,7 +4,8 @@ import { ConnectionIndicator } from "./ConnectionIndicator";
 import { useAuth } from "@/context/AuthContext";
 
 export function Layout() {
-  const location = useLocation();
+  const _location = useLocation();
+  void _location; // Reserved for future active link highlighting
   const navigate = useNavigate();
   const { session, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -17,8 +18,8 @@ export function Layout() {
   return (
     <div className="h-full flex flex-col bg-[#2d2a2e]">
       {/* Header / Navigation */}
-      <nav className="bg-[#403e41] border-b border-[#5b595c]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav className="bg-[#403e41] border-b border-[#5b595c] px-6">
+        <div className="max-w-7xl mx-auto">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#ffd866] flex items-center justify-center">

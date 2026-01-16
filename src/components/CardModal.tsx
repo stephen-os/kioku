@@ -16,14 +16,17 @@ interface CardModalProps {
 
 export function CardModal({
   card,
-  deckId,
-  tags,
+  deckId: _deckId,
+  tags: _tags,
   isOpen,
   onClose,
   onSave,
   onDelete,
   mode: initialMode,
 }: CardModalProps) {
+  // deckId and tags reserved for future tag editing feature
+  void _deckId;
+  void _tags;
   const [mode, setMode] = useState(initialMode);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
@@ -69,8 +72,8 @@ export function CardModal({
         back: back.trim(),
         frontType,
         backType,
-        frontLanguage: frontType === "CODE" ? frontLanguage : undefined,
-        backLanguage: backType === "CODE" ? backLanguage : undefined,
+        frontLanguage: frontType === "CODE" ? (frontLanguage ?? undefined) : undefined,
+        backLanguage: backType === "CODE" ? (backLanguage ?? undefined) : undefined,
         notes: notes.trim() || undefined,
       });
       onClose();

@@ -89,12 +89,6 @@ export function DeckView() {
 
   const hasActiveFilters = searchTerm.trim() !== "" || selectedTagFilters.length > 0;
 
-  const handleCreateCard = () => {
-    setSelectedCard(null);
-    setModalMode("create");
-    setModalOpen(true);
-  };
-
   const handleViewCard = (card: Card) => {
     setSelectedCard(card);
     setModalMode("view");
@@ -170,8 +164,8 @@ export function DeckView() {
 
   return (
     <div className="min-h-full bg-[#2d2a2e]">
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0 fade-in">
+      <main className="max-w-7xl mx-auto py-6 px-6">
+        <div className="fade-in">
           {/* Deck Header */}
           <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">

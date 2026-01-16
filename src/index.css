@@ -31,11 +31,7 @@
   --color-cyan: var(--cyan);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* Tailwind handles box-sizing and resets via preflight */
 
 html,
 body,

@@ -192,7 +192,7 @@ export function CodeEditor({
   return (
     <div
       ref={editorRef}
-      className={`rounded-lg overflow-hidden border border-background-lighter ${className}`}
+      className={`rounded-lg overflow-hidden border border-[#5b595c] ${className}`}
     />
   );
 }

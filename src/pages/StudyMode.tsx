@@ -151,21 +151,24 @@ export function StudyMode() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="skeleton w-96 h-64 rounded-xl" />
+      <div className="h-full flex items-center justify-center bg-[#2d2a2e]">
+        <div className="w-96 h-64 rounded-xl bg-[#403e41] animate-pulse" />
       </div>
     );
   }
 
   if (cards.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6">
+      <div className="h-full flex flex-col items-center justify-center p-6 bg-[#2d2a2e]">
         <div className="text-6xl mb-4">📭</div>
-        <h1 className="text-xl font-semibold mb-2">No cards to study</h1>
-        <p className="text-foreground-dim mb-6">
+        <h1 className="text-xl font-semibold text-[#fcfcfa] mb-2">No cards to study</h1>
+        <p className="text-[#939293] mb-6">
           Add some cards to this deck first
         </p>
-        <Link to={`/decks/${id}`} className="btn btn-primary">
+        <Link
+          to={`/decks/${id}`}
+          className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+        >
           Manage Deck
         </Link>
       </div>
@@ -176,11 +179,11 @@ export function StudyMode() {
   const isCodeBack = currentCard?.backType === "CODE";
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[#2d2a2e]">
       {/* Progress bar */}
-      <div className="h-1 bg-background-light">
+      <div className="h-1 bg-[#403e41]">
         <div
-          className="h-full bg-yellow transition-all duration-300"
+          className="h-full bg-[#ffd866] transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -189,17 +192,17 @@ export function StudyMode() {
       <div className="flex items-center justify-between px-6 py-4">
         <Link
           to={`/decks/${id}`}
-          className="text-foreground-dim hover:text-foreground"
+          className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
         >
           ← Back to Deck
         </Link>
         <div className="flex items-center gap-4">
           {shuffled && (
-            <span className="text-xs text-purple bg-purple/20 px-2 py-1 rounded">
+            <span className="text-xs text-[#ab9df2] bg-[#ab9df2]/20 px-2 py-1 rounded">
               Shuffled
             </span>
           )}
-          <span className="text-foreground-dim">
+          <span className="text-[#939293]">
             {currentIndex + 1} / {cards.length}
           </span>
         </div>
@@ -213,7 +216,7 @@ export function StudyMode() {
       >
         <div
           ref={cardRef}
-          className="card-flip w-full max-w-3xl min-h-[300px] cursor-pointer perspective-1000"
+          className="card-flip w-full max-w-3xl min-h-[300px] cursor-pointer"
           onClick={handleFlip}
           style={{ perspective: "1000px" }}
         >
@@ -228,7 +231,7 @@ export function StudyMode() {
           >
             {/* Front */}
             <div
-              className="card-front absolute inset-0 card glow-yellow overflow-auto"
+              className="card-front absolute inset-0 bg-[#403e41] border border-[#5b595c] rounded-xl p-6 shadow-lg shadow-[#ffd866]/10 overflow-auto"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
@@ -237,8 +240,8 @@ export function StudyMode() {
               <div className="min-h-[280px] flex flex-col">
                 {isCodeFront && (
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-yellow">Question (Code)</span>
-                    <span className="text-xs bg-cyan/20 text-cyan px-2 py-0.5 rounded">
+                    <span className="text-xs text-[#ffd866]">Question (Code)</span>
+                    <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
                       {CODE_LANGUAGE_LABELS[currentCard?.frontLanguage || "PLAINTEXT"]}
                     </span>
                   </div>
@@ -252,7 +255,7 @@ export function StudyMode() {
                       />
                     </div>
                   ) : (
-                    <p className="text-xl text-center whitespace-pre-wrap">
+                    <p className="text-xl text-center whitespace-pre-wrap text-[#fcfcfa]">
                       {currentCard?.front}
                     </p>
                   )}
@@ -262,7 +265,7 @@ export function StudyMode() {
 
             {/* Back */}
             <div
-              className="card-back absolute inset-0 card bg-background-lighter glow-green overflow-auto"
+              className="card-back absolute inset-0 bg-[#403e41] border border-[#5b595c] rounded-xl p-6 shadow-lg shadow-[#a9dc76]/10 overflow-auto"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
@@ -272,8 +275,8 @@ export function StudyMode() {
               <div className="min-h-[280px] flex flex-col">
                 {isCodeBack && (
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-green">Answer (Code)</span>
-                    <span className="text-xs bg-cyan/20 text-cyan px-2 py-0.5 rounded">
+                    <span className="text-xs text-[#a9dc76]">Answer (Code)</span>
+                    <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
                       {CODE_LANGUAGE_LABELS[currentCard?.backLanguage || "PLAINTEXT"]}
                     </span>
                   </div>
@@ -287,12 +290,12 @@ export function StudyMode() {
                       />
                     </div>
                   ) : (
-                    <p className="text-xl text-center whitespace-pre-wrap">
+                    <p className="text-xl text-center whitespace-pre-wrap text-[#fcfcfa]">
                       {currentCard?.back}
                     </p>
                   )}
                   {currentCard?.notes && (
-                    <p className="text-foreground-dim text-sm mt-6 text-center border-t border-background-lighter pt-4 w-full">
+                    <p className="text-[#939293] text-sm mt-6 text-center border-t border-[#5b595c] pt-4 w-full">
                       {currentCard.notes}
                     </p>
                   )}
@@ -308,17 +311,20 @@ export function StudyMode() {
         <button
           onClick={handlePrev}
           disabled={currentIndex === 0}
-          className="btn btn-secondary disabled:opacity-50"
+          className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
         >
           ← Previous
         </button>
-        <button onClick={handleFlip} className="btn btn-primary px-8">
+        <button
+          onClick={handleFlip}
+          className="px-8 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+        >
           Flip
         </button>
         <button
           onClick={handleNext}
           disabled={currentIndex === cards.length - 1}
-          className="btn btn-secondary disabled:opacity-50"
+          className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
         >
           Next →
         </button>
@@ -328,29 +334,29 @@ export function StudyMode() {
       <div className="flex items-center justify-center gap-4 pb-4">
         <button
           onClick={handleShuffle}
-          className="text-sm text-foreground-dim hover:text-foreground"
+          className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
         >
           🔀 Shuffle
         </button>
-        <span className="text-foreground-dim">•</span>
+        <span className="text-[#939293]">•</span>
         <button
           onClick={handleReset}
-          className="text-sm text-foreground-dim hover:text-foreground"
+          className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
         >
           ↺ Restart
         </button>
       </div>
 
       {/* Keyboard hints */}
-      <div className="text-center text-foreground-dim text-xs pb-4">
-        <span className="bg-background-light px-2 py-1 rounded mr-2">Space</span>
+      <div className="text-center text-[#939293] text-xs pb-4">
+        <span className="bg-[#403e41] px-2 py-1 rounded mr-2">Space</span>
         flip
-        <span className="bg-background-light px-2 py-1 rounded mx-2 ml-4">←</span>
-        <span className="bg-background-light px-2 py-1 rounded mr-2">→</span>
+        <span className="bg-[#403e41] px-2 py-1 rounded mx-2 ml-4">←</span>
+        <span className="bg-[#403e41] px-2 py-1 rounded mr-2">→</span>
         navigate
-        <span className="bg-background-light px-2 py-1 rounded mx-2 ml-4">S</span>
+        <span className="bg-[#403e41] px-2 py-1 rounded mx-2 ml-4">S</span>
         shuffle
-        <span className="bg-background-light px-2 py-1 rounded mx-2 ml-4">R</span>
+        <span className="bg-[#403e41] px-2 py-1 rounded mx-2 ml-4">R</span>
         restart
       </div>
     </div>

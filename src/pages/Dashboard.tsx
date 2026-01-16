@@ -80,8 +80,8 @@ export function Dashboard() {
 
   return (
     <div className="min-h-full bg-[#2d2a2e]">
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0 fade-in">
+      <main className="max-w-7xl mx-auto py-6 px-6">
+        <div className="fade-in">
           {/* Message */}
           {message && (
             <div
