@@ -45,17 +45,10 @@ export function Dashboard() {
 
       const result = await importDeck(filePath as string);
 
-      if (result.synced) {
-        setMessage({
-          type: "success",
-          text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
-        });
-      } else {
-        setMessage({
-          type: "success",
-          text: `Imported "${result.deck.name}" with ${result.cardsImported} cards (pending sync)`,
-        });
-      }
+      setMessage({
+        type: "success",
+        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
+      });
       loadDecks();
     } catch (error) {
       setMessage({
@@ -176,13 +169,9 @@ function DeckCard({ deck }: { deck: Deck }) {
       <Link to={`/decks/${deck.id}`} className="block px-5 py-4">
         <div className="flex items-start justify-between mb-2">
           <div className="w-2 h-2 rounded-full bg-[#ffd866]" />
-          {deck.syncStatus === "pending" ? (
-            <span className="text-xs text-[#fc9867] font-mono">Pending sync</span>
-          ) : (
-            <span className="text-xs text-[#939293] font-mono">
-              {new Date(deck.createdAt).toLocaleDateString()}
-            </span>
-          )}
+          <span className="text-xs text-[#939293] font-mono">
+            {new Date(deck.createdAt).toLocaleDateString()}
+          </span>
         </div>
         <h3 className="text-base font-medium text-[#fcfcfa] truncate">
           {deck.name}

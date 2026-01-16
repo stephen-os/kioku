@@ -154,27 +154,41 @@ export function CardModal({
             {/* Front Side */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[#ffd866]">Front</label>
+                <label className="block text-sm font-medium text-[#939293]">Front</label>
                 {isEditOrCreate && (
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setFrontType(frontType === "TEXT" ? "CODE" : "TEXT");
-                        if (frontType === "TEXT") setFrontLanguage("JAVASCRIPT");
-                      }}
-                      className={`text-xs px-2 py-1 rounded transition-colors ${
-                        frontType === "CODE"
-                          ? "bg-[#78dce8]/20 text-[#78dce8]"
-                          : "bg-[#5b595c] text-[#939293]"
-                      }`}
-                    >
-                      {frontType === "CODE" ? "CODE" : "TEXT"}
-                    </button>
+                    <div className="flex rounded-lg overflow-hidden border border-[#5b595c]">
+                      <button
+                        type="button"
+                        onClick={() => setFrontType("TEXT")}
+                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                          frontType === "TEXT"
+                            ? "bg-[#ab9df2] text-[#2d2a2e]"
+                            : "bg-[#403e41] text-[#939293] hover:bg-[#5b595c]"
+                        }`}
+                      >
+                        Text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFrontType("CODE");
+                          if (!frontLanguage) setFrontLanguage("PLAINTEXT");
+                        }}
+                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                          frontType === "CODE"
+                            ? "bg-[#ab9df2] text-[#2d2a2e]"
+                            : "bg-[#403e41] text-[#939293] hover:bg-[#5b595c]"
+                        }`}
+                      >
+                        Code
+                      </button>
+                    </div>
                     {frontType === "CODE" && (
                       <select
-                        value={frontLanguage || "JAVASCRIPT"}
+                        value={frontLanguage || "PLAINTEXT"}
                         onChange={(e) => setFrontLanguage(e.target.value as CodeLanguage)}
-                        className="text-xs bg-[#2d2a2e] border border-[#5b595c] rounded px-2 py-1 text-[#fcfcfa]"
+                        className="px-2 py-1 text-xs bg-[#403e41] border border-[#5b595c] rounded-lg text-[#fcfcfa] focus:outline-none focus:ring-2 focus:ring-[#ab9df2]"
                       >
                         {CODE_LANGUAGES.map((lang) => (
                           <option key={lang} value={lang}>
@@ -220,27 +234,41 @@ export function CardModal({
             {/* Back Side */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[#a9dc76]">Back</label>
+                <label className="block text-sm font-medium text-[#939293]">Back</label>
                 {isEditOrCreate && (
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setBackType(backType === "TEXT" ? "CODE" : "TEXT");
-                        if (backType === "TEXT") setBackLanguage("JAVASCRIPT");
-                      }}
-                      className={`text-xs px-2 py-1 rounded transition-colors ${
-                        backType === "CODE"
-                          ? "bg-[#78dce8]/20 text-[#78dce8]"
-                          : "bg-[#5b595c] text-[#939293]"
-                      }`}
-                    >
-                      {backType === "CODE" ? "CODE" : "TEXT"}
-                    </button>
+                    <div className="flex rounded-lg overflow-hidden border border-[#5b595c]">
+                      <button
+                        type="button"
+                        onClick={() => setBackType("TEXT")}
+                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                          backType === "TEXT"
+                            ? "bg-[#ab9df2] text-[#2d2a2e]"
+                            : "bg-[#403e41] text-[#939293] hover:bg-[#5b595c]"
+                        }`}
+                      >
+                        Text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBackType("CODE");
+                          if (!backLanguage) setBackLanguage("PLAINTEXT");
+                        }}
+                        className={`px-3 py-1 text-xs font-medium transition-colors ${
+                          backType === "CODE"
+                            ? "bg-[#ab9df2] text-[#2d2a2e]"
+                            : "bg-[#403e41] text-[#939293] hover:bg-[#5b595c]"
+                        }`}
+                      >
+                        Code
+                      </button>
+                    </div>
                     {backType === "CODE" && (
                       <select
-                        value={backLanguage || "JAVASCRIPT"}
+                        value={backLanguage || "PLAINTEXT"}
                         onChange={(e) => setBackLanguage(e.target.value as CodeLanguage)}
-                        className="text-xs bg-[#2d2a2e] border border-[#5b595c] rounded px-2 py-1 text-[#fcfcfa]"
+                        className="px-2 py-1 text-xs bg-[#403e41] border border-[#5b595c] rounded-lg text-[#fcfcfa] focus:outline-none focus:ring-2 focus:ring-[#ab9df2]"
                       >
                         {CODE_LANGUAGES.map((lang) => (
                           <option key={lang} value={lang}>

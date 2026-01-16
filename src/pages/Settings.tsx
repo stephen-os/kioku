@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useAuth } from "@/context/AuthContext";
-import { importDeck, exportDeck, syncPending, getPendingCount, getAllDecks } from "@/lib/db";
+import { importDeck, exportDeck, getAllDecks } from "@/lib/db";
 import type { Deck } from "@/types";
 
 export function Settings() {
@@ -11,25 +11,13 @@ export function Settings() {
   const { session, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    loadPendingCount();
     loadDecks();
   }, []);
-
-  const loadPendingCount = async () => {
-    try {
-      const count = await getPendingCount();
-      setPendingCount(count);
-    } catch (error) {
-      console.error("Failed to get pending count:", error);
-    }
-  };
 
   const loadDecks = async () => {
     try {
@@ -69,18 +57,10 @@ export function Settings() {
 
       const result = await importDeck(filePath as string);
 
-      if (result.synced) {
-        setMessage({
-          type: "success",
-          text: `Imported "${result.deck.name}" with ${result.cardsImported} cards (synced to server)`,
-        });
-      } else {
-        setMessage({
-          type: "success",
-          text: `Imported "${result.deck.name}" with ${result.cardsImported} cards (pending sync)`,
-        });
-        loadPendingCount();
-      }
+      setMessage({
+        type: "success",
+        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
+      });
       loadDecks();
     } catch (error) {
       setMessage({
@@ -122,28 +102,6 @@ export function Settings() {
       });
     } finally {
       setExporting(false);
-    }
-  };
-
-  const handleSync = async () => {
-    setMessage(null);
-    setSyncing(true);
-
-    try {
-      const syncedCount = await syncPending();
-      setMessage({
-        type: "success",
-        text: `Synced ${syncedCount} items to server`,
-      });
-      loadPendingCount();
-      loadDecks();
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Sync failed",
-      });
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -194,29 +152,6 @@ export function Settings() {
             </div>
           </section>
 
-          {/* Sync Status */}
-          {pendingCount > 0 && (
-            <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
-              <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Sync Status</h2>
-
-              <div className="flex items-center justify-between p-4 bg-[#fc9867]/10 border border-[#fc9867]/30 rounded-lg">
-                <div>
-                  <p className="font-medium text-[#fc9867]">Pending Changes</p>
-                  <p className="text-sm text-[#939293]">
-                    {pendingCount} {pendingCount === 1 ? "item" : "items"} waiting to sync
-                  </p>
-                </div>
-                <button
-                  onClick={handleSync}
-                  className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors disabled:opacity-50"
-                  disabled={syncing}
-                >
-                  {syncing ? "Syncing..." : "Sync Now"}
-                </button>
-              </div>
-            </section>
-          )}
-
           {/* Data Management */}
           <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
             <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Data Management</h2>
@@ -231,7 +166,7 @@ export function Settings() {
                   {importing ? "Importing..." : "Import Deck"}
                 </button>
                 <p className="text-xs text-[#939293] mt-2">
-                  Import a deck from a JSON file. Works offline - will sync when connected.
+                  Import a deck from a JSON file.
                 </p>
               </div>
 
@@ -261,8 +196,7 @@ export function Settings() {
             <h2 className="text-lg font-semibold text-[#fcfcfa] mb-2">About Kioku Desktop</h2>
             <p className="text-[#939293] text-sm">Version 0.1.0</p>
             <p className="text-[#939293] text-sm mt-2">
-              A flashcard study app with offline support. Your decks sync with your
-              Kioku account and are cached locally for offline studying.
+              A flashcard study app. Your decks sync with your Kioku account.
             </p>
           </section>
         </div>

@@ -26,17 +26,14 @@ export const DEFAULT_API_URL = "https://kioku-api-production.up.railway.app/api"
 
 export interface Deck {
   id: string;
-  serverId: number | null;
   name: string;
   description: string | null;
   createdAt: string;
   updatedAt: string;
-  syncStatus: SyncStatus;
 }
 
 export interface Card {
   id: string;
-  serverId: number | null;
   deckId: string;
   front: string;
   frontType: ContentType;
@@ -48,15 +45,12 @@ export interface Card {
   tags: Tag[];
   createdAt: string;
   updatedAt: string;
-  syncStatus: SyncStatus;
 }
 
 export interface Tag {
   id: string;
-  serverId: number | null;
   deckId: string;
   name: string;
-  syncStatus: SyncStatus;
 }
 
 // ============================================
@@ -221,17 +215,3 @@ export interface UpdateCardRequest {
   notes?: string;
 }
 
-// ============================================
-// Sync Types
-// ============================================
-
-export type SyncStatus = "synced" | "pending" | "conflict";
-
-export interface SyncQueueItem {
-  id: number;
-  entityType: "deck" | "card" | "tag";
-  entityId: string;
-  operation: "create" | "update" | "delete";
-  payload: string;
-  createdAt: string;
-}

@@ -9,6 +9,14 @@ import type {
 } from "@/types";
 
 // ============================================
+// Connection Check
+// ============================================
+
+export async function checkConnection(): Promise<boolean> {
+  return invoke<boolean>("check_connection");
+}
+
+// ============================================
 // Deck Operations
 // ============================================
 
@@ -39,7 +47,7 @@ export async function deleteDeck(id: string): Promise<void> {
 // Card Operations
 // ============================================
 
-// Card tag type from API (simpler than full Tag)
+// Card tag type from API
 interface CardTagResponse {
   id: string;
   name: string;
@@ -58,8 +66,6 @@ interface CardResponse {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-  syncStatus: string;
-  serverId: number | null;
   tags: CardTagResponse[];
 }
 
@@ -73,10 +79,8 @@ export async function getCardsForDeck(deckId: string): Promise<Card[]> {
     ...card,
     tags: card.tags.map((t) => ({
       id: t.id,
-      serverId: parseInt(t.id) || null,
       deckId: deckId,
       name: t.name,
-      syncStatus: "synced" as const,
     })),
   })) as Card[];
 }
@@ -89,10 +93,8 @@ export async function getCard(id: string, deckId?: string): Promise<Card | null>
     ...card,
     tags: card.tags.map((t) => ({
       id: t.id,
-      serverId: parseInt(t.id) || null,
       deckId: deckId || card.deckId,
       name: t.name,
-      syncStatus: "synced" as const,
     })),
   } as Card;
 }
@@ -105,15 +107,12 @@ export async function createCard(
     deckId,
     request,
   });
-  // New cards have no tags
   return {
     ...card,
     tags: card.tags?.map((t) => ({
       id: t.id,
-      serverId: parseInt(t.id) || null,
       deckId: deckId,
       name: t.name,
-      syncStatus: "synced" as const,
     })) || [],
   } as Card;
 }
@@ -132,10 +131,8 @@ export async function updateCard(
     ...card,
     tags: card.tags?.map((t) => ({
       id: t.id,
-      serverId: parseInt(t.id) || null,
       deckId: deckId,
       name: t.name,
-      syncStatus: "synced" as const,
     })) || [],
   } as Card;
 }
@@ -183,7 +180,6 @@ export async function removeTagFromCard(
 export interface ImportResult {
   deck: Deck;
   cardsImported: number;
-  synced: boolean;
 }
 
 export interface DeckExport {
@@ -209,13 +205,5 @@ export async function importDeck(filePath: string): Promise<ImportResult> {
 
 export async function exportDeck(deckId: string): Promise<DeckExport> {
   return invoke<DeckExport>("export_deck", { deckId });
-}
-
-export async function syncPending(): Promise<number> {
-  return invoke<number>("sync_pending");
-}
-
-export async function getPendingCount(): Promise<number> {
-  return invoke<number>("get_pending_count");
 }
 
