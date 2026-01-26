@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { DeckView } from "./pages/DeckView";
 import { StudyMode } from "./pages/StudyMode";
+import { ListenMode } from "./pages/ListenMode";
 import { NewDeck } from "./pages/NewDeck";
 import { Settings } from "./pages/Settings";
 import { Login } from "./pages/Login";
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="decks/new" element={<NewDeck />} />
         <Route path="decks/:id" element={<DeckView />} />
         <Route path="decks/:id/study" element={<StudyMode />} />
+        <Route path="decks/:id/listen" element={<ListenMode />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 
