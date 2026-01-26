@@ -208,3 +208,116 @@ pre {
     opacity: 1;
   }
 }
+
+/* Listen Mode - Speaking indicator animation */
+@keyframes speakingPulse {
+  0%, 100% {
+    transform: scaleY(0.4);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.speaking-bar {
+  animation: speakingPulse 0.8s ease-in-out infinite;
+}
+
+.speaking-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.speaking-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Listen Mode - Phase progress animation */
+@keyframes phaseProgress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.phase-progress {
+  animation: phaseProgress var(--duration, 15s) linear;
+}
+
+/* Listen Mode - Glow pulse for active card */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(120, 220, 232, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(120, 220, 232, 0.4);
+  }
+}
+
+.glow-pulse-cyan {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+@keyframes glowPulseGreen {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(169, 220, 118, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(169, 220, 118, 0.4);
+  }
+}
+
+.glow-pulse-green {
+  animation: glowPulseGreen 2s ease-in-out infinite;
+}
+
+/* Range input styling for volume/duration sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--background-lighter);
+  height: 6px;
+  border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--yellow);
+  border-radius: 50%;
+  margin-top: -5px;
+  transition: transform 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-track {
+  background: var(--background-lighter);
+  height: 6px;
+  border-radius: 3px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--yellow);
+  border-radius: 50%;
+  border: none;
+  transition: transform 0.1s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.1);
+}

@@ -178,12 +178,18 @@ export function DeckView() {
                   <span>Created {new Date(deck.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 w-full lg:w-auto">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 w-full lg:w-auto">
                 <Link
                   to={`/decks/${id}/study`}
                   className="px-4 py-2 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-sm transition-colors text-center"
                 >
                   Study
+                </Link>
+                <Link
+                  to={`/decks/${id}/listen`}
+                  className="px-4 py-2 bg-[#78dce8] text-[#2d2a2e] rounded-lg hover:bg-[#78dce8]/90 font-medium text-sm transition-colors text-center"
+                >
+                  Listen
                 </Link>
                 <button
                   onClick={() => setShowAddCard(!showAddCard)}

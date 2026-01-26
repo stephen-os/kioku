@@ -11,7 +11,21 @@
       "Bash(npm run tauri:dev:*)",
       "Bash(npx tauri:*)",
       "Bash(timeout:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 38748 -Force\")",
+      "Bash(npm run tauri:build:*)",
+      "Bash(\"C:/Users/Stephen/Dev/Projects/kioku-desktop/src-tauri/target/release/kioku-desktop.exe\")",
+      "Bash(start \"\" \"C:/Users/Stephen/Dev/Projects/kioku-desktop/src-tauri/target/release/kioku-desktop.exe\")",
+      "Bash(powershell -Command:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add full card management with code syntax highlighting\n\n- Add CodeMirror integration for syntax highlighting \\(12+ languages\\)\n- Create CardModal component for viewing/editing cards with TEXT/CODE types\n- Update DeckView with search, tag filtering \\(AND/OR\\), and card modal\n- Enhance StudyMode with 3D flip animation, touch gestures, shuffle/restart\n- Add import deck button to Dashboard\n- Implement tag API endpoints in Rust backend\n- Add import/export functionality with offline sync support\n- Add tauri-plugin-dialog and tauri-plugin-fs for file operations\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run typecheck:*)"
     ]
   }
 }

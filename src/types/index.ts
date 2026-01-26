@@ -187,6 +187,28 @@ export const CODE_LANGUAGES: CodeLanguage[] = [
 ];
 
 // ============================================
+// Listen Mode Types
+// ============================================
+
+export type LoopMode = 'none' | 'all' | 'single';
+export type ListenPhase = 'idle' | 'front' | 'pause' | 'back' | 'transition';
+
+export interface ListenModeSettings {
+  voice: string;
+  pauseDuration: number; // seconds (10-30)
+  volume: number; // 0-1
+  loopMode: LoopMode;
+  isShuffled: boolean;
+}
+
+export interface TTSVoice {
+  id: string;
+  name: string;
+  locale: string;
+  gender: 'Male' | 'Female';
+}
+
+// ============================================
 // Request/Response Types
 // ============================================
 
