@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Deck, Card, Tag, CreateCardRequest, UpdateCardRequest } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
-import { getDeck, getCardsForDeck, getTagsForDeck, createCard, updateCard, deleteCard, deleteDeck, createTag, addTagToCard } from "@/lib/db";
+import { getDeck, getCardsForDeck, getTagsForDeck, createCard, updateCard, deleteCard, deleteDeck, createTag, addTagToCard, exportDeck } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CardModal } from "@/components/CardModal";
 import { CodeBlock } from "@/components/CodeEditor";
@@ -33,6 +35,7 @@ export function DeckView() {
   // Deck actions state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadDeckData();
@@ -144,6 +147,25 @@ export function DeckView() {
     }
   };
 
+  const handleExportDeck = async () => {
+    if (!id || !deck) return;
+    setExporting(true);
+    try {
+      const exportData = await exportDeck(id);
+      const filePath = await save({
+        defaultPath: `${deck.name.replace(/[^a-zA-Z0-9]/g, "_")}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (filePath) {
+        await writeTextFile(filePath, exportData);
+      }
+    } catch (error) {
+      console.error("Failed to export deck:", error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleToggleTagFilter = (tagId: string) => {
     setSelectedTagFilters((prev) =>
       prev.includes(tagId)
@@ -192,7 +214,7 @@ export function DeckView() {
                   <span>Created {new Date(deck.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 w-full lg:w-auto">
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 w-full lg:w-auto">
                 <Link
                   to={`/decks/${id}/study`}
                   className="px-4 py-2 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-sm transition-colors text-center"
@@ -217,6 +239,13 @@ export function DeckView() {
                 >
                   Edit
                 </Link>
+                <button
+                  onClick={handleExportDeck}
+                  disabled={exporting}
+                  className="px-4 py-2 bg-[#ab9df2] text-[#2d2a2e] rounded-lg hover:bg-[#ab9df2]/90 font-medium text-sm transition-colors text-center disabled:opacity-50"
+                >
+                  {exporting ? "..." : "Export"}
+                </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium text-sm transition-colors text-center"

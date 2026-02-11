@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Quiz, QuizStats, Question } from "@/types";
-import { getQuiz, getQuizStats, deleteQuiz, getTagsForQuiz, QuizTag } from "@/lib/db";
+import { getQuiz, getQuizStats, deleteQuiz, getTagsForQuiz, QuizTag, exportQuiz } from "@/lib/db";
 
 type FilterLogic = "any" | "all";
 
@@ -13,6 +15,7 @@ export function QuizView() {
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -98,6 +101,25 @@ export function QuizView() {
     }
   };
 
+  const handleExport = async () => {
+    if (!id || !quiz) return;
+    setExporting(true);
+    try {
+      const exportData = await exportQuiz(id);
+      const filePath = await save({
+        defaultPath: `${quiz.name.replace(/[^a-zA-Z0-9]/g, "_")}_quiz.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (filePath) {
+        await writeTextFile(filePath, exportData);
+      }
+    } catch (error) {
+      console.error("Failed to export quiz:", error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return "--:--";
     const mins = Math.floor(seconds / 60);
@@ -180,6 +202,13 @@ export function QuizView() {
                 >
                   Edit
                 </Link>
+                <button
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="px-4 py-2 bg-[#ab9df2]/20 text-[#ab9df2] rounded-lg hover:bg-[#ab9df2]/30 font-medium transition-colors disabled:opacity-50"
+                >
+                  {exporting ? "..." : "Export"}
+                </button>
                 {showDeleteConfirm ? (
                   <div className="flex gap-2">
                     <button

@@ -64,6 +64,12 @@ export function Layout() {
               >
                 Stats
               </Link>
+              <Link
+                to="/export"
+                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
+              >
+                Export
+              </Link>
 
               {/* User Menu */}
               <div className="relative">

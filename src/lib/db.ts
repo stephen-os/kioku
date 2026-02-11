@@ -315,6 +315,10 @@ export async function importQuiz(filePath: string): Promise<QuizImportResult> {
   return invoke<QuizImportResult>("import_quiz_from_file", { filePath });
 }
 
+export async function exportQuiz(quizId: string): Promise<string> {
+  return invoke<string>("export_quiz_to_json", { quizId });
+}
+
 // ============================================
 // Quiz Operations
 // ============================================

@@ -9,6 +9,7 @@ import { NewDeck } from "./pages/NewDeck";
 import { Settings } from "./pages/Settings";
 import { Stats } from "./pages/Stats";
 import { Help } from "./pages/Help";
+import { Export } from "./pages/Export";
 import { Login } from "./pages/Login";
 // Quiz pages
 import { QuizList } from "./pages/QuizList";
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="quizzes/:id/take" element={<TakeQuiz />} />
         <Route path="quizzes/:id/results/:attemptId" element={<QuizResults />} />
         <Route path="stats" element={<Stats />} />
+        <Route path="export" element={<Export />} />
         <Route path="help" element={<Help />} />
         <Route path="settings" element={<Settings />} />
       </Route>

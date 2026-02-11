@@ -402,6 +402,7 @@ fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String,
         front_language: Option<String>,
         back_language: Option<String>,
         notes: Option<String>,
+        tags: Vec<String>,
     }
 
     let export = DeckExport {
@@ -417,6 +418,85 @@ fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String,
                 front_language: c.front_language,
                 back_language: c.back_language,
                 notes: c.notes,
+                tags: c.tags.into_iter().map(|t| t.name).collect(),
+            })
+            .collect(),
+        exported_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    serde_json::to_string_pretty(&export).map_err(|e| format!("Failed to serialize: {}", e))
+}
+
+#[tauri::command]
+fn export_quiz_to_json(state: State<DbState>, quiz_id: String) -> Result<String, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    let quiz = local_db::get_quiz(&conn, &quiz_id)?;
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct QuizExport {
+        name: String,
+        description: Option<String>,
+        shuffle_questions: bool,
+        questions: Vec<QuestionExport>,
+        exported_at: String,
+    }
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct QuestionExport {
+        #[serde(rename = "type")]
+        question_type: String,
+        content: String,
+        content_type: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content_language: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        correct_answer: Option<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        choices: Vec<ChoiceExport>,
+        multiple_answers: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        explanation: Option<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        tags: Vec<String>,
+    }
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ChoiceExport {
+        text: String,
+        is_correct: bool,
+    }
+
+    let export = QuizExport {
+        name: quiz.name,
+        description: quiz.description,
+        shuffle_questions: quiz.shuffle_questions,
+        questions: quiz
+            .questions
+            .into_iter()
+            .map(|q| QuestionExport {
+                question_type: match q.question_type {
+                    local_db::QuestionType::MultipleChoice => "multiple_choice".to_string(),
+                    local_db::QuestionType::FillInBlank => "fill_in_blank".to_string(),
+                },
+                content: q.content,
+                content_type: q.content_type,
+                content_language: q.content_language,
+                correct_answer: q.correct_answer,
+                choices: q
+                    .choices
+                    .into_iter()
+                    .map(|c| ChoiceExport {
+                        text: c.text,
+                        is_correct: c.is_correct,
+                    })
+                    .collect(),
+                multiple_answers: q.multiple_answers,
+                explanation: q.explanation,
+                tags: q.tags.into_iter().map(|t| t.name).collect(),
             })
             .collect(),
         exported_at: chrono::Utc::now().to_rfc3339(),
@@ -724,6 +804,7 @@ pub fn run() {
             import_deck_from_file,
             export_deck_to_json,
             import_quiz_from_file,
+            export_quiz_to_json,
             // Quiz commands
             get_all_quizzes,
             get_quiz,

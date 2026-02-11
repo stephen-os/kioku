@@ -1,35 +1,19 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "@/context/AuthContext";
-import { importDeck, exportDeck, getAllDecks, deleteUser } from "@/lib/db";
-import type { Deck } from "@/types";
+import { importDeck, importQuiz, deleteUser } from "@/lib/db";
 
 export function Settings() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [importingDeck, setImportingDeck] = useState(false);
+  const [importingQuiz, setImportingQuiz] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [decks, setDecks] = useState<Deck[]>([]);
-  const [exporting, setExporting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    loadDecks();
-  }, []);
-
-  const loadDecks = async () => {
-    try {
-      const data = await getAllDecks();
-      setDecks(data);
-    } catch (error) {
-      console.error("Failed to load decks:", error);
-    }
-  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -43,9 +27,9 @@ export function Settings() {
     }
   };
 
-  const handleImport = async () => {
+  const handleImportDeck = async () => {
     setMessage(null);
-    setImporting(true);
+    setImportingDeck(true);
 
     try {
       const filePath = await open({
@@ -54,7 +38,7 @@ export function Settings() {
       });
 
       if (!filePath) {
-        setImporting(false);
+        setImportingDeck(false);
         return;
       }
 
@@ -64,14 +48,44 @@ export function Settings() {
         type: "success",
         text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
       });
-      loadDecks();
     } catch (error) {
       setMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Import failed",
       });
     } finally {
-      setImporting(false);
+      setImportingDeck(false);
+    }
+  };
+
+  const handleImportQuiz = async () => {
+    setMessage(null);
+    setImportingQuiz(true);
+
+    try {
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+
+      if (!filePath) {
+        setImportingQuiz(false);
+        return;
+      }
+
+      const result = await importQuiz(filePath as string);
+
+      setMessage({
+        type: "success",
+        text: `Imported "${result.quiz.name}" with ${result.questionsImported} questions`,
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Import failed",
+      });
+    } finally {
+      setImportingQuiz(false);
     }
   };
 
@@ -89,39 +103,6 @@ export function Settings() {
         text: error instanceof Error ? error.message : "Failed to delete account",
       });
       setDeleting(false);
-    }
-  };
-
-  const handleExport = async (deck: Deck) => {
-    setMessage(null);
-    setExporting(true);
-
-    try {
-      const exportData = await exportDeck(deck.id);
-
-      const filePath = await save({
-        defaultPath: `${deck.name.replace(/[^a-zA-Z0-9]/g, "_")}.json`,
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
-
-      if (!filePath) {
-        setExporting(false);
-        return;
-      }
-
-      await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
-
-      setMessage({
-        type: "success",
-        text: `Exported "${deck.name}" successfully`,
-      });
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Export failed",
-      });
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -180,37 +161,47 @@ export function Settings() {
             <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Data Management</h2>
 
             <div className="space-y-4">
-              <div>
-                <button
-                  onClick={handleImport}
-                  className="w-full px-4 py-2.5 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium transition-colors disabled:opacity-50"
-                  disabled={importing}
-                >
-                  {importing ? "Importing..." : "Import Deck"}
-                </button>
-                <p className="text-xs text-[#939293] mt-2">
-                  Import a deck from a JSON file.
-                </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <button
+                    onClick={handleImportDeck}
+                    className="w-full px-4 py-2.5 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium transition-colors disabled:opacity-50"
+                    disabled={importingDeck}
+                  >
+                    {importingDeck ? "Importing..." : "Import Deck"}
+                  </button>
+                  <p className="text-xs text-[#939293] mt-2">
+                    Import a deck from JSON.
+                  </p>
+                </div>
+                <div>
+                  <button
+                    onClick={handleImportQuiz}
+                    className="w-full px-4 py-2.5 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium transition-colors disabled:opacity-50"
+                    disabled={importingQuiz}
+                  >
+                    {importingQuiz ? "Importing..." : "Import Quiz"}
+                  </button>
+                  <p className="text-xs text-[#939293] mt-2">
+                    Import a quiz from JSON.
+                  </p>
+                </div>
               </div>
 
-              {decks.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-[#939293] mb-2">Export a deck:</p>
-                  <div className="space-y-2">
-                    {decks.map((deck) => (
-                      <button
-                        key={deck.id}
-                        onClick={() => handleExport(deck)}
-                        className="w-full px-4 py-2.5 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50 flex items-center justify-between"
-                        disabled={exporting}
-                      >
-                        <span>{deck.name}</span>
-                        <span className="text-xs text-[#939293]">Export</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="pt-4 border-t border-[#5b595c]">
+                <Link
+                  to="/export"
+                  className="inline-flex items-center px-4 py-2.5 bg-[#ab9df2]/20 text-[#ab9df2] rounded-lg hover:bg-[#ab9df2]/30 font-medium transition-colors"
+                >
+                  Go to Export
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </Link>
+                <p className="text-xs text-[#939293] mt-2">
+                  Export individual or bulk decks and quizzes.
+                </p>
+              </div>
             </div>
           </section>
 
