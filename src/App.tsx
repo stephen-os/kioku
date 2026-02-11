@@ -6,6 +6,7 @@ import { DeckView } from "./pages/DeckView";
 import { StudyMode } from "./pages/StudyMode";
 import { ListenMode } from "./pages/ListenMode";
 import { NewDeck } from "./pages/NewDeck";
+import { DeckEdit } from "./pages/DeckEdit";
 import { Settings } from "./pages/Settings";
 import { Stats } from "./pages/Stats";
 import { Help } from "./pages/Help";
@@ -87,6 +88,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="decks/new" element={<NewDeck />} />
         <Route path="decks/:id" element={<DeckView />} />
+        <Route path="decks/:id/edit" element={<DeckEdit />} />
         <Route path="decks/:id/study" element={<StudyMode />} />
         <Route path="decks/:id/listen" element={<ListenMode />} />
         {/* Quiz routes */}

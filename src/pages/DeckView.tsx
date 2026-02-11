@@ -1,15 +1,53 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import type { Deck, Card, Tag, CreateCardRequest, UpdateCardRequest } from "@/types";
+import type { Deck, Card, Tag } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
-import { getDeck, getCardsForDeck, getTagsForDeck, createCard, updateCard, deleteCard, deleteDeck, createTag, addTagToCard, exportDeck } from "@/lib/db";
+import { getDeck, getCardsForDeck, getTagsForDeck, deleteDeck, exportDeck, getDeckStudyStats } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
-import { CardModal } from "@/components/CardModal";
 import { CodeBlock } from "@/components/CodeEditor";
 
 type FilterLogic = "any" | "all";
+
+interface DeckStudyStats {
+  totalSessions: number;
+  totalStudyTimeSeconds: number;
+  totalCardsStudied: number;
+  lastStudiedAt: string | null;
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  } else if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+}
+
+function formatDate(dateString: string | null): string {
+  if (!dateString) return "Never";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return "Today";
+  } else if (diffDays === 1) {
+    return "Yesterday";
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  } else {
+    return date.toLocaleDateString();
+  }
+}
 
 export function DeckView() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +55,7 @@ export function DeckView() {
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [stats, setStats] = useState<DeckStudyStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Search and filter state
@@ -24,15 +63,7 @@ export function DeckView() {
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
 
-  // Modal state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"view" | "edit" | "create">("view");
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-
-  // Add card form visibility
-  const [showAddCard, setShowAddCard] = useState(false);
-
-  // Deck actions state
+  // Action states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -53,6 +84,14 @@ export function DeckView() {
         setDeck(deckData);
         setCards(cardsData);
         setTags(tagsData);
+
+        // Load stats
+        try {
+          const statsData = await getDeckStudyStats(id);
+          setStats(statsData);
+        } catch {
+          // Stats might not exist yet
+        }
       }
     } catch (error) {
       console.error("Failed to load deck:", error);
@@ -92,47 +131,6 @@ export function DeckView() {
   }, [cards, searchTerm, selectedTagFilters, tagFilterMode]);
 
   const hasActiveFilters = searchTerm.trim() !== "" || selectedTagFilters.length > 0;
-
-  const handleEditCard = (card: Card) => {
-    setSelectedCard(card);
-    setModalMode("edit");
-    setModalOpen(true);
-  };
-
-  const handleSaveCard = async (request: CreateCardRequest | UpdateCardRequest, tagIdsToAdd?: string[]) => {
-    if (!id) return;
-
-    if (modalMode === "create") {
-      const newCard = await createCard(id, request as CreateCardRequest);
-
-      // Associate tags if any were selected
-      if (tagIdsToAdd && tagIdsToAdd.length > 0) {
-        for (const tagId of tagIdsToAdd) {
-          try {
-            await addTagToCard(id, newCard.id, tagId);
-          } catch (error) {
-            console.error("Failed to add tag:", error);
-          }
-        }
-        // Refresh to get the card with tags
-        loadDeckData();
-      } else {
-        setCards((prev) => [...prev, newCard]);
-      }
-      setShowAddCard(false);
-    } else if (selectedCard) {
-      const updatedCard = await updateCard(selectedCard.id, id, request as UpdateCardRequest);
-      setCards((prev) =>
-        prev.map((c) => (c.id === selectedCard.id ? updatedCard : c))
-      );
-    }
-  };
-
-  const handleDeleteCard = async (cardId: string) => {
-    if (!id) return;
-    await deleteCard(cardId, id);
-    setCards((prev) => prev.filter((c) => c.id !== cardId));
-  };
 
   const handleDeleteDeck = async () => {
     if (!id) return;
@@ -193,708 +191,378 @@ export function DeckView() {
 
   if (!deck) {
     return (
-      <div className="min-h-full flex items-center justify-center bg-[#2d2a2e]">
-        <p className="text-[#939293]">Deck not found</p>
+      <div className="min-h-full flex flex-col items-center justify-center p-6 bg-[#2d2a2e]">
+        <div className="text-6xl mb-4">📚</div>
+        <h1 className="text-xl font-semibold text-[#fcfcfa] mb-2">Deck not found</h1>
+        <p className="text-[#939293] mb-6">
+          This deck doesn't exist or has been deleted.
+        </p>
+        <Link
+          to="/"
+          className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+        >
+          Back to Decks
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="min-h-full bg-[#2d2a2e]">
-      <main className="max-w-7xl mx-auto py-6 px-6">
+      <main className="max-w-4xl mx-auto py-6 px-6">
         <div className="fade-in">
+          {/* Back Link */}
+          <Link
+            to="/"
+            className="inline-flex items-center text-[#78dce8] hover:text-[#ffd866] mb-6 transition-colors"
+          >
+            <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Decks
+          </Link>
+
           {/* Deck Header */}
           <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1">
-                <h1 className="text-2xl font-bold text-[#fcfcfa] font-mono mb-2">{deck.name}</h1>
-                <p className="text-[#939293]">{deck.description || "No description"}</p>
-                <div className="mt-4 flex items-center space-x-4 text-sm text-[#939293]">
-                  <span className="text-[#ffd866]">{cards.length} cards</span>
-                  <span>Created {new Date(deck.createdAt).toLocaleDateString()}</span>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
+                    {cards.length} card{cards.length !== 1 ? "s" : ""}
+                  </span>
+                  {deck.shuffleCards && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-[#ab9df2]/20 text-[#ab9df2]">
+                      Shuffle
+                    </span>
+                  )}
                 </div>
+                <h1 className="text-2xl font-bold text-[#fcfcfa] font-mono mb-2">
+                  {deck.name}
+                </h1>
+                <p className="text-[#939293]">
+                  {deck.description || "No description"}
+                </p>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 w-full lg:w-auto">
-                <Link
-                  to={`/decks/${id}/study`}
-                  className="px-4 py-2 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-sm transition-colors text-center"
-                >
-                  Study
-                </Link>
-                <Link
-                  to={`/decks/${id}/listen`}
-                  className="px-4 py-2 bg-[#78dce8] text-[#2d2a2e] rounded-lg hover:bg-[#78dce8]/90 font-medium text-sm transition-colors text-center"
-                >
-                  Listen
-                </Link>
-                <button
-                  onClick={() => setShowAddCard(!showAddCard)}
-                  className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium text-sm transition-colors text-center"
-                >
-                  + Add Card
-                </button>
+
+              <div className="flex gap-2">
                 <Link
                   to={`/decks/${id}/edit`}
-                  className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium text-sm transition-colors text-center"
+                  className="px-4 py-2 bg-[#ffd866]/20 text-[#ffd866] rounded-lg hover:bg-[#ffd866]/30 font-medium transition-colors"
                 >
                   Edit
                 </Link>
                 <button
                   onClick={handleExportDeck}
                   disabled={exporting}
-                  className="px-4 py-2 bg-[#ab9df2] text-[#2d2a2e] rounded-lg hover:bg-[#ab9df2]/90 font-medium text-sm transition-colors text-center disabled:opacity-50"
+                  className="px-4 py-2 bg-[#ab9df2]/20 text-[#ab9df2] rounded-lg hover:bg-[#ab9df2]/30 font-medium transition-colors disabled:opacity-50"
                 >
                   {exporting ? "..." : "Export"}
                 </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium text-sm transition-colors text-center"
-                >
-                  Delete
-                </button>
+                {showDeleteConfirm ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDeleteDeck}
+                      disabled={deletingDeck}
+                      className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 transition-colors disabled:opacity-50"
+                    >
+                      {deletingDeck ? "..." : "Confirm"}
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 text-[#ff6188] hover:bg-[#ff6188]/10 rounded-lg transition-colors"
+                    title="Delete deck"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Delete Confirmation */}
-          {showDeleteConfirm && (
-            <div className="mb-6 bg-[#ff6188]/10 border border-[#ff6188]/30 rounded-lg p-4">
-              <p className="text-[#ff6188] font-medium mb-2">Delete this deck?</p>
-              <p className="text-sm text-[#939293] mb-4">
-                This will permanently delete "{deck.name}" and all {cards.length} cards. This action cannot be undone.
+          {/* Start Studying Card */}
+          {cards.length > 0 ? (
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-8 text-center mb-6">
+              <h2 className="text-xl font-semibold text-[#fcfcfa] mb-4">
+                Ready to study?
+              </h2>
+              <p className="text-[#939293] mb-6">
+                This deck has {cards.length} card{cards.length !== 1 ? "s" : ""}.
+                {deck.shuffleCards && " Cards will be shuffled."}
               </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleDeleteDeck}
-                  disabled={deletingDeck}
-                  className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium text-sm transition-colors disabled:opacity-50"
-                >
-                  {deletingDeck ? "Deleting..." : "Yes, Delete Deck"}
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2 border border-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/30 text-sm transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Search and Filter Bar */}
-          <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-4 mb-6">
-            {/* Search Input */}
-            <div>
-              <input
-                type="text"
-                placeholder="Search cards..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
-              />
-            </div>
-
-            {/* Filter Action Buttons */}
-            {hasActiveFilters && (
-              <div className="flex justify-center gap-2 mt-4">
-                <button
-                  onClick={clearFilters}
-                  className="w-40 px-3 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium text-sm transition-colors text-center"
-                >
-                  Clear
-                </button>
+              <div className="flex justify-center gap-4">
                 <Link
-                  to={`/decks/${id}/study?${new URLSearchParams({
-                    ...(searchTerm && { q: searchTerm }),
-                    ...(selectedTagFilters.length > 0 && { tags: selectedTagFilters.join(',') }),
-                    ...(selectedTagFilters.length > 1 && { tagMode: tagFilterMode }),
-                  }).toString()}`}
-                  className="w-40 px-3 py-2 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-sm transition-colors text-center"
+                  to={`/decks/${id}/study`}
+                  className="inline-flex items-center justify-center px-8 py-3 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium text-lg transition-colors"
                 >
-                  Study Filtered ({filteredCards.length})
+                  Study
+                  <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </Link>
+                <Link
+                  to={`/decks/${id}/listen`}
+                  className="inline-flex items-center justify-center px-8 py-3 bg-[#78dce8] text-[#2d2a2e] rounded-lg hover:bg-[#78dce8]/90 font-medium text-lg transition-colors"
+                >
+                  Listen
+                  <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
                 </Link>
               </div>
-            )}
-
-            {/* Tag Filter Section */}
-            {tags.length > 0 && (
-              <div className="pt-4 mt-4 border-t border-[#5b595c]">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-[#939293]">Tags:</span>
-
-                  {/* Tag Mode Toggle - only show when 2+ tags selected */}
-                  {selectedTagFilters.length > 1 && (
-                    <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5 mr-2">
-                      <button
-                        onClick={() => setTagFilterMode("any")}
-                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                          tagFilterMode === "any"
-                            ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
-                            : "text-[#939293] hover:text-[#fcfcfa]"
-                        }`}
-                      >
-                        Any
-                      </button>
-                      <button
-                        onClick={() => setTagFilterMode("all")}
-                        className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                          tagFilterMode === "all"
-                            ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
-                            : "text-[#939293] hover:text-[#fcfcfa]"
-                        }`}
-                      >
-                        All
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Tag Chips */}
-                  {tags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() => handleToggleTagFilter(tag.id)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        selectedTagFilters.includes(tag.id)
-                          ? "bg-[#ab9df2] text-[#2d2a2e]"
-                          : "bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30"
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Add Card Form */}
-          {showAddCard && (
-            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
-              <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Add New Card</h2>
-              <AddCardForm
-                deckId={id || ""}
-                deckTags={tags}
-                onSave={handleSaveCard}
-                onCancel={() => setShowAddCard(false)}
-                onTagsChange={loadDeckData}
-              />
-            </div>
-          )}
-
-          {/* Cards List */}
-          {filteredCards.length === 0 ? (
-            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-12 text-center">
-              <svg
-                className="mx-auto h-12 w-12 text-[#5b595c]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-                />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
-                {hasActiveFilters ? "No cards found" : "No cards yet"}
-              </h3>
-              <p className="mt-1 text-sm text-[#939293]">
-                {hasActiveFilters
-                  ? "Try adjusting your search or filter"
-                  : "Get started by adding your first flashcard"}
-              </p>
-              {!hasActiveFilters && (
-                <button
-                  onClick={() => setShowAddCard(true)}
-                  className="mt-4 px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
-                >
-                  + Add Card
-                </button>
-              )}
             </div>
           ) : (
-            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#5b595c]">
-                <h2 className="text-lg font-semibold text-[#fcfcfa]">
-                  Cards ({filteredCards.length}{hasActiveFilters ? ` of ${cards.length}` : ""})
-                  {searchTerm && (
-                    <span className="text-sm font-normal text-[#939293] ml-2">
-                      matching "{searchTerm}"
-                    </span>
-                  )}
-                  {selectedTagFilters.length > 0 && (
-                    <span className="text-sm font-normal text-[#939293] ml-2">
-                      {selectedTagFilters.length === 1
-                        ? `tagged "${tags.find((t) => t.id === selectedTagFilters[0])?.name}"`
-                        : `${selectedTagFilters.length} tags (${tagFilterMode})`}
-                    </span>
-                  )}
-                </h2>
-              </div>
-              <div className="divide-y divide-[#5b595c]">
-                {filteredCards.map((card) => (
-                  <CardRow
-                    key={card.id}
-                    card={card}
-                    onEdit={() => handleEditCard(card)}
-                    onDelete={() => handleDeleteCard(card.id)}
-                  />
-                ))}
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-8 text-center mb-6">
+              <div className="text-4xl mb-4">📝</div>
+              <h2 className="text-xl font-semibold text-[#fcfcfa] mb-2">
+                No cards yet
+              </h2>
+              <p className="text-[#939293] mb-6">
+                Add some cards to this deck before studying.
+              </p>
+              <Link
+                to={`/decks/${id}/edit`}
+                className="inline-flex items-center justify-center px-6 py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+              >
+                Add Cards
+              </Link>
+            </div>
+          )}
+
+          {/* Stats */}
+          {stats && stats.totalSessions > 0 && (
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
+              <h3 className="text-lg font-semibold text-[#fcfcfa] mb-4">Your Stats</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#a9dc76] font-mono">
+                    {formatDuration(stats.totalStudyTimeSeconds)}
+                  </div>
+                  <div className="text-sm text-[#939293]">Study Time</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#78dce8] font-mono">
+                    {stats.totalCardsStudied}
+                  </div>
+                  <div className="text-sm text-[#939293]">Cards Studied</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#ffd866] font-mono">
+                    {stats.totalSessions}
+                  </div>
+                  <div className="text-sm text-[#939293]">Sessions</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#ab9df2] font-mono">
+                    {formatDate(stats.lastStudiedAt)}
+                  </div>
+                  <div className="text-sm text-[#939293]">Last Studied</div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Card Modal */}
-          <CardModal
-            card={selectedCard}
-            deckId={id || ""}
-            tags={tags}
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onSave={handleSaveCard}
-            onDelete={handleDeleteCard}
-            onTagsChange={loadDeckData}
-            mode={modalMode}
-          />
+          {/* Cards Preview */}
+          {cards.length > 0 && (
+            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6">
+              <h3 className="text-lg font-semibold text-[#fcfcfa] mb-4">
+                Cards ({hasActiveFilters ? `${filteredCards.length} of ` : ""}{cards.length})
+              </h3>
+
+              {/* Search and Filter */}
+              <div className="mb-4 space-y-3">
+                <input
+                  type="text"
+                  placeholder="Search cards..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
+                />
+
+                {/* Tag Filters */}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-[#939293]">Tags:</span>
+
+                    {/* Tag Mode Toggle */}
+                    {selectedTagFilters.length > 1 && (
+                      <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5 mr-2">
+                        <button
+                          onClick={() => setTagFilterMode("any")}
+                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                            tagFilterMode === "any"
+                              ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                              : "text-[#939293] hover:text-[#fcfcfa]"
+                          }`}
+                        >
+                          Any
+                        </button>
+                        <button
+                          onClick={() => setTagFilterMode("all")}
+                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                            tagFilterMode === "all"
+                              ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                              : "text-[#939293] hover:text-[#fcfcfa]"
+                          }`}
+                        >
+                          All
+                        </button>
+                      </div>
+                    )}
+
+                    {tags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => handleToggleTagFilter(tag.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          selectedTagFilters.includes(tag.id)
+                            ? "bg-[#ab9df2] text-[#2d2a2e]"
+                            : "bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30"
+                        }`}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Clear filters and Study Filtered buttons */}
+                {hasActiveFilters && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={clearFilters}
+                      className="text-sm text-[#ffd866] hover:text-[#ffd866]/80"
+                    >
+                      Clear filters
+                    </button>
+                    <Link
+                      to={`/decks/${id}/study?${new URLSearchParams({
+                        ...(searchTerm && { q: searchTerm }),
+                        ...(selectedTagFilters.length > 0 && { tags: selectedTagFilters.join(',') }),
+                        ...(selectedTagFilters.length > 1 && { tagMode: tagFilterMode }),
+                      }).toString()}`}
+                      className="text-sm text-[#a9dc76] hover:text-[#a9dc76]/80"
+                    >
+                      Study filtered ({filteredCards.length})
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Cards List */}
+              {filteredCards.length === 0 ? (
+                <p className="text-[#939293] text-center py-4">
+                  No cards match your search
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {filteredCards.map((card, index) => (
+                    <CardRow key={card.id} card={card} index={index} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>
   );
 }
 
-function CardRow({
-  card,
-  onEdit,
-  onDelete,
-}: {
-  card: Card;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+function CardRow({ card, index }: { card: Card; index: number }) {
   const isCodeFront = card.frontType === "CODE";
   const isCodeBack = card.backType === "CODE";
 
-  // Truncate code to first few lines for preview
-  const truncateCode = (code: string, maxLines: number = 3) => {
+  // Truncate for preview
+  const truncateText = (text: string, maxLength: number = 100) => {
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + "...";
+  };
+
+  const truncateCode = (code: string, maxLines: number = 2) => {
     const lines = code.split("\n");
     if (lines.length <= maxLines) return code;
     return lines.slice(0, maxLines).join("\n") + "\n...";
   };
 
-  const handleDelete = () => {
-    onDelete();
-    setShowDeleteConfirm(false);
-  };
-
   return (
-    <div className="px-6 py-4 hover:bg-[#5b595c]/10 transition-colors">
-      <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Front */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-[#939293] uppercase tracking-wider">Front</span>
-                {isCodeFront && (
-                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded">
-                    {CODE_LANGUAGE_LABELS[card.frontLanguage || "PLAINTEXT"]}
-                  </span>
-                )}
-              </div>
-              {isCodeFront ? (
-                <div className="max-h-24 overflow-hidden rounded-lg">
-                  <CodeBlock
-                    code={truncateCode(card.front)}
-                    language={card.frontLanguage}
-                  />
-                </div>
-              ) : (
-                <div className="text-[#fcfcfa] line-clamp-3 whitespace-pre-wrap">
-                  {card.front}
-                </div>
+    <div className="flex items-start gap-3 p-3 bg-[#2d2a2e] rounded-lg">
+      <span className="text-[#939293] font-mono text-sm">
+        {index + 1}.
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Front */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-[#939293] uppercase tracking-wider">Front</span>
+              {isCodeFront && (
+                <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded">
+                  {CODE_LANGUAGE_LABELS[card.frontLanguage || "PLAINTEXT"]}
+                </span>
               )}
             </div>
-
-            {/* Back */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-[#939293] uppercase tracking-wider">Back</span>
-                {isCodeBack && (
-                  <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded">
-                    {CODE_LANGUAGE_LABELS[card.backLanguage || "PLAINTEXT"]}
-                  </span>
-                )}
+            {isCodeFront ? (
+              <div className="max-h-16 overflow-hidden rounded text-sm">
+                <CodeBlock code={truncateCode(card.front)} language={card.frontLanguage} />
               </div>
-              {isCodeBack ? (
-                <div className="max-h-24 overflow-hidden rounded-lg">
-                  <CodeBlock
-                    code={truncateCode(card.back)}
-                    language={card.backLanguage}
-                  />
-                </div>
-              ) : (
-                <div className="text-[#fcfcfa] line-clamp-3 whitespace-pre-wrap">
-                  {card.back}
-                </div>
-              )}
-            </div>
+            ) : (
+              <p className="text-[#fcfcfa] text-sm line-clamp-2">
+                {truncateText(card.front)}
+              </p>
+            )}
           </div>
 
-          {/* Notes */}
-          {card.notes && (
-            <div className="mt-3">
-              <div className="text-xs text-[#939293] uppercase tracking-wider mb-1">Notes</div>
-              <div className="text-sm text-[#939293] line-clamp-1">{card.notes}</div>
-            </div>
-          )}
-
-          {/* Tags */}
-          {card.tags && card.tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {card.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2]"
-                >
-                  {tag.name}
+          {/* Back */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-[#939293] uppercase tracking-wider">Back</span>
+              {isCodeBack && (
+                <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-1.5 py-0.5 rounded">
+                  {CODE_LANGUAGE_LABELS[card.backLanguage || "PLAINTEXT"]}
                 </span>
-              ))}
+              )}
             </div>
-          )}
-
-          {/* Delete Confirmation */}
-          {showDeleteConfirm && (
-            <div className="mt-3 p-3 bg-[#ff6188]/10 border border-[#ff6188]/30 rounded-lg">
-              <p className="text-sm text-[#ff6188] mb-2">Delete this card?</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleDelete}
-                  className="px-3 py-1 bg-[#ff6188] text-[#2d2a2e] rounded text-sm font-medium hover:bg-[#ff6188]/90 transition-colors"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="px-3 py-1 border border-[#5b595c] text-[#fcfcfa] rounded text-sm hover:bg-[#5b595c]/30 transition-colors"
-                >
-                  Cancel
-                </button>
+            {isCodeBack ? (
+              <div className="max-h-16 overflow-hidden rounded text-sm">
+                <CodeBlock code={truncateCode(card.back)} language={card.backLanguage} />
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-[#fcfcfa] text-sm line-clamp-2">
+                {truncateText(card.back)}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="ml-4 flex-shrink-0 flex items-center gap-1">
-          <button
-            onClick={onEdit}
-            className="text-[#78dce8] hover:text-[#ffd866] transition-colors p-1.5"
-            title="Edit card"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-          </button>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-[#ff6188] hover:text-[#ff6188]/80 transition-colors p-1.5"
-            title="Delete card"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddCardForm({
-  deckId,
-  deckTags,
-  onSave,
-  onCancel,
-  onTagsChange,
-}: {
-  deckId: string;
-  deckTags: Tag[];
-  onSave: (request: CreateCardRequest, tagIds?: string[]) => Promise<void>;
-  onCancel: () => void;
-  onTagsChange?: () => void;
-}) {
-  const [front, setFront] = useState("");
-  const [back, setBack] = useState("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Tag state
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
-  const [tagInput, setTagInput] = useState("");
-  const [showTagDropdown, setShowTagDropdown] = useState(false);
-  const tagInputRef = useRef<HTMLInputElement>(null);
-  const tagDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        tagDropdownRef.current &&
-        !tagDropdownRef.current.contains(e.target as Node) &&
-        tagInputRef.current &&
-        !tagInputRef.current.contains(e.target as Node)
-      ) {
-        setShowTagDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Filter available tags
-  const filteredTags = deckTags.filter(
-    (tag) =>
-      !selectedTags.some((t) => t.id === tag.id) &&
-      tag.name.toLowerCase().includes(tagInput.toLowerCase())
-  );
-
-  const canCreateNewTag =
-    tagInput.trim() &&
-    !deckTags.some((t) => t.name.toLowerCase() === tagInput.toLowerCase()) &&
-    !selectedTags.some((t) => t.name.toLowerCase() === tagInput.toLowerCase());
-
-  const handleAddTag = (tag: Tag) => {
-    setSelectedTags((prev) => [...prev, tag]);
-    setTagInput("");
-    setShowTagDropdown(false);
-  };
-
-  const handleCreateAndAddTag = async () => {
-    if (!tagInput.trim()) return;
-    try {
-      const newTag = await createTag(deckId, tagInput.trim());
-      setSelectedTags((prev) => [...prev, newTag]);
-      setTagInput("");
-      setShowTagDropdown(false);
-      onTagsChange?.();
-    } catch (error) {
-      console.error("Failed to create tag:", error);
-    }
-  };
-
-  const handleRemoveTag = (tagId: string) => {
-    setSelectedTags((prev) => prev.filter((t) => t.id !== tagId));
-  };
-
-  const handleTagKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (filteredTags.length > 0) {
-        handleAddTag(filteredTags[0]);
-      } else if (canCreateNewTag) {
-        handleCreateAndAddTag();
-      }
-    } else if (e.key === "Escape") {
-      setShowTagDropdown(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!front.trim() || !back.trim()) return;
-
-    setSaving(true);
-    try {
-      // Pass tag IDs along with the card data
-      const tagIds = selectedTags.map((t) => t.id);
-      await onSave(
-        {
-          front: front.trim(),
-          back: back.trim(),
-          frontType: "TEXT",
-          backType: "TEXT",
-          notes: notes.trim() || undefined,
-        },
-        tagIds.length > 0 ? tagIds : undefined
-      );
-
-      setFront("");
-      setBack("");
-      setNotes("");
-      setSelectedTags([]);
-      setTagInput("");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
-          Front
-        </label>
-        <textarea
-          value={front}
-          onChange={(e) => setFront(e.target.value)}
-          placeholder="e.g., What is the syntax for...?"
-          required
-          rows={3}
-          className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors resize-none"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
-          Back
-        </label>
-        <textarea
-          value={back}
-          onChange={(e) => setBack(e.target.value)}
-          placeholder="e.g., The answer or code example"
-          required
-          rows={3}
-          className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors resize-none"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
-          Notes (optional)
-        </label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Additional notes or hints"
-          rows={2}
-          className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors resize-none"
-        />
-      </div>
-
-      {/* Tags Section */}
-      <div>
-        <label className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5">
-          Tags
-        </label>
-
-        {/* Selected tags */}
-        {selectedTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {selectedTags.map((tag) => (
+        {/* Tags */}
+        {card.tags && card.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {card.tags.map((tag) => (
               <span
                 key={tag.id}
-                className="inline-flex items-center gap-1.5 text-sm bg-[#ab9df2] text-[#2d2a2e] px-3 py-1 rounded-full"
+                className="text-xs px-2 py-0.5 rounded-full bg-[#ab9df2]/20 text-[#ab9df2]"
               >
                 {tag.name}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTag(tag.id)}
-                  className="hover:bg-[#2d2a2e]/20 rounded-full p-0.5 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
               </span>
             ))}
           </div>
         )}
-
-        {/* Tag input with autocomplete */}
-        <div className="relative">
-          <input
-            ref={tagInputRef}
-            type="text"
-            value={tagInput}
-            onChange={(e) => {
-              setTagInput(e.target.value);
-              setShowTagDropdown(true);
-            }}
-            onFocus={() => setShowTagDropdown(true)}
-            onKeyDown={handleTagKeyDown}
-            placeholder="Add tags..."
-            className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ab9df2] focus:ring-1 focus:ring-[#ab9df2]/50 transition-colors"
-          />
-
-          {/* Dropdown */}
-          {showTagDropdown && (filteredTags.length > 0 || canCreateNewTag) && (
-            <div
-              ref={tagDropdownRef}
-              className="absolute z-10 mt-1 w-full bg-[#403e41] border border-[#5b595c] rounded-lg shadow-lg max-h-48 overflow-auto"
-            >
-              {filteredTags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => handleAddTag(tag)}
-                  className="w-full text-left px-3 py-2 text-sm text-[#fcfcfa] hover:bg-[#5b595c]/50 transition-colors"
-                >
-                  {tag.name}
-                </button>
-              ))}
-              {canCreateNewTag && (
-                <button
-                  type="button"
-                  onClick={handleCreateAndAddTag}
-                  className="w-full text-left px-3 py-2 text-sm text-[#a9dc76] hover:bg-[#5b595c]/50 transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create "{tagInput}"
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Add existing tags section */}
-        {deckTags.length > 0 && selectedTags.length < deckTags.length && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {deckTags
-              .filter((tag) => !selectedTags.some((t) => t.id === tag.id))
-              .slice(0, 5)
-              .map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => handleAddTag(tag)}
-                  className="px-2.5 py-0.5 text-xs rounded-full bg-[#5b595c]/50 text-[#939293] hover:bg-[#ab9df2]/20 hover:text-[#ab9df2] transition-colors"
-                >
-                  + {tag.name}
-                </button>
-              ))}
-          </div>
-        )}
       </div>
-
-      <div className="flex justify-end space-x-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 border border-[#5b595c] rounded-lg text-[#fcfcfa] hover:bg-[#5b595c]/30 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 disabled:opacity-50 font-medium transition-colors"
-        >
-          {saving ? "Adding..." : "Add Card"}
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }

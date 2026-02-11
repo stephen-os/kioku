@@ -14,6 +14,7 @@ Decks contain flashcards for study mode.
 {
   "name": "Deck Name",
   "description": "Optional description of the deck",
+  "shuffleCards": false,
   "cards": [
     {
       "front": "Question or prompt text",
@@ -31,11 +32,12 @@ Decks contain flashcards for study mode.
 
 ### Field Definitions
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Name of the deck |
-| `description` | string | No | Description of the deck's content |
-| `cards` | array | Yes | Array of card objects |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Name of the deck |
+| `description` | string | No | null | Description of the deck's content |
+| `shuffleCards` | boolean | No | false | Randomize card order when studying |
+| `cards` | array | Yes | - | Array of card objects |
 
 #### Card Object
 
@@ -68,6 +70,7 @@ TOML, INI, DIFF, MAKEFILE, NGINX, APACHE, OBJECTIVEC, ASSEMBLY, FORTRAN, COBOL
 {
   "name": "JavaScript Basics",
   "description": "Fundamental JavaScript concepts",
+  "shuffleCards": true,
   "cards": [
     {
       "front": "What is a closure in JavaScript?",
@@ -90,6 +93,7 @@ TOML, INI, DIFF, MAKEFILE, NGINX, APACHE, OBJECTIVEC, ASSEMBLY, FORTRAN, COBOL
 {
   "name": "Python Syntax",
   "description": "Python code patterns and syntax",
+  "shuffleCards": false,
   "cards": [
     {
       "front": "How do you define a list comprehension?",
@@ -341,5 +345,5 @@ When generating decks or quizzes:
 3. **Keep answers exact**: Fill-in-blank uses exact string matching
 4. **Provide explanations**: Help users learn from mistakes
 5. **Use multipleAnswers: true**: Only when genuinely multiple correct answers exist
-6. **shuffleQuestions**: Good for practice, disable for sequential learning
+6. **shuffleQuestions/shuffleCards**: Good for practice, disable for sequential learning
 7. **Use tags for organization**: Tags help filter cards/questions by topic during study/review

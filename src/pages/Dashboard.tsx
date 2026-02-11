@@ -207,9 +207,16 @@ function DeckCard({ deck, onDelete, isDeleting }: DeckCardProps) {
     <div className="block bg-[#403e41] overflow-hidden rounded-xl border border-[#5b595c] hover:border-[#939293] transition-colors">
       <Link to={`/decks/${deck.id}`} className="block px-5 py-4">
         <div className="flex items-start justify-between mb-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
-            {deck.cardCount ?? 0} cards
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
+              {deck.cardCount ?? 0} cards
+            </span>
+            {deck.shuffleCards && (
+              <span className="text-xs px-2 py-0.5 rounded bg-[#ab9df2]/20 text-[#ab9df2]">
+                Shuffle
+              </span>
+            )}
+          </div>
           <span className="text-xs text-[#939293] font-mono">
             {new Date(deck.createdAt).toLocaleDateString()}
           </span>

@@ -121,7 +121,12 @@ fn get_deck(state: State<DbState>, id: String) -> Result<Option<Deck>, String> {
 #[tauri::command]
 fn create_deck(state: State<DbState>, request: CreateDeckRequest) -> Result<Deck, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_deck_local(&conn, &request.name, request.description.as_deref())
+    local_db::create_deck_local(
+        &conn,
+        &request.name,
+        request.description.as_deref(),
+        request.shuffle_cards.unwrap_or(false),
+    )
 }
 
 #[tauri::command]
@@ -131,7 +136,13 @@ fn update_deck(
     request: UpdateDeckRequest,
 ) -> Result<Deck, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_deck_local(&conn, &id, &request.name, request.description.as_deref())
+    local_db::update_deck_local(
+        &conn,
+        &id,
+        &request.name,
+        request.description.as_deref(),
+        request.shuffle_cards.unwrap_or(false),
+    )
 }
 
 #[tauri::command]
@@ -301,6 +312,8 @@ fn import_deck_from_file(
     struct DeckImport {
         name: String,
         description: Option<String>,
+        #[serde(default)]
+        shuffle_cards: bool,
         cards: Vec<CardImport>,
     }
 
@@ -334,6 +347,7 @@ fn import_deck_from_file(
         &conn,
         &import_data.name,
         import_data.description.as_deref(),
+        import_data.shuffle_cards,
     )?;
 
     // Keep track of created tags to avoid duplicates
@@ -388,6 +402,7 @@ fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String,
     struct DeckExport {
         name: String,
         description: Option<String>,
+        shuffle_cards: bool,
         cards: Vec<CardExport>,
         exported_at: String,
     }
@@ -408,6 +423,7 @@ fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String,
     let export = DeckExport {
         name: deck.name,
         description: deck.description,
+        shuffle_cards: deck.shuffle_cards,
         cards: cards
             .into_iter()
             .map(|c| CardExport {

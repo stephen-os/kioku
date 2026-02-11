@@ -116,6 +116,7 @@ function DecksSection() {
       <ol className="text-[#939293] space-y-2 list-decimal list-inside">
         <li>Click <span className="text-[#ffd866]">+ New Deck</span> on the Decks page</li>
         <li>Enter a name and optional description</li>
+        <li>Toggle <span className="text-[#ab9df2]">Shuffle Cards</span> if you want cards randomized when studying</li>
         <li>Click <span className="text-[#ffd866]">Create Deck</span></li>
       </ol>
 
@@ -245,6 +246,7 @@ function ImportSection() {
         code={`{
   "name": "Deck Name",
   "description": "Optional description",
+  "shuffleCards": false,
   "cards": [
     {
       "front": "Question text",
@@ -259,6 +261,41 @@ function ImportSection() {
   ]
 }`}
       />
+
+      <h4 className="text-md font-medium text-[#fcfcfa] mt-4 mb-2">Deck Fields</h4>
+      <div className="overflow-x-auto mb-4">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#5b595c]">
+              <th className="text-left py-2 text-[#939293]">Field</th>
+              <th className="text-left py-2 text-[#939293]">Required</th>
+              <th className="text-left py-2 text-[#939293]">Description</th>
+            </tr>
+          </thead>
+          <tbody className="text-[#939293]">
+            <tr className="border-b border-[#5b595c]/50">
+              <td className="py-2 text-[#78dce8]">name</td>
+              <td>Yes</td>
+              <td>Name of the deck</td>
+            </tr>
+            <tr className="border-b border-[#5b595c]/50">
+              <td className="py-2 text-[#78dce8]">description</td>
+              <td>No</td>
+              <td>Description of the deck</td>
+            </tr>
+            <tr className="border-b border-[#5b595c]/50">
+              <td className="py-2 text-[#78dce8]">shuffleCards</td>
+              <td>No</td>
+              <td>Randomize card order when studying (default: false)</td>
+            </tr>
+            <tr>
+              <td className="py-2 text-[#78dce8]">cards</td>
+              <td>Yes</td>
+              <td>Array of card objects</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <h4 className="text-md font-medium text-[#fcfcfa] mt-4 mb-2">Card Fields</h4>
       <div className="overflow-x-auto">

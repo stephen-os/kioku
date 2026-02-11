@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS decks (
     user_id TEXT REFERENCES users(id),
     name TEXT NOT NULL,
     description TEXT,
+    shuffle_cards INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     -- Legacy sync fields (unused but kept for compatibility)

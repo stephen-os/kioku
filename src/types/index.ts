@@ -23,6 +23,7 @@ export interface Deck {
   id: string;
   name: string;
   description: string | null;
+  shuffleCards: boolean;
   createdAt: string;
   updatedAt: string;
   cardCount?: number;
@@ -211,6 +212,13 @@ export interface TTSVoice {
 export interface CreateDeckRequest {
   name: string;
   description?: string;
+  shuffleCards?: boolean;
+}
+
+export interface UpdateDeckRequest {
+  name: string;
+  description?: string;
+  shuffleCards?: boolean;
 }
 
 export interface CreateCardRequest {

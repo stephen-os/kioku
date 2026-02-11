@@ -49,6 +49,7 @@ pub struct Deck {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
+    pub shuffle_cards: bool,
     pub created_at: String,
     pub updated_at: String,
     pub remote_id: Option<i64>,
@@ -246,6 +247,7 @@ pub struct DeckStudyStats {
 pub struct CreateDeckRequest {
     pub name: String,
     pub description: Option<String>,
+    pub shuffle_cards: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -253,6 +255,7 @@ pub struct CreateDeckRequest {
 pub struct UpdateDeckRequest {
     pub name: String,
     pub description: Option<String>,
+    pub shuffle_cards: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -398,7 +401,32 @@ pub fn init_database(app: &AppHandle) -> Result<Connection, String> {
     conn.execute_batch(schema)
         .map_err(|e| format!("Failed to initialize database schema: {}", e))?;
 
+    // Run migrations for existing databases
+    run_migrations(&conn)?;
+
     Ok(conn)
+}
+
+fn run_migrations(conn: &Connection) -> Result<(), String> {
+    // Migration: Add shuffle_cards column to decks table
+    let has_shuffle_cards: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('decks') WHERE name = 'shuffle_cards'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false);
+
+    if !has_shuffle_cards {
+        conn.execute(
+            "ALTER TABLE decks ADD COLUMN shuffle_cards INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| format!("Failed to add shuffle_cards column: {}", e))?;
+    }
+
+    Ok(())
 }
 
 // ============================================
@@ -614,14 +642,15 @@ pub fn create_deck_local(
     conn: &Connection,
     name: &str,
     description: Option<&str>,
+    shuffle_cards: bool,
 ) -> Result<Deck, String> {
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO decks (id, name, description, created_at, updated_at, sync_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'local_only')",
-        params![id, name, description, now, now],
+        "INSERT INTO decks (id, name, description, shuffle_cards, created_at, updated_at, sync_status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'local_only')",
+        params![id, name, description, shuffle_cards as i32, now, now],
     )
     .map_err(|e| format!("Failed to create deck: {}", e))?;
 
@@ -631,7 +660,7 @@ pub fn create_deck_local(
 pub fn get_all_decks_local(conn: &Connection) -> Result<Vec<Deck>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT d.id, d.name, d.description, d.created_at, d.updated_at,
+            "SELECT d.id, d.name, d.description, d.shuffle_cards, d.created_at, d.updated_at,
                     d.remote_id, d.sync_status, d.last_synced_at, d.remote_updated_at,
                     (SELECT COUNT(*) FROM cards WHERE deck_id = d.id) as card_count
              FROM decks d ORDER BY d.updated_at DESC",
@@ -644,13 +673,14 @@ pub fn get_all_decks_local(conn: &Connection) -> Result<Vec<Deck>, String> {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 description: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-                remote_id: row.get(5)?,
-                sync_status: SyncStatus::from_str(&row.get::<_, String>(6)?),
-                last_synced_at: row.get(7)?,
-                remote_updated_at: row.get(8)?,
-                card_count: Some(row.get(9)?),
+                shuffle_cards: row.get::<_, i32>(3)? != 0,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+                remote_id: row.get(6)?,
+                sync_status: SyncStatus::from_str(&row.get::<_, String>(7)?),
+                last_synced_at: row.get(8)?,
+                remote_updated_at: row.get(9)?,
+                card_count: Some(row.get(10)?),
             })
         })
         .map_err(|e| format!("Failed to query decks: {}", e))?;
@@ -662,7 +692,7 @@ pub fn get_all_decks_local(conn: &Connection) -> Result<Vec<Deck>, String> {
 
 pub fn get_deck_local(conn: &Connection, id: &str) -> Result<Deck, String> {
     conn.query_row(
-        "SELECT id, name, description, created_at, updated_at,
+        "SELECT id, name, description, shuffle_cards, created_at, updated_at,
                 remote_id, sync_status, last_synced_at, remote_updated_at
          FROM decks WHERE id = ?1",
         params![id],
@@ -671,12 +701,13 @@ pub fn get_deck_local(conn: &Connection, id: &str) -> Result<Deck, String> {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 description: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-                remote_id: row.get(5)?,
-                sync_status: SyncStatus::from_str(&row.get::<_, String>(6)?),
-                last_synced_at: row.get(7)?,
-                remote_updated_at: row.get(8)?,
+                shuffle_cards: row.get::<_, i32>(3)? != 0,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+                remote_id: row.get(6)?,
+                sync_status: SyncStatus::from_str(&row.get::<_, String>(7)?),
+                last_synced_at: row.get(8)?,
+                remote_updated_at: row.get(9)?,
                 card_count: None,
             })
         },
@@ -689,6 +720,7 @@ pub fn update_deck_local(
     id: &str,
     name: &str,
     description: Option<&str>,
+    shuffle_cards: bool,
 ) -> Result<Deck, String> {
     let now = chrono::Utc::now().to_rfc3339();
     let current = get_deck_local(conn, id)?;
@@ -698,9 +730,9 @@ pub fn update_deck_local(
     };
 
     conn.execute(
-        "UPDATE decks SET name = ?1, description = ?2, updated_at = ?3, sync_status = ?4
-         WHERE id = ?5",
-        params![name, description, now, new_status.as_str(), id],
+        "UPDATE decks SET name = ?1, description = ?2, shuffle_cards = ?3, updated_at = ?4, sync_status = ?5
+         WHERE id = ?6",
+        params![name, description, shuffle_cards as i32, now, new_status.as_str(), id],
     )
     .map_err(|e| format!("Failed to update deck: {}", e))?;
 
