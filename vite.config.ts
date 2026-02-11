@@ -31,6 +31,26 @@ export default defineConfig({
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     // Produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    // CodeMirror is large but necessary for code editing - raise limit
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Split vendor libraries for better caching
+          if (id.includes("node_modules")) {
+            if (id.includes("react-dom") || id.includes("react-router")) {
+              return "react-vendor";
+            }
+            if (id.includes("@codemirror") || id.includes("@uiw/react-codemirror") || id.includes("@uiw/codemirror-theme")) {
+              return "codemirror";
+            }
+            if (id.includes("@lezer")) {
+              return "codemirror"; // Lezer is CodeMirror's parser
+            }
+          }
+        },
+      },
+    },
   },
   test: {
     globals: true,
