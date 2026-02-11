@@ -4,13 +4,14 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { Deck } from "@/types";
 import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
 import { DropZone } from "@/components/DropZone";
+import { useToast } from "@/context/ToastContext";
 
 export function Dashboard() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const toast = useToast();
 
   const loadDecks = useCallback(async () => {
     try {
@@ -28,7 +29,6 @@ export function Dashboard() {
   }, [loadDecks]);
 
   const handleImport = async () => {
-    setMessage(null);
     setImporting(true);
 
     try {
@@ -43,51 +43,37 @@ export function Dashboard() {
       }
 
       const result = await importDeck(filePath as string);
-
-      setMessage({
-        type: "success",
-        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
-      });
+      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
       loadDecks();
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Import failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImporting(false);
     }
   };
 
   const handleFileDrop = useCallback(async (filePath: string) => {
-    setMessage(null);
     setImporting(true);
 
     try {
       const result = await importDeck(filePath);
-
-      setMessage({
-        type: "success",
-        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
-      });
+      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
       loadDecks();
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Import failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImporting(false);
     }
-  }, [loadDecks]);
+  }, [loadDecks, toast]);
 
   const handleDelete = async (deckId: string) => {
     setDeletingId(deckId);
     try {
       await deleteDeck(deckId);
+      toast.success("Deck deleted");
       loadDecks();
     } catch (error) {
-      console.error("Failed to delete deck:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete deck");
     } finally {
       setDeletingId(null);
     }
@@ -113,25 +99,6 @@ export function Dashboard() {
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">
           <div className="fade-in">
-            {/* Message */}
-          {message && (
-            <div
-              className={`mb-4 px-4 py-3 rounded-lg ${
-                message.type === "success"
-                  ? "bg-[#a9dc76]/10 border border-[#a9dc76]/30 text-[#a9dc76]"
-                  : "bg-[#ff6188]/10 border border-[#ff6188]/30 text-[#ff6188]"
-              }`}
-            >
-              {message.text}
-              <button
-                onClick={() => setMessage(null)}
-                className="float-right opacity-60 hover:opacity-100"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
           {/* Header with Actions */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
