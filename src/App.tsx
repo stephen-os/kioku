@@ -7,6 +7,7 @@ import { StudyMode } from "./pages/StudyMode";
 import { ListenMode } from "./pages/ListenMode";
 import { NewDeck } from "./pages/NewDeck";
 import { Settings } from "./pages/Settings";
+import { Stats } from "./pages/Stats";
 import { Login } from "./pages/Login";
 // Quiz pages
 import { QuizList } from "./pages/QuizList";
@@ -93,6 +94,7 @@ function AppRoutes() {
         <Route path="quizzes/:id/edit" element={<QuizEditor />} />
         <Route path="quizzes/:id/take" element={<TakeQuiz />} />
         <Route path="quizzes/:id/results/:attemptId" element={<QuizResults />} />
+        <Route path="stats" element={<Stats />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import type { Card, Deck, Tag } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
-import { getCardsForDeck, getDeck, getTagsForDeck } from "@/lib/db";
+import { getCardsForDeck, getDeck, getTagsForDeck, startStudySession, endStudySession } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
 
@@ -42,6 +42,10 @@ export function StudyMode() {
   const touchStartX = useRef<number | null>(null);
   const touchCurrentX = useRef<number | null>(null);
   const minSwipeDistance = 50;
+
+  // Study session tracking
+  const sessionIdRef = useRef<string | null>(null);
+  const cardsViewedRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     async function loadDeckAndCards() {
@@ -105,6 +109,38 @@ export function StudyMode() {
     }
     loadDeckAndCards();
   }, [id, hasUrlFilters, urlSearchTerm, urlTagIds, urlTagMode]);
+
+  // Start study session when studying begins
+  useEffect(() => {
+    if (studyStarted && id && cards.length > 0 && !sessionIdRef.current) {
+      startStudySession(id)
+        .then((session) => {
+          sessionIdRef.current = session.id;
+          cardsViewedRef.current = new Set([0]); // First card is viewed
+        })
+        .catch((err) => console.error("Failed to start study session:", err));
+    }
+  }, [studyStarted, id, cards.length]);
+
+  // End study session on unmount or when navigating away
+  useEffect(() => {
+    return () => {
+      if (sessionIdRef.current && id) {
+        const cardsStudied = cardsViewedRef.current.size;
+        endStudySession(sessionIdRef.current, cardsStudied).catch((err) =>
+          console.error("Failed to end study session:", err)
+        );
+        sessionIdRef.current = null;
+      }
+    };
+  }, [id]);
+
+  // Track cards viewed
+  useEffect(() => {
+    if (studyStarted && cards.length > 0) {
+      cardsViewedRef.current.add(currentIndex);
+    }
+  }, [currentIndex, studyStarted, cards.length]);
 
   // Filter cards based on selected tags
   const filteredCards = useMemo(() => {

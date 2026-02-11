@@ -58,6 +58,12 @@ export function Layout() {
               >
                 Quizzes
               </Link>
+              <Link
+                to="/stats"
+                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
+              >
+                Stats
+              </Link>
 
               {/* User Menu */}
               <div className="relative">
