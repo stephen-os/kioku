@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#ff6188"/>
+  <!-- Star shape -->
+  <polygon
+    points="50,12 58,38 86,38 64,54 72,82 50,66 28,82 36,54 14,38 42,38"
+    fill="#2d2a2e"
+  />
+  <!-- Inner star -->
+  <polygon
+    points="50,24 55,40 72,40 58,50 63,68 50,58 37,68 42,50 28,40 45,40"
+    fill="#ffd866"
+  />
+  <!-- Center dot -->
+  <circle cx="50" cy="48" r="6" fill="#2d2a2e"/>
+</svg>

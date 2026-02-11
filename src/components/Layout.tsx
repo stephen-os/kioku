@@ -1,20 +1,7 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-
-// Generate a consistent color based on the first letter
-function getAvatarColor(letter: string): string {
-  const colors = [
-    "#ff6188", // pink
-    "#fc9867", // orange
-    "#ffd866", // yellow
-    "#a9dc76", // green
-    "#78dce8", // cyan
-    "#ab9df2", // purple
-  ];
-  const index = letter.toLowerCase().charCodeAt(0) % colors.length;
-  return colors[index];
-}
+import { AvatarDisplay } from "@/components/AvatarPicker";
 
 export function Layout() {
   const _location = useLocation();
@@ -22,9 +9,6 @@ export function Layout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const firstLetter = user?.name?.charAt(0).toUpperCase() || "U";
-  const avatarColor = getAvatarColor(firstLetter);
 
   const handleLogout = async () => {
     await logout();
@@ -63,11 +47,10 @@ export function Layout() {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-[#2d2a2e] transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: avatarColor }}
+                  className="transition-opacity hover:opacity-80"
                   title={user?.name || "User"}
                 >
-                  {firstLetter}
+                  <AvatarDisplay avatar={user?.avatar || "avatar-smile"} size="sm" />
                 </button>
 
                 {/* Dropdown Menu */}
@@ -81,12 +64,7 @@ export function Layout() {
                       {/* User Info */}
                       <div className="px-4 py-3 border-b border-[#5b595c]">
                         <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-[#2d2a2e] flex-shrink-0"
-                            style={{ backgroundColor: avatarColor }}
-                          >
-                            {firstLetter}
-                          </div>
+                          <AvatarDisplay avatar={user?.avatar || "avatar-smile"} size="md" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[#fcfcfa] truncate">
                               {user?.name || "User"}

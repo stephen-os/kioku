@@ -6,6 +6,7 @@ export interface LocalUser {
   id: string;
   name: string;
   hasPassword: boolean;
+  avatar: string;
   createdAt: string;
   lastLoginAt: string | null;
 }
@@ -13,7 +14,19 @@ export interface LocalUser {
 export interface CreateUserRequest {
   name: string;
   password?: string;
+  avatar?: string;
 }
+
+export const AVATARS = [
+  'avatar-smile',
+  'avatar-cat',
+  'avatar-robot',
+  'avatar-star',
+  'avatar-gem',
+  'avatar-rocket',
+] as const;
+
+export type AvatarId = typeof AVATARS[number];
 
 // ============================================
 // Core Domain Types

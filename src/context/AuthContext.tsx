@@ -24,6 +24,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   createUser: (request: CreateUserRequest) => Promise<LocalUser>;
   refreshUsers: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -62,6 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const activeUser = await getActiveUser();
+      setUser(activeUser);
+      await refreshUsers();
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+    }
+  }, [refreshUsers]);
+
   const login = useCallback(async (userId: string, password?: string) => {
     const loggedInUser = await loginUserService(userId, password);
     setUser(loggedInUser);
@@ -93,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         createUser,
         refreshUsers,
+        refreshUser,
       }}
     >
       {children}

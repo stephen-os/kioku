@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
+import type { AvatarId } from "@/types";
 
 export function Login() {
   const { users, login, createUser } = useAuth();
@@ -14,6 +16,7 @@ export function Login() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [usePassword, setUsePassword] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<AvatarId>("avatar-smile");
 
   const selectedUser = users.find(u => u.id === selectedUserId);
 
@@ -59,6 +62,7 @@ export function Login() {
       const newUser = await createUser({
         name: newUserName.trim(),
         password: usePassword ? newUserPassword : undefined,
+        avatar: selectedAvatar,
       });
       // Auto-login as the new user
       await login(newUser.id, usePassword ? newUserPassword : undefined);
@@ -103,9 +107,7 @@ export function Login() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#78dce8] flex items-center justify-center text-[#2d2a2e] font-semibold">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
+                      <AvatarDisplay avatar={user.avatar} size="sm" />
                       <div className="flex-1 min-w-0">
                         <div className="text-[#fcfcfa] font-medium truncate">{user.name}</div>
                         <div className="text-xs text-[#939293]">
@@ -171,6 +173,18 @@ export function Login() {
               <h2 className="text-xl font-semibold text-[#fcfcfa] mb-6">
                 {users.length === 0 ? "Create Your Profile" : "Create New User"}
               </h2>
+
+              {/* Avatar picker */}
+              <div className="mb-6">
+                <label className="block text-sm text-[#939293] uppercase tracking-wider mb-3 text-center">
+                  Choose Your Avatar
+                </label>
+                <AvatarPicker
+                  selected={selectedAvatar}
+                  onSelect={setSelectedAvatar}
+                  size="md"
+                />
+              </div>
 
               {/* Name input */}
               <div className="mb-4">
@@ -264,6 +278,7 @@ export function Login() {
                       setNewUserPassword("");
                       setConfirmPassword("");
                       setUsePassword(false);
+                      setSelectedAvatar("avatar-smile");
                     }}
                     className="text-[#78dce8] hover:text-[#ffd866] transition-colors"
                   >

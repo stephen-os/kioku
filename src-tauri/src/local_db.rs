@@ -354,6 +354,7 @@ pub struct LocalUser {
     pub id: String,
     pub name: String,
     pub has_password: bool,
+    pub avatar: String,
     pub created_at: String,
     pub last_login_at: Option<String>,
 }
@@ -363,6 +364,7 @@ pub struct LocalUser {
 pub struct CreateUserRequest {
     pub name: String,
     pub password: Option<String>,
+    pub avatar: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -426,6 +428,24 @@ fn run_migrations(conn: &Connection) -> Result<(), String> {
         .map_err(|e| format!("Failed to add shuffle_cards column: {}", e))?;
     }
 
+    // Migration: Add avatar column to users table
+    let has_avatar: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('users') WHERE name = 'avatar'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false);
+
+    if !has_avatar {
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT 'avatar-smile'",
+            [],
+        )
+        .map_err(|e| format!("Failed to add avatar column: {}", e))?;
+    }
+
     Ok(())
 }
 
@@ -436,7 +456,7 @@ fn run_migrations(conn: &Connection) -> Result<(), String> {
 pub fn get_all_users(conn: &Connection) -> Result<Vec<LocalUser>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, password_hash, created_at, last_login_at
+            "SELECT id, name, password_hash, avatar, created_at, last_login_at
              FROM users ORDER BY last_login_at DESC NULLS LAST, created_at DESC",
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
@@ -448,8 +468,9 @@ pub fn get_all_users(conn: &Connection) -> Result<Vec<LocalUser>, String> {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 has_password: password_hash.is_some(),
-                created_at: row.get(3)?,
-                last_login_at: row.get(4)?,
+                avatar: row.get(3)?,
+                created_at: row.get(4)?,
+                last_login_at: row.get(5)?,
             })
         })
         .map_err(|e| format!("Failed to query users: {}", e))?;
@@ -461,7 +482,7 @@ pub fn get_all_users(conn: &Connection) -> Result<Vec<LocalUser>, String> {
 
 pub fn get_user(conn: &Connection, id: &str) -> Result<LocalUser, String> {
     conn.query_row(
-        "SELECT id, name, password_hash, created_at, last_login_at
+        "SELECT id, name, password_hash, avatar, created_at, last_login_at
          FROM users WHERE id = ?1",
         params![id],
         |row| {
@@ -470,8 +491,9 @@ pub fn get_user(conn: &Connection, id: &str) -> Result<LocalUser, String> {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 has_password: password_hash.is_some(),
-                created_at: row.get(3)?,
-                last_login_at: row.get(4)?,
+                avatar: row.get(3)?,
+                created_at: row.get(4)?,
+                last_login_at: row.get(5)?,
             })
         },
     )
@@ -481,6 +503,7 @@ pub fn get_user(conn: &Connection, id: &str) -> Result<LocalUser, String> {
 pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<LocalUser, String> {
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
+    let avatar = request.avatar.as_deref().unwrap_or("avatar-smile");
 
     // Hash password if provided (simple hash for local use - not for network security)
     let password_hash = request.password.as_ref().map(|p| {
@@ -492,9 +515,9 @@ pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<Loc
     });
 
     conn.execute(
-        "INSERT INTO users (id, name, password_hash, created_at)
-         VALUES (?1, ?2, ?3, ?4)",
-        params![id, request.name, password_hash, now],
+        "INSERT INTO users (id, name, password_hash, avatar, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![id, request.name, password_hash, avatar, now],
     )
     .map_err(|e| format!("Failed to create user: {}", e))?;
 
@@ -597,7 +620,7 @@ pub fn delete_user(conn: &Connection, user_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn update_user(conn: &Connection, user_id: &str, name: &str, password: Option<&str>) -> Result<LocalUser, String> {
+pub fn update_user(conn: &Connection, user_id: &str, name: &str, password: Option<&str>, avatar: Option<&str>) -> Result<LocalUser, String> {
     // Hash password if provided
     let password_hash = password.map(|p| {
         use std::collections::hash_map::DefaultHasher;
@@ -607,18 +630,35 @@ pub fn update_user(conn: &Connection, user_id: &str, name: &str, password: Optio
         format!("{:x}", hasher.finish())
     });
 
-    if let Some(hash) = password_hash {
-        conn.execute(
-            "UPDATE users SET name = ?1, password_hash = ?2 WHERE id = ?3",
-            params![name, hash, user_id],
-        )
-        .map_err(|e| format!("Failed to update user: {}", e))?;
-    } else {
-        conn.execute(
-            "UPDATE users SET name = ?1 WHERE id = ?2",
-            params![name, user_id],
-        )
-        .map_err(|e| format!("Failed to update user: {}", e))?;
+    match (password_hash, avatar) {
+        (Some(hash), Some(av)) => {
+            conn.execute(
+                "UPDATE users SET name = ?1, password_hash = ?2, avatar = ?3 WHERE id = ?4",
+                params![name, hash, av, user_id],
+            )
+            .map_err(|e| format!("Failed to update user: {}", e))?;
+        }
+        (Some(hash), None) => {
+            conn.execute(
+                "UPDATE users SET name = ?1, password_hash = ?2 WHERE id = ?3",
+                params![name, hash, user_id],
+            )
+            .map_err(|e| format!("Failed to update user: {}", e))?;
+        }
+        (None, Some(av)) => {
+            conn.execute(
+                "UPDATE users SET name = ?1, avatar = ?2 WHERE id = ?3",
+                params![name, av, user_id],
+            )
+            .map_err(|e| format!("Failed to update user: {}", e))?;
+        }
+        (None, None) => {
+            conn.execute(
+                "UPDATE users SET name = ?1 WHERE id = ?2",
+                params![name, user_id],
+            )
+            .map_err(|e| format!("Failed to update user: {}", e))?;
+        }
     }
 
     get_user(conn, user_id)

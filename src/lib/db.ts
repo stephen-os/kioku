@@ -57,8 +57,8 @@ export async function deleteUser(userId: string): Promise<void> {
   return invoke("delete_user", { userId });
 }
 
-export async function updateUser(userId: string, name: string, password?: string): Promise<LocalUser> {
-  return invoke<LocalUser>("update_user", { userId, name, password });
+export async function updateUser(userId: string, name: string, password?: string, avatar?: string): Promise<LocalUser> {
+  return invoke<LocalUser>("update_user", { userId, name, password, avatar });
 }
 
 export async function removeUserPassword(userId: string): Promise<LocalUser> {

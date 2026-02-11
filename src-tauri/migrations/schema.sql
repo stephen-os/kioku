@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     password_hash TEXT,  -- NULL if no password protection
+    avatar TEXT NOT NULL DEFAULT 'avatar-smile',  -- Avatar identifier
     created_at TEXT NOT NULL,
     last_login_at TEXT
 );

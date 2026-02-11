@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "@/context/AuthContext";
-import { importDeck, importQuiz, deleteUser } from "@/lib/db";
+import { importDeck, importQuiz, deleteUser, updateUser } from "@/lib/db";
+import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
+import type { AvatarId } from "@/types";
 
 export function Settings() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [importingDeck, setImportingDeck] = useState(false);
   const [importingQuiz, setImportingQuiz] = useState(false);
@@ -14,6 +16,19 @@ export function Settings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // Profile editing state
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(user?.name || "");
+  const [editAvatar, setEditAvatar] = useState<AvatarId>((user?.avatar as AvatarId) || "avatar-smile");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name);
+      setEditAvatar((user.avatar as AvatarId) || "avatar-smile");
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -25,6 +40,31 @@ export function Settings() {
     } finally {
       setLoggingOut(false);
     }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user || !editName.trim()) return;
+
+    setSavingProfile(true);
+    try {
+      await updateUser(user.id, editName.trim(), undefined, editAvatar);
+      await refreshUser();
+      setEditingProfile(false);
+      setMessage({ type: "success", text: "Profile updated successfully" });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to update profile",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProfile(false);
+    setEditName(user?.name || "");
+    setEditAvatar((user?.avatar as AvatarId) || "avatar-smile");
   };
 
   const handleImportDeck = async () => {
@@ -126,25 +166,82 @@ export function Settings() {
 
           {/* Account Section */}
           <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
-            <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Account</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-[#fcfcfa]">Account</h2>
+              {!editingProfile && (
+                <button
+                  onClick={() => setEditingProfile(true)}
+                  className="text-sm text-[#78dce8] hover:text-[#ffd866] transition-colors"
+                >
+                  Edit Profile
+                </button>
+              )}
+            </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-[#78dce8]/10 border border-[#78dce8]/30 rounded-lg">
-                <div>
-                  <p className="font-medium text-[#78dce8]">{user?.name}</p>
-                  <p className="text-sm text-[#939293]">
-                    Local Account {user?.hasPassword ? "(Password Protected)" : ""}
-                  </p>
+              {editingProfile ? (
+                <div className="space-y-4">
+                  {/* Avatar Picker */}
+                  <div>
+                    <label className="block text-sm text-[#939293] uppercase tracking-wider mb-3 text-center">
+                      Choose Avatar
+                    </label>
+                    <AvatarPicker
+                      selected={editAvatar}
+                      onSelect={setEditAvatar}
+                      size="md"
+                    />
+                  </div>
+
+                  {/* Name Input */}
+                  <div>
+                    <label className="block text-sm text-[#939293] uppercase tracking-wider mb-2">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="w-full px-4 py-3 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50"
+                    />
+                  </div>
+
+                  {/* Save/Cancel Buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile || !editName.trim()}
+                      className="flex-1 px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors disabled:opacity-50"
+                    >
+                      {savingProfile ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="flex-1 px-4 py-2 border border-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/30 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-[#78dce8] flex items-center justify-center text-[#2d2a2e] font-semibold">
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
+              ) : (
+                <div className="flex items-center justify-between p-4 bg-[#78dce8]/10 border border-[#78dce8]/30 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <AvatarDisplay avatar={user?.avatar || "avatar-smile"} size="lg" />
+                    <div>
+                      <p className="font-medium text-[#fcfcfa] text-lg">{user?.name}</p>
+                      <p className="text-sm text-[#939293]">
+                        Local Account {user?.hasPassword ? "(Password Protected)" : ""}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="pt-4 border-t border-[#5b595c]">
                 <button
                   onClick={handleLogout}
-                  className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium transition-colors disabled:opacity-50"
                   disabled={loggingOut}
                 >
                   {loggingOut ? "Signing out..." : "Switch User"}

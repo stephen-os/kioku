@@ -88,9 +88,9 @@ fn delete_user(state: State<DbState>, user_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn update_user(state: State<DbState>, user_id: String, name: String, password: Option<String>) -> Result<LocalUser, String> {
+fn update_user(state: State<DbState>, user_id: String, name: String, password: Option<String>, avatar: Option<String>) -> Result<LocalUser, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_user(&conn, &user_id, &name, password.as_deref())
+    local_db::update_user(&conn, &user_id, &name, password.as_deref(), avatar.as_deref())
 }
 
 #[tauri::command]

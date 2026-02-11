@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#ab9df2"/>
+  <!-- Gem shape -->
+  <polygon points="50,10 80,35 70,80 30,80 20,35" fill="#2d2a2e"/>
+  <!-- Gem facets -->
+  <polygon points="50,10 65,35 50,45 35,35" fill="#78dce8"/>
+  <polygon points="35,35 50,45 30,75 20,35" fill="#5b595c"/>
+  <polygon points="65,35 80,35 70,75 50,45" fill="#403e41"/>
+  <polygon points="50,45 70,75 30,75" fill="#ffd866"/>
+  <!-- Shine -->
+  <polygon points="38,25 45,35 40,38 33,30" fill="#fcfcfa" opacity="0.6"/>
+</svg>

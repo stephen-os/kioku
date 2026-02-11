@@ -40,10 +40,10 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    },
-    "nsis": {
-      "installMode": "perMachine"
+      "timestampUrl": "",
+      "nsis": {
+        "installMode": "perMachine"
+      }
     }
   },
   "plugins": {
