@@ -32,7 +32,12 @@
       "Bash(.kioku-desktop.exe)",
       "Bash(C:/Users/Stephen/Dev/projects/kioku-desktop/src-tauri/target/release/kioku-desktop.exe)",
       "Bash(npm run test:run:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(while read line)",
+      "Bash(do echo \"$line\")",
+      "Bash(done)"
     ]
   }
 }

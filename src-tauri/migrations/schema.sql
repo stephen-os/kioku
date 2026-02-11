@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS cards (
     notes TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    remote_id INTEGER,
+    remote_id INTEGER,  -- Legacy: unused, kept for compatibility
     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
 );
 
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     deck_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    remote_id INTEGER,
+    remote_id INTEGER,  -- Legacy: unused, kept for compatibility
     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
 );
 
@@ -182,7 +182,7 @@ CREATE INDEX IF NOT EXISTS idx_decks_user_id ON decks(user_id);
 CREATE INDEX IF NOT EXISTS idx_quizzes_user_id ON quizzes(user_id);
 
 -- Deck/Card indexes
-CREATE INDEX IF NOT EXISTS idx_decks_sync_status ON decks(sync_status);
+CREATE INDEX IF NOT EXISTS idx_decks_sync_status ON decks(sync_status);  -- Legacy: unused
 CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id);
 CREATE INDEX IF NOT EXISTS idx_tags_deck_id ON tags(deck_id);
 CREATE INDEX IF NOT EXISTS idx_card_tags_card_id ON card_tags(card_id);

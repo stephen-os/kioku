@@ -7,40 +7,7 @@ use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
 // ============================================
-// Sync Status Enum
-// ============================================
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SyncStatus {
-    LocalOnly,
-    Synced,
-    PendingSync,
-    Conflict,
-}
-
-impl SyncStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            SyncStatus::LocalOnly => "local_only",
-            SyncStatus::Synced => "synced",
-            SyncStatus::PendingSync => "pending_sync",
-            SyncStatus::Conflict => "conflict",
-        }
-    }
-
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "synced" => SyncStatus::Synced,
-            "pending_sync" => SyncStatus::PendingSync,
-            "conflict" => SyncStatus::Conflict,
-            _ => SyncStatus::LocalOnly,
-        }
-    }
-}
-
-// ============================================
-// Data Models with Sync Metadata
+// Data Models
 // ============================================
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -52,10 +19,6 @@ pub struct Deck {
     pub shuffle_cards: bool,
     pub created_at: String,
     pub updated_at: String,
-    pub remote_id: Option<i64>,
-    pub sync_status: SyncStatus,
-    pub last_synced_at: Option<String>,
-    pub remote_updated_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub card_count: Option<i32>,
 }
@@ -81,7 +44,6 @@ pub struct Card {
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-    pub remote_id: Option<i64>,
     #[serde(default)]
     pub tags: Vec<CardTag>,
 }
@@ -92,7 +54,6 @@ pub struct Tag {
     pub id: String,
     pub deck_id: String,
     pub name: String,
-    pub remote_id: Option<i64>,
 }
 
 // ============================================
@@ -688,8 +649,8 @@ pub fn create_deck_local(
     let now = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO decks (id, name, description, shuffle_cards, created_at, updated_at, sync_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'local_only')",
+        "INSERT INTO decks (id, name, description, shuffle_cards, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![id, name, description, shuffle_cards as i32, now, now],
     )
     .map_err(|e| format!("Failed to create deck: {}", e))?;
@@ -701,7 +662,6 @@ pub fn get_all_decks_local(conn: &Connection) -> Result<Vec<Deck>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT d.id, d.name, d.description, d.shuffle_cards, d.created_at, d.updated_at,
-                    d.remote_id, d.sync_status, d.last_synced_at, d.remote_updated_at,
                     (SELECT COUNT(*) FROM cards WHERE deck_id = d.id) as card_count
              FROM decks d ORDER BY d.updated_at DESC",
         )
@@ -716,11 +676,7 @@ pub fn get_all_decks_local(conn: &Connection) -> Result<Vec<Deck>, String> {
                 shuffle_cards: row.get::<_, i32>(3)? != 0,
                 created_at: row.get(4)?,
                 updated_at: row.get(5)?,
-                remote_id: row.get(6)?,
-                sync_status: SyncStatus::from_str(&row.get::<_, String>(7)?),
-                last_synced_at: row.get(8)?,
-                remote_updated_at: row.get(9)?,
-                card_count: Some(row.get(10)?),
+                card_count: Some(row.get(6)?),
             })
         })
         .map_err(|e| format!("Failed to query decks: {}", e))?;
@@ -732,8 +688,7 @@ pub fn get_all_decks_local(conn: &Connection) -> Result<Vec<Deck>, String> {
 
 pub fn get_deck_local(conn: &Connection, id: &str) -> Result<Deck, String> {
     conn.query_row(
-        "SELECT id, name, description, shuffle_cards, created_at, updated_at,
-                remote_id, sync_status, last_synced_at, remote_updated_at
+        "SELECT id, name, description, shuffle_cards, created_at, updated_at
          FROM decks WHERE id = ?1",
         params![id],
         |row| {
@@ -744,10 +699,6 @@ pub fn get_deck_local(conn: &Connection, id: &str) -> Result<Deck, String> {
                 shuffle_cards: row.get::<_, i32>(3)? != 0,
                 created_at: row.get(4)?,
                 updated_at: row.get(5)?,
-                remote_id: row.get(6)?,
-                sync_status: SyncStatus::from_str(&row.get::<_, String>(7)?),
-                last_synced_at: row.get(8)?,
-                remote_updated_at: row.get(9)?,
                 card_count: None,
             })
         },
@@ -763,16 +714,11 @@ pub fn update_deck_local(
     shuffle_cards: bool,
 ) -> Result<Deck, String> {
     let now = chrono::Utc::now().to_rfc3339();
-    let current = get_deck_local(conn, id)?;
-    let new_status = match current.sync_status {
-        SyncStatus::Synced => SyncStatus::PendingSync,
-        other => other,
-    };
 
     conn.execute(
-        "UPDATE decks SET name = ?1, description = ?2, shuffle_cards = ?3, updated_at = ?4, sync_status = ?5
-         WHERE id = ?6",
-        params![name, description, shuffle_cards as i32, now, new_status.as_str(), id],
+        "UPDATE decks SET name = ?1, description = ?2, shuffle_cards = ?3, updated_at = ?4
+         WHERE id = ?5",
+        params![name, description, shuffle_cards as i32, now, id],
     )
     .map_err(|e| format!("Failed to update deck: {}", e))?;
 
@@ -809,8 +755,6 @@ pub fn create_card_local(
         ],
     )
     .map_err(|e| format!("Failed to create card: {}", e))?;
-
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
     get_card_local(conn, &id, deck_id)
 }
 
@@ -819,7 +763,7 @@ pub fn get_cards_for_deck_local(conn: &Connection, deck_id: &str) -> Result<Vec<
         .prepare(
             "SELECT id, deck_id, front, front_type, front_language,
                     back, back_type, back_language, notes,
-                    created_at, updated_at, remote_id
+                    created_at, updated_at
              FROM cards WHERE deck_id = ?1 ORDER BY created_at ASC",
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
@@ -838,7 +782,6 @@ pub fn get_cards_for_deck_local(conn: &Connection, deck_id: &str) -> Result<Vec<
                 notes: row.get(8)?,
                 created_at: row.get(9)?,
                 updated_at: row.get(10)?,
-                remote_id: row.get(11)?,
                 tags: vec![],
             })
         })
@@ -860,7 +803,7 @@ pub fn get_card_local(conn: &Connection, id: &str, deck_id: &str) -> Result<Card
         .query_row(
             "SELECT id, deck_id, front, front_type, front_language,
                     back, back_type, back_language, notes,
-                    created_at, updated_at, remote_id
+                    created_at, updated_at
              FROM cards WHERE id = ?1 AND deck_id = ?2",
             params![id, deck_id],
             |row| {
@@ -876,7 +819,6 @@ pub fn get_card_local(conn: &Connection, id: &str, deck_id: &str) -> Result<Card
                     notes: row.get(8)?,
                     created_at: row.get(9)?,
                     updated_at: row.get(10)?,
-                    remote_id: row.get(11)?,
                     tags: vec![],
                 })
             },
@@ -907,8 +849,6 @@ pub fn update_card_local(
         ],
     )
     .map_err(|e| format!("Failed to update card: {}", e))?;
-
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
     get_card_local(conn, id, deck_id)
 }
 
@@ -918,8 +858,6 @@ pub fn delete_card_local(conn: &Connection, id: &str, deck_id: &str) -> Result<(
         params![id, deck_id],
     )
     .map_err(|e| format!("Failed to delete card: {}", e))?;
-
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
     Ok(())
 }
 
@@ -936,19 +874,16 @@ pub fn create_tag_local(conn: &Connection, deck_id: &str, name: &str) -> Result<
     )
     .map_err(|e| format!("Failed to create tag: {}", e))?;
 
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
-
     Ok(Tag {
         id,
         deck_id: deck_id.to_string(),
         name: name.to_string(),
-        remote_id: None,
     })
 }
 
 pub fn get_tags_for_deck_local(conn: &Connection, deck_id: &str) -> Result<Vec<Tag>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, deck_id, name, remote_id FROM tags WHERE deck_id = ?1 ORDER BY name")
+        .prepare("SELECT id, deck_id, name FROM tags WHERE deck_id = ?1 ORDER BY name")
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
     let tags = stmt
@@ -957,7 +892,6 @@ pub fn get_tags_for_deck_local(conn: &Connection, deck_id: &str) -> Result<Vec<T
                 id: row.get(0)?,
                 deck_id: row.get(1)?,
                 name: row.get(2)?,
-                remote_id: row.get(3)?,
             })
         })
         .map_err(|e| format!("Failed to query tags: {}", e))?;
@@ -994,14 +928,12 @@ pub fn delete_tag_local(conn: &Connection, deck_id: &str, id: &str) -> Result<()
         params![id, deck_id],
     )
     .map_err(|e| format!("Failed to delete tag: {}", e))?;
-
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
     Ok(())
 }
 
 pub fn add_tag_to_card_local(
     conn: &Connection,
-    deck_id: &str,
+    _deck_id: &str,
     card_id: &str,
     tag_id: &str,
 ) -> Result<(), String> {
@@ -1010,14 +942,12 @@ pub fn add_tag_to_card_local(
         params![card_id, tag_id],
     )
     .map_err(|e| format!("Failed to add tag to card: {}", e))?;
-
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
     Ok(())
 }
 
 pub fn remove_tag_from_card_local(
     conn: &Connection,
-    deck_id: &str,
+    _deck_id: &str,
     card_id: &str,
     tag_id: &str,
 ) -> Result<(), String> {
@@ -1026,21 +956,18 @@ pub fn remove_tag_from_card_local(
         params![card_id, tag_id],
     )
     .map_err(|e| format!("Failed to remove tag from card: {}", e))?;
-
-    let _ = mark_deck_pending_if_synced(conn, deck_id);
     Ok(())
 }
 
 pub fn get_tag_by_name(conn: &Connection, deck_id: &str, name: &str) -> Result<Option<Tag>, String> {
     match conn.query_row(
-        "SELECT id, deck_id, name, remote_id FROM tags WHERE deck_id = ?1 AND name = ?2",
+        "SELECT id, deck_id, name FROM tags WHERE deck_id = ?1 AND name = ?2",
         params![deck_id, name],
         |row| {
             Ok(Tag {
                 id: row.get(0)?,
                 deck_id: row.get(1)?,
                 name: row.get(2)?,
-                remote_id: row.get(3)?,
             })
         },
     ) {
@@ -1162,20 +1089,6 @@ pub fn get_quiz_tag_by_name(conn: &Connection, quiz_id: &str, name: &str) -> Res
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(format!("Query failed: {}", e)),
     }
-}
-
-// ============================================
-// Helper Functions
-// ============================================
-
-fn mark_deck_pending_if_synced(conn: &Connection, deck_id: &str) -> Result<(), String> {
-    conn.execute(
-        "UPDATE decks SET sync_status = 'pending_sync', updated_at = ?1
-         WHERE id = ?2 AND sync_status = 'synced'",
-        params![chrono::Utc::now().to_rfc3339(), deck_id],
-    )
-    .map_err(|e| format!("Failed to mark pending: {}", e))?;
-    Ok(())
 }
 
 // ============================================
