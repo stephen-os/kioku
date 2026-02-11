@@ -1778,13 +1778,13 @@ pub fn get_quiz_attempts(conn: &Connection, quiz_id: &str) -> Result<Vec<QuizAtt
 pub fn get_quiz_stats(conn: &Connection, quiz_id: &str) -> Result<QuizStats, String> {
     // Get aggregate stats
     let (total_attempts, avg_score, best_score, avg_duration, last_attempt): (
-        i32, f64, i32, Option<i32>, Option<String>,
+        i32, f64, f64, Option<f64>, Option<String>,
     ) = conn
         .query_row(
             "SELECT
                 COUNT(*),
-                COALESCE(AVG(score_percentage), 0),
-                COALESCE(MAX(score_percentage), 0),
+                COALESCE(AVG(score_percentage), 0.0),
+                COALESCE(MAX(score_percentage), 0.0),
                 AVG(duration_seconds),
                 MAX(completed_at)
              FROM quiz_attempts
@@ -1792,7 +1792,7 @@ pub fn get_quiz_stats(conn: &Connection, quiz_id: &str) -> Result<QuizStats, Str
             params![quiz_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
         )
-        .unwrap_or((0, 0.0, 0, None, None));
+        .map_err(|e| format!("Failed to get quiz stats: {}", e))?;
 
     // Get last 5 scores
     let mut stmt = conn
@@ -1813,8 +1813,8 @@ pub fn get_quiz_stats(conn: &Connection, quiz_id: &str) -> Result<QuizStats, Str
         quiz_id: quiz_id.to_string(),
         total_attempts,
         average_score: avg_score,
-        best_score,
-        average_duration_seconds: avg_duration,
+        best_score: best_score as i32,
+        average_duration_seconds: avg_duration.map(|d| d as i32),
         last_attempt_at: last_attempt,
         recent_scores,
     })
