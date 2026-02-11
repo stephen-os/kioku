@@ -58,18 +58,6 @@ export function Layout() {
               >
                 Quizzes
               </Link>
-              <Link
-                to="/stats"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
-                Stats
-              </Link>
-              <Link
-                to="/export"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
-                Export
-              </Link>
 
               {/* User Menu */}
               <div className="relative">
@@ -109,6 +97,21 @@ export function Layout() {
                       </div>
 
                       {/* Menu Items */}
+                      <Link
+                        to="/stats"
+                        onClick={() => setShowUserMenu(false)}
+                        className="block px-4 py-2 text-sm text-[#fcfcfa] hover:bg-[#5b595c]/30"
+                      >
+                        Statistics
+                      </Link>
+                      <Link
+                        to="/export"
+                        onClick={() => setShowUserMenu(false)}
+                        className="block px-4 py-2 text-sm text-[#fcfcfa] hover:bg-[#5b595c]/30"
+                      >
+                        Export
+                      </Link>
+                      <div className="border-t border-[#5b595c] my-1"></div>
                       <Link
                         to="/settings"
                         onClick={() => setShowUserMenu(false)}
