@@ -110,6 +110,13 @@ export function Layout() {
                       >
                         Settings
                       </Link>
+                      <Link
+                        to="/help"
+                        onClick={() => setShowUserMenu(false)}
+                        className="block px-4 py-2 text-sm text-[#fcfcfa] hover:bg-[#5b595c]/30"
+                      >
+                        Help
+                      </Link>
 
                       <button
                         onClick={handleLogout}
