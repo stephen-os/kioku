@@ -1,19 +1,36 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
-import type { Card, Deck } from "@/types";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useParams, Link, useSearchParams } from "react-router-dom";
+import type { Card, Deck, Tag } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
-import { getCardsForDeck, getDeck } from "@/lib/db";
+import { getCardsForDeck, getDeck, getTagsForDeck } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
 
+type FilterLogic = "any" | "all";
+
 export function StudyMode() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [deck, setDeck] = useState<Deck | null>(null);
+  const [allCards, setAllCards] = useState<Card[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [studyComplete, setStudyComplete] = useState(false);
+
+  // URL filter params
+  const urlSearchTerm = searchParams.get("q") || "";
+  const urlTagIds = searchParams.get("tags")?.split(",").filter(Boolean) || [];
+  const urlTagMode = (searchParams.get("tagMode") as FilterLogic) || "any";
+  const hasUrlFilters = urlSearchTerm || urlTagIds.length > 0;
+
+  // Tag filter state
+  const [showTagFilter, setShowTagFilter] = useState(false);
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>(urlTagIds);
+  const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>(urlTagMode);
+  const [studyStarted, setStudyStarted] = useState(false);
 
   // Animation states
   const [isAnimating, setIsAnimating] = useState(false);
@@ -31,14 +48,54 @@ export function StudyMode() {
       if (!id) return;
       try {
         if (isTauri()) {
-          const [deckData, cardsData] = await Promise.all([
+          const [deckData, cardsData, tagsData] = await Promise.all([
             getDeck(id),
             getCardsForDeck(id),
+            getTagsForDeck(id),
           ]);
           setDeck(deckData);
-          // Shuffle cards for study session
-          const shuffled = [...cardsData].sort(() => Math.random() - 0.5);
-          setCards(shuffled);
+          setAllCards(cardsData);
+          setTags(tagsData);
+
+          // If URL has filters, apply them directly and skip the filter screen
+          if (hasUrlFilters) {
+            let filteredCards = cardsData;
+
+            // Apply text search from URL
+            if (urlSearchTerm) {
+              const term = urlSearchTerm.toLowerCase();
+              filteredCards = filteredCards.filter(
+                (card) =>
+                  card.front.toLowerCase().includes(term) ||
+                  card.back.toLowerCase().includes(term) ||
+                  (card.notes && card.notes.toLowerCase().includes(term))
+              );
+            }
+
+            // Apply tag filters from URL
+            if (urlTagIds.length > 0) {
+              filteredCards = filteredCards.filter((card) => {
+                const cardTagIds = card.tags.map((t) => t.id);
+                if (urlTagMode === "all") {
+                  return urlTagIds.every((tagId) => cardTagIds.includes(tagId));
+                } else {
+                  return urlTagIds.some((tagId) => cardTagIds.includes(tagId));
+                }
+              });
+            }
+
+            const shuffled = [...filteredCards].sort(() => Math.random() - 0.5);
+            setCards(shuffled);
+            setStudyStarted(true);
+          } else if (tagsData.length > 0) {
+            // No URL filters, but has tags - show filter screen
+            setShowTagFilter(true);
+          } else {
+            // No tags, start studying immediately
+            const shuffled = [...cardsData].sort(() => Math.random() - 0.5);
+            setCards(shuffled);
+            setStudyStarted(true);
+          }
         }
       } catch (error) {
         console.error("Failed to load cards:", error);
@@ -47,7 +104,42 @@ export function StudyMode() {
       }
     }
     loadDeckAndCards();
-  }, [id]);
+  }, [id, hasUrlFilters, urlSearchTerm, urlTagIds, urlTagMode]);
+
+  // Filter cards based on selected tags
+  const filteredCards = useMemo(() => {
+    if (selectedTagFilters.length === 0) return allCards;
+
+    return allCards.filter((card) => {
+      const cardTagIds = card.tags.map((t) => t.id);
+      if (tagFilterMode === "all") {
+        return selectedTagFilters.every((tagId) => cardTagIds.includes(tagId));
+      } else {
+        return selectedTagFilters.some((tagId) => cardTagIds.includes(tagId));
+      }
+    });
+  }, [allCards, selectedTagFilters, tagFilterMode]);
+
+  const handleToggleTagFilter = (tagId: string) => {
+    setSelectedTagFilters((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((t) => t !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
+  const handleStartStudy = () => {
+    const cardsToStudy = selectedTagFilters.length > 0 ? filteredCards : allCards;
+    const shuffled = [...cardsToStudy].sort(() => Math.random() - 0.5);
+    setCards(shuffled);
+    setShowTagFilter(false);
+    setStudyStarted(true);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedTagFilters([]);
+    setTagFilterMode("any");
+  };
 
   const currentCard = cards[currentIndex];
   const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
@@ -123,6 +215,14 @@ export function StudyMode() {
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setCards(shuffled);
   }, [cards]);
+
+  const handleChangeFilters = useCallback(() => {
+    setStudyComplete(false);
+    setStudyStarted(false);
+    setShowTagFilter(true);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -211,7 +311,156 @@ export function StudyMode() {
     );
   }
 
-  if (cards.length === 0) {
+  // Tag filter screen
+  if (showTagFilter && !studyStarted) {
+    return (
+      <div className="h-full bg-[#2d2a2e] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-[#403e41] border-b border-[#5b595c] flex-shrink-0">
+          <div className="max-w-4xl mx-auto px-6 py-4">
+            <div className="flex justify-between items-center">
+              <Link
+                to={`/decks/${id}`}
+                className="text-[#78dce8] hover:text-[#ffd866] flex items-center transition-colors"
+              >
+                <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Deck
+              </Link>
+              <h1 className="text-xl font-bold text-[#fcfcfa] font-mono truncate max-w-[300px]">
+                {deck?.name}
+              </h1>
+              <div className="w-24" />
+            </div>
+          </div>
+        </div>
+
+        {/* Tag Filter Content */}
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="bg-[#403e41] rounded-2xl border border-[#5b595c] p-8 max-w-lg w-full">
+            <h2 className="text-2xl font-bold text-[#fcfcfa] text-center mb-2">
+              Study Session
+            </h2>
+            <p className="text-[#939293] text-center mb-6">
+              Select tags to filter cards, or study all {allCards.length} cards
+            </p>
+
+            {/* Tag Filter Mode */}
+            {selectedTagFilters.length > 1 && (
+              <div className="flex justify-center mb-4">
+                <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5">
+                  <button
+                    onClick={() => setTagFilterMode("any")}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      tagFilterMode === "any"
+                        ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                        : "text-[#939293] hover:text-[#fcfcfa]"
+                    }`}
+                  >
+                    Match Any
+                  </button>
+                  <button
+                    onClick={() => setTagFilterMode("all")}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      tagFilterMode === "all"
+                        ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                        : "text-[#939293] hover:text-[#fcfcfa]"
+                    }`}
+                  >
+                    Match All
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tag Chips */}
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {tags.map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() => handleToggleTagFilter(tag.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    selectedTagFilters.includes(tag.id)
+                      ? "bg-[#ab9df2] text-[#2d2a2e]"
+                      : "bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30"
+                  }`}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Card count */}
+            <p className="text-center text-[#939293] mb-6">
+              {selectedTagFilters.length > 0 ? (
+                <>
+                  <span className="text-[#ffd866] font-semibold">{filteredCards.length}</span> cards match your filters
+                </>
+              ) : (
+                <>
+                  <span className="text-[#ffd866] font-semibold">{allCards.length}</span> cards total
+                </>
+              )}
+            </p>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleStartStudy}
+                disabled={selectedTagFilters.length > 0 && filteredCards.length === 0}
+                className="w-full px-6 py-3 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {selectedTagFilters.length > 0
+                  ? `Study ${filteredCards.length} Cards`
+                  : `Study All ${allCards.length} Cards`}
+              </button>
+              {selectedTagFilters.length > 0 && (
+                <button
+                  onClick={handleClearFilters}
+                  className="w-full px-6 py-3 border border-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/30 font-medium transition-colors"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (cards.length === 0 && studyStarted) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-6 bg-[#2d2a2e]">
+        <div className="text-6xl mb-4">📭</div>
+        <h1 className="text-xl font-semibold text-[#fcfcfa] mb-2">No cards to study</h1>
+        <p className="text-[#939293] mb-6">
+          {selectedTagFilters.length > 0
+            ? "No cards match your selected tags"
+            : "Add some cards to this deck first"}
+        </p>
+        <div className="flex gap-4">
+          {selectedTagFilters.length > 0 && (
+            <button
+              onClick={handleChangeFilters}
+              className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
+            >
+              Change Filters
+            </button>
+          )}
+          <Link
+            to={`/decks/${id}`}
+            className="px-4 py-2 bg-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/80 font-medium transition-colors"
+          >
+            Manage Deck
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (allCards.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 bg-[#2d2a2e]">
         <div className="text-6xl mb-4">📭</div>
@@ -290,15 +539,23 @@ export function StudyMode() {
                 Great Job!
               </h2>
               <p className="text-[#939293] mb-8">
-                You've completed all {cards.length} cards in this deck.
+                You've completed all {cards.length} cards{selectedTagFilters.length > 0 ? " matching your filters" : ""}.
               </p>
-              <div className="flex justify-center gap-4">
+              <div className="flex flex-col sm:flex-row justify-center gap-3">
                 <button
                   onClick={handleRestart}
                   className="px-6 py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
                 >
                   Study Again
                 </button>
+                {tags.length > 0 && (
+                  <button
+                    onClick={handleChangeFilters}
+                    className="px-6 py-3 bg-[#ab9df2] text-[#2d2a2e] rounded-lg hover:bg-[#ab9df2]/90 font-medium transition-colors"
+                  >
+                    Change Filters
+                  </button>
+                )}
                 <Link
                   to={`/decks/${id}`}
                   className="px-6 py-3 border border-[#5b595c] rounded-lg text-[#fcfcfa] hover:bg-[#5b595c]/30 font-medium transition-colors"

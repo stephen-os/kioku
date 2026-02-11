@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { ConnectionIndicator } from "./ConnectionIndicator";
 import { useAuth } from "@/context/AuthContext";
 
 // Generate a consistent color based on the first letter
@@ -21,10 +20,10 @@ export function Layout() {
   const _location = useLocation();
   void _location; // Reserved for future active link highlighting
   const navigate = useNavigate();
-  const { session, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const firstLetter = session?.email?.charAt(0).toUpperCase() || "U";
+  const firstLetter = user?.name?.charAt(0).toUpperCase() || "U";
   const avatarColor = getAvatarColor(firstLetter);
 
   const handleLogout = async () => {
@@ -47,12 +46,17 @@ export function Layout() {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <ConnectionIndicator />
               <Link
                 to="/"
                 className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
               >
-                My Decks
+                Decks
+              </Link>
+              <Link
+                to="/quizzes"
+                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
+              >
+                Quizzes
               </Link>
 
               {/* User Menu */}
@@ -61,7 +65,7 @@ export function Layout() {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-[#2d2a2e] transition-opacity hover:opacity-80"
                   style={{ backgroundColor: avatarColor }}
-                  title={session?.email || "User"}
+                  title={user?.name || "User"}
                 >
                   {firstLetter}
                 </button>
@@ -85,12 +89,9 @@ export function Layout() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[#fcfcfa] truncate">
-                              {session?.email || "User"}
+                              {user?.name || "User"}
                             </p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="w-2 h-2 rounded-full bg-[#a9dc76]" />
-                              <span className="text-xs text-[#a9dc76]">Synced</span>
-                            </div>
+                            <p className="text-xs text-[#939293] mt-0.5">Local Account</p>
                           </div>
                         </div>
                       </div>

@@ -6,71 +6,93 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import type { Session, LoginRequest } from "@/types";
+import type { LocalUser, CreateUserRequest } from "@/types";
 import {
-  login as loginService,
-  logout as logoutService,
-  getSession,
-  isTauri,
-} from "@/lib/auth";
+  getAllUsers,
+  getActiveUser,
+  createUser as createUserService,
+  loginUser as loginUserService,
+  logoutUser as logoutUserService,
+} from "@/lib/db";
 
 interface AuthContextType {
-  session: Session | null;
+  user: LocalUser | null;
+  users: LocalUser[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (request: LoginRequest) => Promise<void>;
+  login: (userId: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
+  createUser: (request: CreateUserRequest) => Promise<LocalUser>;
+  refreshUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<LocalUser | null>(null);
+  const [users, setUsers] = useState<LocalUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load session on mount (for auto-login)
-  useEffect(() => {
-    async function loadSession() {
-      try {
-        if (isTauri()) {
-          const existingSession = await getSession();
-          if (existingSession) {
-            setSession(existingSession);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load session:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  // Load users and check for active session on mount
+  const loadInitialState = useCallback(async () => {
+    try {
+      const [allUsers, activeUser] = await Promise.all([
+        getAllUsers(),
+        getActiveUser(),
+      ]);
+      setUsers(allUsers);
+      setUser(activeUser);
+    } catch (error) {
+      console.error("Failed to load initial state:", error);
+    } finally {
+      setIsLoading(false);
     }
-
-    loadSession();
   }, []);
 
-  const login = useCallback(async (request: LoginRequest) => {
-    const newSession = await loginService(request);
-    setSession(newSession);
+  useEffect(() => {
+    loadInitialState();
+  }, [loadInitialState]);
+
+  const refreshUsers = useCallback(async () => {
+    try {
+      const allUsers = await getAllUsers();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error("Failed to refresh users:", error);
+    }
   }, []);
+
+  const login = useCallback(async (userId: string, password?: string) => {
+    const loggedInUser = await loginUserService(userId, password);
+    setUser(loggedInUser);
+    await refreshUsers(); // Refresh to update lastLoginAt
+  }, [refreshUsers]);
 
   const logout = useCallback(async () => {
     try {
-      if (isTauri()) {
-        await logoutService();
-      }
+      await logoutUserService();
     } finally {
-      setSession(null);
+      setUser(null);
     }
   }, []);
+
+  const createUser = useCallback(async (request: CreateUserRequest) => {
+    const newUser = await createUserService(request);
+    await refreshUsers();
+    return newUser;
+  }, [refreshUsers]);
 
   return (
     <AuthContext.Provider
       value={{
-        session,
+        user,
+        users,
         isLoading,
-        isAuthenticated: session !== null,
+        isAuthenticated: user !== null,
         login,
         logout,
+        createUser,
+        refreshUsers,
       }}
     >
       {children}

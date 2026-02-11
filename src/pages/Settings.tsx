@@ -8,7 +8,7 @@ import type { Deck } from "@/types";
 
 export function Settings() {
   const navigate = useNavigate();
-  const { session, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -128,12 +128,16 @@ export function Settings() {
             <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Account</h2>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-[#a9dc76]/10 border border-[#a9dc76]/30 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-[#78dce8]/10 border border-[#78dce8]/30 rounded-lg">
                 <div>
-                  <p className="font-medium text-[#a9dc76]">Signed In</p>
-                  <p className="text-sm text-[#939293]">{session?.email}</p>
+                  <p className="font-medium text-[#78dce8]">{user?.name}</p>
+                  <p className="text-sm text-[#939293]">
+                    Local Account {user?.hasPassword ? "(Password Protected)" : ""}
+                  </p>
                 </div>
-                <div className="w-3 h-3 bg-[#a9dc76] rounded-full" />
+                <div className="w-10 h-10 rounded-full bg-[#78dce8] flex items-center justify-center text-[#2d2a2e] font-semibold">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </div>
               </div>
 
               <div className="pt-4 border-t border-[#5b595c]">
@@ -142,11 +146,10 @@ export function Settings() {
                   className="px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium transition-colors disabled:opacity-50"
                   disabled={loggingOut}
                 >
-                  {loggingOut ? "Signing out..." : "Sign Out"}
+                  {loggingOut ? "Signing out..." : "Switch User"}
                 </button>
                 <p className="text-xs text-[#939293] mt-2">
-                  This will clear your local session. Your data remains on the
-                  server.
+                  Switch to a different local user profile.
                 </p>
               </div>
             </div>
@@ -196,7 +199,7 @@ export function Settings() {
             <h2 className="text-lg font-semibold text-[#fcfcfa] mb-2">About Kioku Desktop</h2>
             <p className="text-[#939293] text-sm">Version 0.1.0</p>
             <p className="text-[#939293] text-sm mt-2">
-              A flashcard study app. Your decks sync with your Kioku account.
+              A local-first flashcard study app. All your data is stored on this device.
             </p>
           </section>
         </div>

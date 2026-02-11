@@ -8,6 +8,12 @@ import { ListenMode } from "./pages/ListenMode";
 import { NewDeck } from "./pages/NewDeck";
 import { Settings } from "./pages/Settings";
 import { Login } from "./pages/Login";
+// Quiz pages
+import { QuizList } from "./pages/QuizList";
+import { QuizView } from "./pages/QuizView";
+import { QuizEditor } from "./pages/QuizEditor";
+import { TakeQuiz } from "./pages/TakeQuiz";
+import { QuizResults } from "./pages/QuizResults";
 
 // Protected route wrapper - requires authentication
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -80,6 +86,13 @@ function AppRoutes() {
         <Route path="decks/:id" element={<DeckView />} />
         <Route path="decks/:id/study" element={<StudyMode />} />
         <Route path="decks/:id/listen" element={<ListenMode />} />
+        {/* Quiz routes */}
+        <Route path="quizzes" element={<QuizList />} />
+        <Route path="quizzes/new" element={<QuizEditor />} />
+        <Route path="quizzes/:id" element={<QuizView />} />
+        <Route path="quizzes/:id/edit" element={<QuizEditor />} />
+        <Route path="quizzes/:id/take" element={<TakeQuiz />} />
+        <Route path="quizzes/:id/results/:attemptId" element={<QuizResults />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

@@ -1,0 +1,97 @@
+{
+  "name": "JavaScript Fundamentals",
+  "description": "Test your knowledge of JavaScript basics",
+  "shuffleQuestions": true,
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "content": "What is the output of: typeof []",
+      "contentType": "CODE",
+      "contentLanguage": "JAVASCRIPT",
+      "choices": [
+        { "text": "\"array\"", "isCorrect": false },
+        { "text": "\"object\"", "isCorrect": true },
+        { "text": "\"undefined\"", "isCorrect": false },
+        { "text": "\"list\"", "isCorrect": false }
+      ],
+      "multipleAnswers": false,
+      "explanation": "Arrays in JavaScript are objects. Use Array.isArray() to check for arrays."
+    },
+    {
+      "type": "multiple_choice",
+      "content": "Which of the following are falsy values in JavaScript?",
+      "contentType": "TEXT",
+      "choices": [
+        { "text": "0", "isCorrect": true },
+        { "text": "\"\" (empty string)", "isCorrect": true },
+        { "text": "[] (empty array)", "isCorrect": false },
+        { "text": "null", "isCorrect": true }
+      ],
+      "multipleAnswers": true,
+      "explanation": "Falsy values: false, 0, '', null, undefined, NaN. Empty arrays [] are truthy!"
+    },
+    {
+      "type": "fill_in_blank",
+      "content": "Complete the arrow function:\n\nconst add = (a, b) _____ a + b;",
+      "contentType": "CODE",
+      "contentLanguage": "JAVASCRIPT",
+      "correctAnswer": "=>",
+      "explanation": "Arrow functions use => for implicit returns without braces."
+    },
+    {
+      "type": "multiple_choice",
+      "content": "What does 'use strict' do?",
+      "contentType": "TEXT",
+      "choices": [
+        { "text": "Enables strict type checking", "isCorrect": false },
+        { "text": "Prevents silent errors and disables some features", "isCorrect": true },
+        { "text": "Makes code run faster", "isCorrect": false },
+        { "text": "Enables ES6 features", "isCorrect": false }
+      ],
+      "explanation": "Strict mode catches common mistakes and prevents unsafe actions."
+    },
+    {
+      "type": "fill_in_blank",
+      "content": "To check if a variable is an array, use:\n\nArray._____(myVar)",
+      "contentType": "CODE",
+      "contentLanguage": "JAVASCRIPT",
+      "correctAnswer": "isArray",
+      "explanation": "Array.isArray() returns true if the argument is an array."
+    },
+    {
+      "type": "multiple_choice",
+      "content": "What will this code output?\n\nconsole.log(1 + '2' + 3);",
+      "contentType": "CODE",
+      "contentLanguage": "JAVASCRIPT",
+      "choices": [
+        { "text": "6", "isCorrect": false },
+        { "text": "\"123\"", "isCorrect": true },
+        { "text": "\"15\"", "isCorrect": false },
+        { "text": "NaN", "isCorrect": false }
+      ],
+      "multipleAnswers": false,
+      "explanation": "JavaScript coerces 1 to '1', concatenates with '2' to get '12', then concatenates with 3 to get '123'."
+    },
+    {
+      "type": "multiple_choice",
+      "content": "Which methods modify the original array?",
+      "contentType": "TEXT",
+      "choices": [
+        { "text": "push()", "isCorrect": true },
+        { "text": "map()", "isCorrect": false },
+        { "text": "splice()", "isCorrect": true },
+        { "text": "filter()", "isCorrect": false }
+      ],
+      "multipleAnswers": true,
+      "explanation": "push() and splice() modify the original array. map() and filter() return new arrays."
+    },
+    {
+      "type": "fill_in_blank",
+      "content": "To prevent object properties from being modified, use:\n\nObject._____(myObj)",
+      "contentType": "CODE",
+      "contentLanguage": "JAVASCRIPT",
+      "correctAnswer": "freeze",
+      "explanation": "Object.freeze() prevents adding, removing, or modifying properties on an object."
+    }
+  ]
+}

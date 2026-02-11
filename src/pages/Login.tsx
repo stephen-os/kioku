@@ -1,37 +1,70 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { DEFAULT_API_URL } from "@/types";
 
 export function Login() {
-  const navigate = useNavigate();
-  const { login } = useAuth();
-
-  const [email, setEmail] = useState("");
+  const { users, login, createUser } = useAuth();
+  const [mode, setMode] = useState<"select" | "create">(users.length > 0 ? "select" : "create");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [password, setPassword] = useState("");
-  const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  // Create user form state
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [usePassword, setUsePassword] = useState(false);
 
-    if (!email.trim() || !password.trim()) {
-      setError("Email and password are required");
+  const selectedUser = users.find(u => u.id === selectedUserId);
+
+  const handleLogin = async () => {
+    if (!selectedUserId) {
+      setError("Please select a user");
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
+    setError("");
 
     try {
-      await login({ email: email.trim(), password, apiUrl });
-      navigate("/");
+      await login(selectedUserId, selectedUser?.hasPassword ? password : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUserName.trim()) {
+      setError("Please enter a name");
+      return;
+    }
+
+    if (usePassword) {
+      if (!newUserPassword) {
+        setError("Please enter a password");
+        return;
+      }
+      if (newUserPassword !== confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const newUser = await createUser({
+        name: newUserName.trim(),
+        password: usePassword ? newUserPassword : undefined,
+      });
+      // Auto-login as the new user
+      await login(newUser.id, usePassword ? newUserPassword : undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create user");
+      setIsLoading(false);
     }
   };
 
@@ -40,119 +73,212 @@ export function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-[#ffd866] flex items-center justify-center">
-              <span className="text-[#2d2a2e] font-bold text-xl font-mono">K</span>
-            </div>
+          <div className="w-16 h-16 rounded-2xl bg-[#ffd866] flex items-center justify-center mx-auto mb-4">
+            <span className="text-[#2d2a2e] font-bold text-2xl font-mono">K</span>
           </div>
           <h1 className="text-3xl font-bold text-[#fcfcfa] font-mono">kioku</h1>
-          <p className="text-[#939293] mt-2">
-            Your personal flashcard study app
-          </p>
+          <p className="text-[#939293] mt-2">Local flashcard & quiz app</p>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 space-y-6">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-[#fcfcfa]">
-              Welcome back
-            </h2>
-            <p className="text-[#939293] text-sm mt-1">
-              Sign in to access your decks
-            </p>
-          </div>
+        {/* Card */}
+        <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6">
+          {mode === "select" && users.length > 0 ? (
+            <>
+              <h2 className="text-xl font-semibold text-[#fcfcfa] mb-6">Select User</h2>
 
-          {error && (
-            <div className="bg-[#ff6188]/10 border border-[#ff6188]/30 text-[#ff6188] px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+              {/* User List */}
+              <div className="space-y-2 mb-6">
+                {users.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => {
+                      setSelectedUserId(user.id);
+                      setPassword("");
+                      setError("");
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                      selectedUserId === user.id
+                        ? "bg-[#ffd866]/20 border-[#ffd866]"
+                        : "bg-[#2d2a2e] border-[#5b595c] hover:border-[#939293]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#78dce8] flex items-center justify-center text-[#2d2a2e] font-semibold">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[#fcfcfa] font-medium truncate">{user.name}</div>
+                        <div className="text-xs text-[#939293]">
+                          {user.hasPassword ? "Password protected" : "No password"}
+                          {user.lastLoginAt && ` • Last login: ${new Date(user.lastLoginAt).toLocaleDateString()}`}
+                        </div>
+                      </div>
+                      {user.hasPassword && (
+                        <svg className="w-4 h-4 text-[#939293]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
-              placeholder="your@email.com"
-              autoFocus
-            />
-          </div>
+              {/* Password input if user has password */}
+              {selectedUser?.hasPassword && (
+                <div className="mb-6">
+                  <label className="block text-sm text-[#939293] uppercase tracking-wider mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                    placeholder="Enter password"
+                    className="w-full px-4 py-3 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50"
+                  />
+                </div>
+              )}
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
-              placeholder="Enter your password"
-            />
-          </div>
+              {error && (
+                <div className="mb-4 p-3 bg-[#ff6188]/20 border border-[#ff6188] rounded-lg text-[#ff6188] text-sm">
+                  {error}
+                </div>
+              )}
 
-          {/* Advanced Settings Toggle */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
-            >
-              {showAdvanced ? "Hide" : "Show"} advanced settings
-            </button>
+              <button
+                onClick={handleLogin}
+                disabled={!selectedUserId || isLoading}
+                className="w-full py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg font-medium hover:bg-[#ffd866]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Logging in..." : "Continue"}
+              </button>
 
-            {showAdvanced && (
-              <div className="mt-3">
-                <label
-                  htmlFor="apiUrl"
-                  className="block text-xs font-medium text-[#939293] uppercase tracking-wider mb-1.5"
+              <div className="mt-6 pt-6 border-t border-[#5b595c] text-center">
+                <button
+                  onClick={() => {
+                    setMode("create");
+                    setError("");
+                  }}
+                  className="text-[#78dce8] hover:text-[#ffd866] transition-colors"
                 >
-                  Server URL
+                  + Create New User
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold text-[#fcfcfa] mb-6">
+                {users.length === 0 ? "Create Your Profile" : "Create New User"}
+              </h2>
+
+              {/* Name input */}
+              <div className="mb-4">
+                <label className="block text-sm text-[#939293] uppercase tracking-wider mb-2">
+                  Name
                 </label>
                 <input
-                  id="apiUrl"
-                  type="url"
-                  value={apiUrl}
-                  onChange={(e) => setApiUrl(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors text-sm"
-                  placeholder={DEFAULT_API_URL}
+                  type="text"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-4 py-3 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50"
+                  autoFocus
                 />
               </div>
-            )}
-          </div>
 
-          <button
-            type="submit"
-            className="w-full px-4 py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 disabled:opacity-50 font-medium text-lg transition-colors"
-            disabled={loading}
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
+              {/* Password toggle */}
+              <div className="mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={usePassword}
+                    onChange={(e) => {
+                      setUsePassword(e.target.checked);
+                      if (!e.target.checked) {
+                        setNewUserPassword("");
+                        setConfirmPassword("");
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-[#5b595c] bg-[#2d2a2e] text-[#ffd866] focus:ring-[#ffd866]/50"
+                  />
+                  <span className="text-[#fcfcfa]">Protect with password</span>
+                </label>
+                <p className="text-xs text-[#939293] mt-1 ml-8">
+                  Optional - adds a layer of privacy
+                </p>
+              </div>
 
-          <p className="text-center text-xs text-[#939293]">
-            Don't have an account?{" "}
-            <a
-              href="https://kioku.vercel.app/register"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#78dce8] hover:underline"
-            >
-              Create one on the web
-            </a>
-          </p>
-        </form>
+              {/* Password inputs */}
+              {usePassword && (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm text-[#939293] uppercase tracking-wider mb-2">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      placeholder="Enter password"
+                      className="w-full px-4 py-3 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50"
+                    />
+                  </div>
+                  <div className="mb-6">
+                    <label className="block text-sm text-[#939293] uppercase tracking-wider mb-2">
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleCreateUser()}
+                      placeholder="Confirm password"
+                      className="w-full px-4 py-3 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50"
+                    />
+                  </div>
+                </>
+              )}
+
+              {error && (
+                <div className="mb-4 p-3 bg-[#ff6188]/20 border border-[#ff6188] rounded-lg text-[#ff6188] text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={handleCreateUser}
+                disabled={isLoading}
+                className="w-full py-3 bg-[#ffd866] text-[#2d2a2e] rounded-lg font-medium hover:bg-[#ffd866]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Creating..." : "Create & Continue"}
+              </button>
+
+              {users.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-[#5b595c] text-center">
+                  <button
+                    onClick={() => {
+                      setMode("select");
+                      setError("");
+                      setNewUserName("");
+                      setNewUserPassword("");
+                      setConfirmPassword("");
+                      setUsePassword(false);
+                    }}
+                    className="text-[#78dce8] hover:text-[#ffd866] transition-colors"
+                  >
+                    Back to User Selection
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-[#939293] text-sm mt-6">
+          Your data is stored locally on this device
+        </p>
       </div>
     </div>
   );

@@ -1,3 +1,3 @@
 export { Layout } from "./Layout";
-export { ConnectionIndicator } from "./ConnectionIndicator";
 export { ListenModeControls } from "./ListenModeControls";
+export { DropZone } from "./DropZone";

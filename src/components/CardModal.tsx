@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CodeEditor, CodeBlock } from "./CodeEditor";
 import type { Card, Tag, ContentType, CodeLanguage, CreateCardRequest, UpdateCardRequest } from "@/types";
 import { CODE_LANGUAGES, CODE_LANGUAGE_LABELS } from "@/types";
+import { createTag, addTagToCard, removeTagFromCard } from "@/lib/db";
 
 interface CardModalProps {
   card: Card | null;
@@ -11,22 +12,21 @@ interface CardModalProps {
   onClose: () => void;
   onSave: (request: CreateCardRequest | UpdateCardRequest) => Promise<void>;
   onDelete?: (cardId: string) => Promise<void>;
+  onTagsChange?: () => void;
   mode: "view" | "edit" | "create";
 }
 
 export function CardModal({
   card,
-  deckId: _deckId,
-  tags: _tags,
+  deckId,
+  tags: deckTags,
   isOpen,
   onClose,
   onSave,
   onDelete,
+  onTagsChange,
   mode: initialMode,
 }: CardModalProps) {
-  // deckId and tags reserved for future tag editing feature
-  void _deckId;
-  void _tags;
   const [mode, setMode] = useState(initialMode);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
@@ -39,6 +39,13 @@ export function CardModal({
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Tag editing state
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
+
   // Reset form when card changes
   useEffect(() => {
     if (card) {
@@ -49,6 +56,7 @@ export function CardModal({
       setFrontLanguage(card.frontLanguage);
       setBackLanguage(card.backLanguage);
       setNotes(card.notes || "");
+      setSelectedTags(card.tags || []);
     } else {
       setFront("");
       setBack("");
@@ -57,10 +65,102 @@ export function CardModal({
       setFrontLanguage(null);
       setBackLanguage(null);
       setNotes("");
+      setSelectedTags([]);
     }
     setMode(initialMode);
     setShowDeleteConfirm(false);
+    setTagInput("");
+    setShowTagDropdown(false);
   }, [card, initialMode, isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        tagDropdownRef.current &&
+        !tagDropdownRef.current.contains(e.target as Node) &&
+        tagInputRef.current &&
+        !tagInputRef.current.contains(e.target as Node)
+      ) {
+        setShowTagDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filter available tags based on input and already selected
+  const filteredTags = deckTags.filter(
+    (tag) =>
+      !selectedTags.some((t) => t.id === tag.id) &&
+      tag.name.toLowerCase().includes(tagInput.toLowerCase())
+  );
+
+  const canCreateNewTag =
+    tagInput.trim() &&
+    !deckTags.some((t) => t.name.toLowerCase() === tagInput.toLowerCase()) &&
+    !selectedTags.some((t) => t.name.toLowerCase() === tagInput.toLowerCase());
+
+  const handleAddTag = async (tag: Tag) => {
+    if (card) {
+      // Existing card - add tag immediately
+      try {
+        await addTagToCard(deckId, card.id, tag.id);
+        setSelectedTags((prev) => [...prev, tag]);
+        onTagsChange?.();
+      } catch (error) {
+        console.error("Failed to add tag:", error);
+      }
+    } else {
+      // New card - just track locally (will be handled after card creation)
+      setSelectedTags((prev) => [...prev, tag]);
+    }
+    setTagInput("");
+    setShowTagDropdown(false);
+  };
+
+  const handleCreateAndAddTag = async () => {
+    if (!tagInput.trim()) return;
+    try {
+      const newTag = await createTag(deckId, tagInput.trim());
+      if (card) {
+        await addTagToCard(deckId, card.id, newTag.id);
+        onTagsChange?.();
+      }
+      setSelectedTags((prev) => [...prev, newTag]);
+      setTagInput("");
+      setShowTagDropdown(false);
+    } catch (error) {
+      console.error("Failed to create tag:", error);
+    }
+  };
+
+  const handleRemoveTag = async (tagId: string) => {
+    if (card) {
+      try {
+        await removeTagFromCard(deckId, card.id, tagId);
+        setSelectedTags((prev) => prev.filter((t) => t.id !== tagId));
+        onTagsChange?.();
+      } catch (error) {
+        console.error("Failed to remove tag:", error);
+      }
+    } else {
+      setSelectedTags((prev) => prev.filter((t) => t.id !== tagId));
+    }
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredTags.length > 0) {
+        handleAddTag(filteredTags[0]);
+      } else if (canCreateNewTag) {
+        handleCreateAndAddTag();
+      }
+    } else if (e.key === "Escape") {
+      setShowTagDropdown(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!front.trim() || !back.trim()) return;
@@ -329,22 +429,101 @@ export function CardModal({
             ) : null}
           </div>
 
-          {/* Tags display (view mode) */}
-          {isViewMode && card?.tags && card.tags.length > 0 && (
-            <div className="mt-6">
-              <label className="text-sm font-medium text-[#939293] mb-2 block">Tags</label>
-              <div className="flex flex-wrap gap-2">
-                {card.tags.map((tag) => (
-                  <span
-                    key={tag.id}
-                    className="text-sm bg-[#ab9df2]/20 text-[#ab9df2] px-3 py-1 rounded-full"
-                  >
-                    {tag.name}
-                  </span>
-                ))}
+          {/* Tags section */}
+          <div className="mt-6">
+            <label className="text-sm font-medium text-[#939293] mb-2 block">Tags</label>
+
+            {isEditOrCreate ? (
+              <div className="space-y-3">
+                {/* Selected tags */}
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="inline-flex items-center gap-1.5 text-sm bg-[#ab9df2] text-[#2d2a2e] px-3 py-1 rounded-full"
+                      >
+                        {tag.name}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTag(tag.id)}
+                          className="hover:bg-[#2d2a2e]/20 rounded-full p-0.5 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tag input with autocomplete */}
+                <div className="relative">
+                  <input
+                    ref={tagInputRef}
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => {
+                      setTagInput(e.target.value);
+                      setShowTagDropdown(true);
+                    }}
+                    onFocus={() => setShowTagDropdown(true)}
+                    onKeyDown={handleTagKeyDown}
+                    placeholder="Add tags..."
+                    className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ab9df2] focus:ring-1 focus:ring-[#ab9df2]/50 transition-colors"
+                  />
+
+                  {/* Dropdown */}
+                  {showTagDropdown && (filteredTags.length > 0 || canCreateNewTag) && (
+                    <div
+                      ref={tagDropdownRef}
+                      className="absolute z-10 mt-1 w-full bg-[#403e41] border border-[#5b595c] rounded-lg shadow-lg max-h-48 overflow-auto"
+                    >
+                      {filteredTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => handleAddTag(tag)}
+                          className="w-full text-left px-3 py-2 text-sm text-[#fcfcfa] hover:bg-[#5b595c]/50 transition-colors"
+                        >
+                          {tag.name}
+                        </button>
+                      ))}
+                      {canCreateNewTag && (
+                        <button
+                          type="button"
+                          onClick={handleCreateAndAddTag}
+                          className="w-full text-left px-3 py-2 text-sm text-[#a9dc76] hover:bg-[#5b595c]/50 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Create "{tagInput}"
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              /* View mode */
+              selectedTags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="text-sm bg-[#ab9df2]/20 text-[#ab9df2] px-3 py-1 rounded-full"
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#939293]">No tags</p>
+              )
+            )}
+          </div>
         </div>
 
         {/* Footer */}

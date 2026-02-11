@@ -1,24 +1,19 @@
 // ============================================
-// Session (Remote-first auth)
+// Local User Types
 // ============================================
 
-export interface Session {
-  userId: number;
-  email: string;
-  token: string;
-  apiUrl: string;
+export interface LocalUser {
+  id: string;
+  name: string;
+  hasPassword: boolean;
   createdAt: string;
-  updatedAt: string;
+  lastLoginAt: string | null;
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-  apiUrl: string;
+export interface CreateUserRequest {
+  name: string;
+  password?: string;
 }
-
-// Default API URL (can be changed on login screen)
-export const DEFAULT_API_URL = "https://kioku-api-production.up.railway.app/api";
 
 // ============================================
 // Core Domain Types
@@ -30,6 +25,7 @@ export interface Deck {
   description: string | null;
   createdAt: string;
   updatedAt: string;
+  cardCount?: number;
 }
 
 export interface Card {
@@ -235,5 +231,160 @@ export interface UpdateCardRequest {
   backType?: ContentType;
   backLanguage?: CodeLanguage;
   notes?: string;
+}
+
+// ============================================
+// Quiz Types
+// ============================================
+
+export type QuestionType = "multiple_choice" | "fill_in_blank";
+
+export interface Quiz {
+  id: string;
+  name: string;
+  description: string | null;
+  shuffleQuestions: boolean;
+  createdAt: string;
+  updatedAt: string;
+  questions: Question[];
+  questionCount?: number;
+}
+
+export interface QuestionTag {
+  id: string;
+  name: string;
+}
+
+export interface QuizTag {
+  id: string;
+  quizId: string;
+  name: string;
+}
+
+export interface Question {
+  id: string;
+  quizId: string;
+  questionType: QuestionType;
+  content: string;
+  contentType: ContentType;
+  contentLanguage: CodeLanguage | null;
+  correctAnswer: string | null; // For fill_in_blank
+  multipleAnswers: boolean; // For multiple_choice
+  explanation: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  choices: Choice[];
+  tags: QuestionTag[];
+}
+
+export interface Choice {
+  id: string;
+  questionId: string;
+  text: string;
+  isCorrect: boolean;
+  position: number;
+}
+
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  startedAt: string;
+  completedAt: string | null;
+  durationSeconds: number | null;
+  totalQuestions: number;
+  correctAnswers: number;
+  scorePercentage: number;
+  questionResults: QuestionResult[];
+}
+
+export interface QuestionResult {
+  id: string;
+  attemptId: string;
+  questionId: string;
+  userAnswer: string | null;
+  isCorrect: boolean;
+}
+
+export interface QuizStats {
+  quizId: string;
+  totalAttempts: number;
+  averageScore: number;
+  bestScore: number;
+  averageDurationSeconds: number | null;
+  lastAttemptAt: string | null;
+  recentScores: number[]; // Last 5 attempts
+}
+
+// ============================================
+// Study Session Types
+// ============================================
+
+export interface StudySession {
+  id: string;
+  deckId: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  cardsStudied: number;
+}
+
+export interface DeckStudyStats {
+  deckId: string;
+  totalSessions: number;
+  totalStudyTimeSeconds: number;
+  totalCardsStudied: number;
+  lastStudiedAt: string | null;
+}
+
+// ============================================
+// Quiz Request Types
+// ============================================
+
+export interface CreateQuizRequest {
+  name: string;
+  description?: string;
+  shuffleQuestions?: boolean;
+}
+
+export interface UpdateQuizRequest {
+  name: string;
+  description?: string;
+  shuffleQuestions?: boolean;
+}
+
+export interface CreateQuestionRequest {
+  questionType: QuestionType;
+  content: string;
+  contentType?: ContentType;
+  contentLanguage?: CodeLanguage;
+  correctAnswer?: string;
+  multipleAnswers?: boolean;
+  explanation?: string;
+  choices?: CreateChoiceRequest[];
+}
+
+export interface UpdateQuestionRequest {
+  questionType: QuestionType;
+  content: string;
+  contentType?: ContentType;
+  contentLanguage?: CodeLanguage;
+  correctAnswer?: string;
+  multipleAnswers?: boolean;
+  explanation?: string;
+}
+
+export interface CreateChoiceRequest {
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface QuestionAnswer {
+  questionId: string;
+  answer: string; // Choice IDs (comma-separated) or text for fill_in_blank
+}
+
+export interface SubmitQuizRequest {
+  answers: QuestionAnswer[];
 }
 

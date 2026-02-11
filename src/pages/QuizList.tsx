@@ -1,97 +1,88 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Deck } from "@/types";
-import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
+import type { Quiz, QuizStats } from "@/types";
+import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
 import { DropZone } from "@/components/DropZone";
 
-export function Dashboard() {
-  const [decks, setDecks] = useState<Deck[]>([]);
+export function QuizList() {
+  const navigate = useNavigate();
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizStats, setQuizStats] = useState<Record<string, QuizStats>>({});
   const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [importing, setImporting] = useState(false);
 
-  const loadDecks = useCallback(async () => {
+  const loadQuizzes = useCallback(async () => {
     try {
-      const data = await getAllDecks();
-      setDecks(data);
+      const data = await getAllQuizzes();
+      setQuizzes(data);
+
+      // Load stats for each quiz
+      const stats: Record<string, QuizStats> = {};
+      for (const quiz of data) {
+        try {
+          stats[quiz.id] = await getQuizStats(quiz.id);
+        } catch {
+          // Quiz might not have any attempts yet
+        }
+      }
+      setQuizStats(stats);
     } catch (error) {
-      console.error("Failed to load decks:", error);
+      console.error("Failed to load quizzes:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadDecks();
-  }, [loadDecks]);
+    loadQuizzes();
+  }, [loadQuizzes]);
+
+  const handleDelete = async (quizId: string) => {
+    setDeletingId(quizId);
+    try {
+      await deleteQuiz(quizId);
+      loadQuizzes();
+    } catch (error) {
+      console.error("Failed to delete quiz:", error);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleImport = async () => {
-    setMessage(null);
-    setImporting(true);
-
     try {
-      const filePath = await open({
+      const selected = await open({
         multiple: false,
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
 
-      if (!filePath) {
-        setImporting(false);
-        return;
+      if (selected && typeof selected === "string") {
+        setImporting(true);
+        const result = await importQuiz(selected);
+        navigate(`/quizzes/${result.quiz.id}`);
       }
-
-      const result = await importDeck(filePath as string);
-
-      setMessage({
-        type: "success",
-        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
-      });
-      loadDecks();
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Import failed",
-      });
+      console.error("Failed to import quiz:", error);
+      alert(`Failed to import quiz: ${error}`);
     } finally {
       setImporting(false);
     }
   };
 
   const handleFileDrop = useCallback(async (filePath: string) => {
-    setMessage(null);
     setImporting(true);
-
     try {
-      const result = await importDeck(filePath);
-
-      setMessage({
-        type: "success",
-        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
-      });
-      loadDecks();
+      const result = await importQuiz(filePath);
+      navigate(`/quizzes/${result.quiz.id}`);
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Import failed",
-      });
+      console.error("Failed to import quiz:", error);
+      alert(`Failed to import quiz: ${error}`);
     } finally {
       setImporting(false);
     }
-  }, [loadDecks]);
-
-  const handleDelete = async (deckId: string) => {
-    setDeletingId(deckId);
-    try {
-      await deleteDeck(deckId);
-      loadDecks();
-    } catch (error) {
-      console.error("Failed to delete deck:", error);
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  }, [navigate]);
 
   if (loading) {
     return (
@@ -108,52 +99,33 @@ export function Dashboard() {
     <DropZone
       onFileDrop={handleFileDrop}
       disabled={importing}
-      label="Drop deck file to import"
+      label="Drop quiz file to import"
     >
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">
           <div className="fade-in">
-            {/* Message */}
-          {message && (
-            <div
-              className={`mb-4 px-4 py-3 rounded-lg ${
-                message.type === "success"
-                  ? "bg-[#a9dc76]/10 border border-[#a9dc76]/30 text-[#a9dc76]"
-                  : "bg-[#ff6188]/10 border border-[#ff6188]/30 text-[#ff6188]"
-              }`}
-            >
-              {message.text}
-              <button
-                onClick={() => setMessage(null)}
-                className="float-right opacity-60 hover:opacity-100"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* Header with Actions */}
+            {/* Header */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
+            <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Quizzes</h2>
             <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
               <button
                 onClick={handleImport}
                 disabled={importing}
                 className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#fcfcfa] bg-[#5b595c] hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
               >
-                {importing ? "Importing..." : "Import Deck"}
+                {importing ? "Importing..." : "Import Quiz"}
               </button>
               <Link
-                to="/decks/new"
+                to="/quizzes/new"
                 className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#2d2a2e] bg-[#ffd866] hover:bg-[#ffd866]/90 transition-colors"
               >
-                + New Deck
+                + New Quiz
               </Link>
             </div>
           </div>
 
-          {/* Decks Grid */}
-          {decks.length === 0 ? (
+          {/* Quizzes Grid */}
+          {quizzes.length === 0 ? (
             <div className="text-center py-12">
               <svg
                 className="mx-auto h-12 w-12 text-[#5b595c]"
@@ -165,22 +137,23 @@ export function Dashboard() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
                 />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">No decks</h3>
+              <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">No quizzes</h3>
               <p className="mt-1 text-sm text-[#939293]">
-                Get started by creating a new deck or importing one.
+                Create your first quiz to test your knowledge.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {decks.map((deck) => (
-                <DeckCard
-                  key={deck.id}
-                  deck={deck}
-                  onDelete={() => handleDelete(deck.id)}
-                  isDeleting={deletingId === deck.id}
+              {quizzes.map((quiz) => (
+                <QuizCard
+                  key={quiz.id}
+                  quiz={quiz}
+                  stats={quizStats[quiz.id]}
+                  onDelete={() => handleDelete(quiz.id)}
+                  isDeleting={deletingId === quiz.id}
                 />
               ))}
             </div>
@@ -192,45 +165,78 @@ export function Dashboard() {
   );
 }
 
-interface DeckCardProps {
-  deck: Deck;
+interface QuizCardProps {
+  quiz: Quiz;
+  stats?: QuizStats;
   onDelete: () => void;
   isDeleting: boolean;
 }
 
-function DeckCard({ deck, onDelete, isDeleting }: DeckCardProps) {
+function QuizCard({ quiz, stats, onDelete, isDeleting }: QuizCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <div className="block bg-[#403e41] overflow-hidden rounded-xl border border-[#5b595c] hover:border-[#939293] transition-colors">
-      <Link to={`/decks/${deck.id}`} className="block px-5 py-4">
+      <Link to={`/quizzes/${quiz.id}`} className="block px-5 py-4">
         <div className="flex items-start justify-between mb-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
-            {deck.cardCount ?? 0} cards
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
+              {quiz.questionCount ?? quiz.questions?.length ?? 0} questions
+            </span>
+            {quiz.shuffleQuestions && (
+              <span className="text-xs px-2 py-0.5 rounded bg-[#ab9df2]/20 text-[#ab9df2]">
+                Shuffle
+              </span>
+            )}
+          </div>
           <span className="text-xs text-[#939293] font-mono">
-            {new Date(deck.createdAt).toLocaleDateString()}
+            {new Date(quiz.createdAt).toLocaleDateString()}
           </span>
         </div>
         <h3 className="text-base font-medium text-[#fcfcfa] truncate">
-          {deck.name}
+          {quiz.name}
         </h3>
         <p className="mt-1 text-sm text-[#939293] line-clamp-2">
-          {deck.description || "No description"}
+          {quiz.description || "No description"}
         </p>
+
+        {/* Stats */}
+        {stats && stats.totalAttempts > 0 && (
+          <div className="mt-3 pt-3 border-t border-[#5b595c] grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-lg font-bold text-[#a9dc76]">
+                {stats.bestScore}%
+              </div>
+              <div className="text-xs text-[#939293]">Best</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#ffd866]">
+                {Math.round(stats.averageScore)}%
+              </div>
+              <div className="text-xs text-[#939293]">Avg</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-[#78dce8]">
+                {stats.totalAttempts}
+              </div>
+              <div className="text-xs text-[#939293]">Attempts</div>
+            </div>
+          </div>
+        )}
       </Link>
+
       <div className="px-5 pb-4 flex gap-2">
         <Link
-          to={`/decks/${deck.id}/study`}
+          to={`/quizzes/${quiz.id}/take`}
           className="flex-1 text-center px-3 py-2 bg-[#a9dc76]/20 text-[#a9dc76] text-sm rounded-lg hover:bg-[#a9dc76]/30 transition-colors font-medium"
         >
-          Study
+          Take Quiz
         </Link>
         <Link
-          to={`/decks/${deck.id}`}
+          to={`/quizzes/${quiz.id}/edit`}
           className="flex-1 text-center px-3 py-2 bg-[#ffd866]/20 text-[#ffd866] text-sm rounded-lg hover:bg-[#ffd866]/30 transition-colors font-medium"
         >
-          Manage
+          Edit
         </Link>
         {showDeleteConfirm ? (
           <div className="flex gap-1">
@@ -252,7 +258,7 @@ function DeckCard({ deck, onDelete, isDeleting }: DeckCardProps) {
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="px-3 py-2 text-[#ff6188] hover:bg-[#ff6188]/10 rounded-lg transition-colors"
-            title="Delete deck"
+            title="Delete quiz"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
