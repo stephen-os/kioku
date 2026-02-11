@@ -333,7 +333,7 @@ export function Settings() {
           {/* About */}
           <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6">
             <h2 className="text-lg font-semibold text-[#fcfcfa] mb-2">About Kioku Desktop</h2>
-            <p className="text-[#939293] text-sm">Version 0.1.0</p>
+            <p className="text-[#939293] text-sm">Version 1.0.0</p>
             <p className="text-[#939293] text-sm mt-2">
               A local-first flashcard study app. All your data is stored on this device.
             </p>

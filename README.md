@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/kioku.svg" alt="Kioku Logo" width="120" height="120">
+  <img src="src-tauri/icons/128x128@2x.png" alt="Kioku Logo" width="128" height="128">
 </p>
 
 <h1 align="center">Kioku</h1>
@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="Platform">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
   <img src="https://img.shields.io/badge/license-ISC-green" alt="License">
   <img src="https://img.shields.io/badge/tauri-v2-orange" alt="Tauri v2">
 </p>
