@@ -27,24 +27,24 @@ Kioku (記憶 - Japanese for "memory") is a local-first desktop application for 
     <td align="center"><strong>Quizzes Dashboard</strong></td>
   </tr>
   <tr>
-    <td><img src="src-tauri/assets/dashboard-desks.png" alt="Decks Dashboard" width="400"></td>
-    <td><img src="src-tauri/assets/dashboard-quizes.png" alt="Quizzes Dashboard" width="400"></td>
+    <td><img src="docs/screenshots/dashboard-desks.png" alt="Decks Dashboard" width="400"></td>
+    <td><img src="docs/screenshots/dashboard-quizes.png" alt="Quizzes Dashboard" width="400"></td>
   </tr>
   <tr>
     <td align="center"><strong>Deck View</strong></td>
     <td align="center"><strong>Study Mode</strong></td>
   </tr>
   <tr>
-    <td><img src="src-tauri/assets/deck-view.png" alt="Deck View" width="400"></td>
-    <td><img src="src-tauri/assets/card-front.png" alt="Study Mode" width="400"></td>
+    <td><img src="docs/screenshots/deck-view.png" alt="Deck View" width="400"></td>
+    <td><img src="docs/screenshots/card-front.png" alt="Study Mode" width="400"></td>
   </tr>
   <tr>
     <td align="center"><strong>Quiz Question</strong></td>
     <td align="center"><strong>Quiz Results</strong></td>
   </tr>
   <tr>
-    <td><img src="src-tauri/assets/quiz-question.png" alt="Quiz Question" width="400"></td>
-    <td><img src="src-tauri/assets/quiz-results.png" alt="Quiz Results" width="400"></td>
+    <td><img src="docs/screenshots/quiz-question.png" alt="Quiz Question" width="400"></td>
+    <td><img src="docs/screenshots/quiz-results.png" alt="Quiz Results" width="400"></td>
   </tr>
 </table>
 </div>
