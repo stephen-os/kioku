@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { importDeck, importQuiz, deleteUser, updateUser } from "@/lib/db";
 import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
 import type { AvatarId } from "@/types";
@@ -9,10 +10,10 @@ import type { AvatarId } from "@/types";
 export function Settings() {
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
+  const toast = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
   const [importingDeck, setImportingDeck] = useState(false);
   const [importingQuiz, setImportingQuiz] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -50,12 +51,9 @@ export function Settings() {
       await updateUser(user.id, editName.trim(), undefined, editAvatar);
       await refreshUser();
       setEditingProfile(false);
-      setMessage({ type: "success", text: "Profile updated successfully" });
+      toast.success("Profile updated successfully");
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to update profile",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
     } finally {
       setSavingProfile(false);
     }
@@ -68,7 +66,6 @@ export function Settings() {
   };
 
   const handleImportDeck = async () => {
-    setMessage(null);
     setImportingDeck(true);
 
     try {
@@ -84,22 +81,15 @@ export function Settings() {
 
       const result = await importDeck(filePath as string);
 
-      setMessage({
-        type: "success",
-        text: `Imported "${result.deck.name}" with ${result.cardsImported} cards`,
-      });
+      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Import failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImportingDeck(false);
     }
   };
 
   const handleImportQuiz = async () => {
-    setMessage(null);
     setImportingQuiz(true);
 
     try {
@@ -115,15 +105,9 @@ export function Settings() {
 
       const result = await importQuiz(filePath as string);
 
-      setMessage({
-        type: "success",
-        text: `Imported "${result.quiz.name}" with ${result.questionsImported} questions`,
-      });
+      toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Import failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImportingQuiz(false);
     }
@@ -138,10 +122,7 @@ export function Settings() {
       await logout();
       navigate("/login");
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to delete account",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to delete account");
       setDeleting(false);
     }
   };
@@ -151,18 +132,6 @@ export function Settings() {
       <main className="max-w-3xl mx-auto py-6 px-6">
         <div className="fade-in">
           <h1 className="text-2xl font-bold text-[#fcfcfa] font-mono mb-6">Settings</h1>
-
-          {message && (
-            <div
-              className={`mb-6 px-4 py-3 rounded-lg ${
-                message.type === "success"
-                  ? "bg-[#a9dc76]/10 border border-[#a9dc76]/30 text-[#a9dc76]"
-                  : "bg-[#ff6188]/10 border border-[#ff6188]/30 text-[#ff6188]"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
 
           {/* Account Section */}
           <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">

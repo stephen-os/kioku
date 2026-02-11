@@ -1,19 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/context/ToastContext";
 
 export function NewDeck() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [validationError, setValidationError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setValidationError("");
 
     if (!name.trim()) {
-      setError("Deck name is required");
+      setValidationError("Deck name is required");
       return;
     }
 
@@ -26,8 +28,8 @@ export function NewDeck() {
 
       // For now, just navigate back
       navigate("/");
-    } catch {
-      setError("Failed to create deck");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create deck");
     } finally {
       setLoading(false);
     }
@@ -38,9 +40,9 @@ export function NewDeck() {
       <h1 className="text-2xl font-bold mb-6">Create New Deck</h1>
 
       <form onSubmit={handleSubmit} className="card space-y-4">
-        {error && (
+        {validationError && (
           <div className="bg-pink/10 border border-pink text-pink px-4 py-2 rounded-lg text-sm">
-            {error}
+            {validationError}
           </div>
         )}
 

@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
 import type { AvatarId } from "@/types";
 
 export function Login() {
   const { users, login, createUser } = useAuth();
+  const toast = useToast();
   const [mode, setMode] = useState<"select" | "create">(users.length > 0 ? "select" : "create");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [validationError, setValidationError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Create user form state
@@ -22,17 +24,17 @@ export function Login() {
 
   const handleLogin = async () => {
     if (!selectedUserId) {
-      setError("Please select a user");
+      setValidationError("Please select a user");
       return;
     }
 
     setIsLoading(true);
-    setError("");
+    setValidationError("");
 
     try {
       await login(selectedUserId, selectedUser?.hasPassword ? password : undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
       setIsLoading(false);
     }
@@ -40,23 +42,23 @@ export function Login() {
 
   const handleCreateUser = async () => {
     if (!newUserName.trim()) {
-      setError("Please enter a name");
+      setValidationError("Please enter a name");
       return;
     }
 
     if (usePassword) {
       if (!newUserPassword) {
-        setError("Please enter a password");
+        setValidationError("Please enter a password");
         return;
       }
       if (newUserPassword !== confirmPassword) {
-        setError("Passwords do not match");
+        setValidationError("Passwords do not match");
         return;
       }
     }
 
     setIsLoading(true);
-    setError("");
+    setValidationError("");
 
     try {
       const newUser = await createUser({
@@ -67,7 +69,7 @@ export function Login() {
       // Auto-login as the new user
       await login(newUser.id, usePassword ? newUserPassword : undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create user");
+      toast.error(err instanceof Error ? err.message : "Failed to create user");
       setIsLoading(false);
     }
   };
@@ -98,7 +100,7 @@ export function Login() {
                     onClick={() => {
                       setSelectedUserId(user.id);
                       setPassword("");
-                      setError("");
+                      setValidationError("");
                     }}
                     className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                       selectedUserId === user.id
@@ -142,9 +144,9 @@ export function Login() {
                 </div>
               )}
 
-              {error && (
+              {validationError && (
                 <div className="mb-4 p-3 bg-[#ff6188]/20 border border-[#ff6188] rounded-lg text-[#ff6188] text-sm">
-                  {error}
+                  {validationError}
                 </div>
               )}
 
@@ -160,7 +162,7 @@ export function Login() {
                 <button
                   onClick={() => {
                     setMode("create");
-                    setError("");
+                    setValidationError("");
                   }}
                   className="text-[#78dce8] hover:text-[#ffd866] transition-colors"
                 >
@@ -254,9 +256,9 @@ export function Login() {
                 </>
               )}
 
-              {error && (
+              {validationError && (
                 <div className="mb-4 p-3 bg-[#ff6188]/20 border border-[#ff6188] rounded-lg text-[#ff6188] text-sm">
-                  {error}
+                  {validationError}
                 </div>
               )}
 
@@ -273,7 +275,7 @@ export function Login() {
                   <button
                     onClick={() => {
                       setMode("select");
-                      setError("");
+                      setValidationError("");
                       setNewUserName("");
                       setNewUserPassword("");
                       setConfirmPassword("");

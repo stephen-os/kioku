@@ -2,16 +2,17 @@ import { useState, useEffect } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { getAllDecks, getAllQuizzes, exportDeck, exportQuiz } from "@/lib/db";
+import { useToast } from "@/context/ToastContext";
 import type { Deck, Quiz } from "@/types";
 
 export function Export() {
+  const toast = useToast();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [selectedDecks, setSelectedDecks] = useState<Set<string>>(new Set());
   const [selectedQuizzes, setSelectedQuizzes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -72,7 +73,6 @@ export function Export() {
   };
 
   const handleExportSingleDeck = async (deck: Deck) => {
-    setMessage(null);
     setExporting(true);
 
     try {
@@ -90,22 +90,15 @@ export function Export() {
 
       await writeTextFile(filePath, exportData);
 
-      setMessage({
-        type: "success",
-        text: `Exported "${deck.name}" successfully`,
-      });
+      toast.success(`Exported "${deck.name}" successfully`);
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Export failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Export failed");
     } finally {
       setExporting(false);
     }
   };
 
   const handleExportSingleQuiz = async (quiz: Quiz) => {
-    setMessage(null);
     setExporting(true);
 
     try {
@@ -123,15 +116,9 @@ export function Export() {
 
       await writeTextFile(filePath, exportData);
 
-      setMessage({
-        type: "success",
-        text: `Exported "${quiz.name}" successfully`,
-      });
+      toast.success(`Exported "${quiz.name}" successfully`);
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Export failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Export failed");
     } finally {
       setExporting(false);
     }
@@ -139,11 +126,10 @@ export function Export() {
 
   const handleBulkExport = async () => {
     if (selectedDecks.size === 0 && selectedQuizzes.size === 0) {
-      setMessage({ type: "error", text: "No items selected for export" });
+      toast.error("No items selected for export");
       return;
     }
 
-    setMessage(null);
     setExporting(true);
 
     try {
@@ -196,19 +182,13 @@ export function Export() {
 
       await writeTextFile(filePath, JSON.stringify(combined, null, 2));
 
-      setMessage({
-        type: "success",
-        text: `Exported ${selectedDecks.size} deck(s) and ${selectedQuizzes.size} quiz(zes) successfully`,
-      });
+      toast.success(`Exported ${selectedDecks.size} deck(s) and ${selectedQuizzes.size} quiz(zes) successfully`);
 
       // Clear selection after successful export
       setSelectedDecks(new Set());
       setSelectedQuizzes(new Set());
     } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : "Export failed",
-      });
+      toast.error(error instanceof Error ? error.message : "Export failed");
     } finally {
       setExporting(false);
     }
@@ -221,7 +201,6 @@ export function Export() {
 
     // Need to wait a tick for state to update, then export
     setTimeout(async () => {
-      setMessage(null);
       setExporting(true);
 
       try {
@@ -257,18 +236,12 @@ export function Export() {
 
         await writeTextFile(filePath, JSON.stringify(combined, null, 2));
 
-        setMessage({
-          type: "success",
-          text: `Exported all ${decks.length} deck(s) and ${quizzes.length} quiz(zes) successfully`,
-        });
+        toast.success(`Exported all ${decks.length} deck(s) and ${quizzes.length} quiz(zes) successfully`);
 
         setSelectedDecks(new Set());
         setSelectedQuizzes(new Set());
       } catch (error) {
-        setMessage({
-          type: "error",
-          text: error instanceof Error ? error.message : "Export failed",
-        });
+        toast.error(error instanceof Error ? error.message : "Export failed");
       } finally {
         setExporting(false);
       }
@@ -313,18 +286,6 @@ export function Export() {
               </button>
             </div>
           </div>
-
-          {message && (
-            <div
-              className={`mb-6 px-4 py-3 rounded-lg ${
-                message.type === "success"
-                  ? "bg-[#a9dc76]/10 border border-[#a9dc76]/30 text-[#a9dc76]"
-                  : "bg-[#ff6188]/10 border border-[#ff6188]/30 text-[#ff6188]"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
 
           {/* Decks Section */}
           <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
