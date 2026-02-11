@@ -1,9 +1,9 @@
-mod local_db;
+mod db;
 
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use local_db::{
+use db::{
     Card, CardTag, CreateCardRequest, CreateDeckRequest, DbState, Deck, Tag,
     UpdateCardRequest, UpdateDeckRequest,
     // Quiz types
@@ -36,7 +36,7 @@ struct QuizImportResult {
 // ============================================
 
 fn init_db(app: &AppHandle) -> Result<(), String> {
-    let conn = local_db::init_database(app)?;
+    let conn = db::init_database(app)?;
     app.manage(DbState(Mutex::new(conn)));
     Ok(())
 }
@@ -48,55 +48,55 @@ fn init_db(app: &AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn get_all_users(state: State<DbState>) -> Result<Vec<LocalUser>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_all_users(&conn)
+    db::get_all_users(&conn)
 }
 
 #[tauri::command]
 fn get_user(state: State<DbState>, user_id: String) -> Result<LocalUser, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_user(&conn, &user_id)
+    db::get_user(&conn, &user_id)
 }
 
 #[tauri::command]
 fn create_user(state: State<DbState>, request: CreateUserRequest) -> Result<LocalUser, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_user(&conn, &request)
+    db::create_user(&conn, &request)
 }
 
 #[tauri::command]
 fn login_user(state: State<DbState>, user_id: String, password: Option<String>) -> Result<LocalUser, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::login_user(&conn, &user_id, password.as_deref())
+    db::login_user(&conn, &user_id, password.as_deref())
 }
 
 #[tauri::command]
 fn get_active_user(state: State<DbState>) -> Result<Option<LocalUser>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_active_user(&conn)
+    db::get_active_user(&conn)
 }
 
 #[tauri::command]
 fn logout_user(state: State<DbState>) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::logout_user(&conn)
+    db::logout_user(&conn)
 }
 
 #[tauri::command]
 fn delete_user(state: State<DbState>, user_id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_user(&conn, &user_id)
+    db::delete_user(&conn, &user_id)
 }
 
 #[tauri::command]
 fn update_user(state: State<DbState>, user_id: String, name: String, password: Option<String>, avatar: Option<String>) -> Result<LocalUser, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_user(&conn, &user_id, &name, password.as_deref(), avatar.as_deref())
+    db::update_user(&conn, &user_id, &name, password.as_deref(), avatar.as_deref())
 }
 
 #[tauri::command]
 fn remove_user_password(state: State<DbState>, user_id: String) -> Result<LocalUser, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::remove_user_password(&conn, &user_id)
+    db::remove_user_password(&conn, &user_id)
 }
 
 // ============================================
@@ -106,13 +106,13 @@ fn remove_user_password(state: State<DbState>, user_id: String) -> Result<LocalU
 #[tauri::command]
 fn get_all_decks(state: State<DbState>) -> Result<Vec<Deck>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_all_decks_local(&conn)
+    db::get_all_decks(&conn)
 }
 
 #[tauri::command]
 fn get_deck(state: State<DbState>, id: String) -> Result<Option<Deck>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    match local_db::get_deck_local(&conn, &id) {
+    match db::get_deck(&conn, &id) {
         Ok(deck) => Ok(Some(deck)),
         Err(_) => Ok(None),
     }
@@ -121,7 +121,7 @@ fn get_deck(state: State<DbState>, id: String) -> Result<Option<Deck>, String> {
 #[tauri::command]
 fn create_deck(state: State<DbState>, request: CreateDeckRequest) -> Result<Deck, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_deck_local(
+    db::create_deck(
         &conn,
         &request.name,
         request.description.as_deref(),
@@ -136,7 +136,7 @@ fn update_deck(
     request: UpdateDeckRequest,
 ) -> Result<Deck, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_deck_local(
+    db::update_deck(
         &conn,
         &id,
         &request.name,
@@ -148,7 +148,7 @@ fn update_deck(
 #[tauri::command]
 fn delete_deck(state: State<DbState>, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_deck_local(&conn, &id)
+    db::delete_deck(&conn, &id)
 }
 
 // ============================================
@@ -158,13 +158,13 @@ fn delete_deck(state: State<DbState>, id: String) -> Result<(), String> {
 #[tauri::command]
 fn get_cards_for_deck(state: State<DbState>, deck_id: String) -> Result<Vec<Card>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_cards_for_deck_local(&conn, &deck_id)
+    db::get_cards_for_deck(&conn, &deck_id)
 }
 
 #[tauri::command]
 fn get_card(state: State<DbState>, id: String, deck_id: String) -> Result<Option<Card>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    match local_db::get_card_local(&conn, &id, &deck_id) {
+    match db::get_card(&conn, &id, &deck_id) {
         Ok(card) => Ok(Some(card)),
         Err(_) => Ok(None),
     }
@@ -177,7 +177,7 @@ fn create_card(
     request: CreateCardRequest,
 ) -> Result<Card, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_card_local(&conn, &deck_id, &request)
+    db::create_card(&conn, &deck_id, &request)
 }
 
 #[tauri::command]
@@ -188,13 +188,13 @@ fn update_card(
     request: UpdateCardRequest,
 ) -> Result<Card, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_card_local(&conn, &id, &deck_id, &request)
+    db::update_card(&conn, &id, &deck_id, &request)
 }
 
 #[tauri::command]
 fn delete_card(state: State<DbState>, id: String, deck_id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_card_local(&conn, &id, &deck_id)
+    db::delete_card(&conn, &id, &deck_id)
 }
 
 // ============================================
@@ -204,25 +204,25 @@ fn delete_card(state: State<DbState>, id: String, deck_id: String) -> Result<(),
 #[tauri::command]
 fn get_tags_for_deck(state: State<DbState>, deck_id: String) -> Result<Vec<Tag>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_tags_for_deck_local(&conn, &deck_id)
+    db::get_tags_for_deck(&conn, &deck_id)
 }
 
 #[tauri::command]
 fn get_tags_for_card(state: State<DbState>, card_id: String) -> Result<Vec<CardTag>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_tags_for_card_local(&conn, &card_id)
+    db::get_tags_for_card(&conn, &card_id)
 }
 
 #[tauri::command]
 fn create_tag(state: State<DbState>, deck_id: String, name: String) -> Result<Tag, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_tag_local(&conn, &deck_id, &name)
+    db::create_tag(&conn, &deck_id, &name)
 }
 
 #[tauri::command]
 fn delete_tag(state: State<DbState>, deck_id: String, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_tag_local(&conn, &deck_id, &id)
+    db::delete_tag(&conn, &deck_id, &id)
 }
 
 #[tauri::command]
@@ -233,7 +233,7 @@ fn add_tag_to_card(
     tag_id: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::add_tag_to_card_local(&conn, &deck_id, &card_id, &tag_id)
+    db::add_tag_to_card(&conn, &deck_id, &card_id, &tag_id)
 }
 
 #[tauri::command]
@@ -244,7 +244,7 @@ fn remove_tag_from_card(
     tag_id: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::remove_tag_from_card_local(&conn, &deck_id, &card_id, &tag_id)
+    db::remove_tag_from_card(&conn, &deck_id, &card_id, &tag_id)
 }
 
 // ============================================
@@ -254,25 +254,25 @@ fn remove_tag_from_card(
 #[tauri::command]
 fn get_tags_for_quiz(state: State<DbState>, quiz_id: String) -> Result<Vec<QuizTag>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_tags_for_quiz(&conn, &quiz_id)
+    db::get_tags_for_quiz(&conn, &quiz_id)
 }
 
 #[tauri::command]
 fn get_tags_for_question(state: State<DbState>, question_id: String) -> Result<Vec<QuestionTag>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_tags_for_question(&conn, &question_id)
+    db::get_tags_for_question(&conn, &question_id)
 }
 
 #[tauri::command]
 fn create_quiz_tag(state: State<DbState>, quiz_id: String, name: String) -> Result<QuizTag, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_quiz_tag(&conn, &quiz_id, &name)
+    db::create_quiz_tag(&conn, &quiz_id, &name)
 }
 
 #[tauri::command]
 fn delete_quiz_tag(state: State<DbState>, quiz_id: String, tag_id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_quiz_tag(&conn, &quiz_id, &tag_id)
+    db::delete_quiz_tag(&conn, &quiz_id, &tag_id)
 }
 
 #[tauri::command]
@@ -282,7 +282,7 @@ fn add_tag_to_question(
     tag_id: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::add_tag_to_question(&conn, &question_id, &tag_id)
+    db::add_tag_to_question(&conn, &question_id, &tag_id)
 }
 
 #[tauri::command]
@@ -292,7 +292,7 @@ fn remove_tag_from_question(
     tag_id: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::remove_tag_from_question(&conn, &question_id, &tag_id)
+    db::remove_tag_from_question(&conn, &question_id, &tag_id)
 }
 
 // ============================================
@@ -343,7 +343,7 @@ fn import_deck_from_file(
     let cards_count = import_data.cards.len();
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
 
-    let deck = local_db::create_deck_local(
+    let deck = db::create_deck(
         &conn,
         &import_data.name,
         import_data.description.as_deref(),
@@ -363,7 +363,7 @@ fn import_deck_from_file(
             back_language: card.back_language,
             notes: card.notes,
         };
-        let created_card = local_db::create_card_local(&conn, &deck.id, &request)?;
+        let created_card = db::create_card(&conn, &deck.id, &request)?;
 
         // Handle tags for this card
         for tag_name in card.tags {
@@ -371,19 +371,19 @@ fn import_deck_from_file(
                 id.clone()
             } else {
                 // Check if tag exists or create it
-                let tag = match local_db::get_tag_by_name(&conn, &deck.id, &tag_name)? {
+                let tag = match db::get_tag_by_name(&conn, &deck.id, &tag_name)? {
                     Some(existing) => existing,
-                    None => local_db::create_tag_local(&conn, &deck.id, &tag_name)?,
+                    None => db::create_tag(&conn, &deck.id, &tag_name)?,
                 };
                 tag_cache.insert(tag_name.clone(), tag.id.clone());
                 tag.id
             };
             // Link tag to card
-            let _ = local_db::add_tag_to_card_local(&conn, &deck.id, &created_card.id, &tag_id);
+            let _ = db::add_tag_to_card(&conn, &deck.id, &created_card.id, &tag_id);
         }
     }
 
-    let final_deck = local_db::get_deck_local(&conn, &deck.id)?;
+    let final_deck = db::get_deck(&conn, &deck.id)?;
     Ok(ImportResult {
         deck: final_deck,
         cards_imported: cards_count,
@@ -394,8 +394,8 @@ fn import_deck_from_file(
 fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
 
-    let deck = local_db::get_deck_local(&conn, &deck_id)?;
-    let cards = local_db::get_cards_for_deck_local(&conn, &deck_id)?;
+    let deck = db::get_deck(&conn, &deck_id)?;
+    let cards = db::get_cards_for_deck(&conn, &deck_id)?;
 
     #[derive(serde::Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -447,7 +447,7 @@ fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String,
 fn export_quiz_to_json(state: State<DbState>, quiz_id: String) -> Result<String, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
 
-    let quiz = local_db::get_quiz(&conn, &quiz_id)?;
+    let quiz = db::get_quiz(&conn, &quiz_id)?;
 
     #[derive(serde::Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -495,8 +495,8 @@ fn export_quiz_to_json(state: State<DbState>, quiz_id: String) -> Result<String,
             .into_iter()
             .map(|q| QuestionExport {
                 question_type: match q.question_type {
-                    local_db::QuestionType::MultipleChoice => "multiple_choice".to_string(),
-                    local_db::QuestionType::FillInBlank => "fill_in_blank".to_string(),
+                    db::QuestionType::MultipleChoice => "multiple_choice".to_string(),
+                    db::QuestionType::FillInBlank => "fill_in_blank".to_string(),
                 },
                 content: q.content,
                 content_type: q.content_type,
@@ -582,7 +582,7 @@ fn import_quiz_from_file(
         description: import_data.description,
         shuffle_questions: Some(import_data.shuffle_questions),
     };
-    let quiz = local_db::create_quiz(&conn, &quiz_request)?;
+    let quiz = db::create_quiz(&conn, &quiz_request)?;
 
     // Keep track of created tags to avoid duplicates
     let mut tag_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
@@ -602,7 +602,7 @@ fn import_quiz_from_file(
                 is_correct: c.is_correct,
             }).collect()),
         };
-        let created_question = local_db::create_question(&conn, &quiz.id, &question_request)?;
+        let created_question = db::create_question(&conn, &quiz.id, &question_request)?;
 
         // Handle tags for this question
         for tag_name in question.tags {
@@ -610,19 +610,19 @@ fn import_quiz_from_file(
                 id.clone()
             } else {
                 // Check if tag exists or create it
-                let tag = match local_db::get_quiz_tag_by_name(&conn, &quiz.id, &tag_name)? {
+                let tag = match db::get_quiz_tag_by_name(&conn, &quiz.id, &tag_name)? {
                     Some(existing) => existing,
-                    None => local_db::create_quiz_tag(&conn, &quiz.id, &tag_name)?,
+                    None => db::create_quiz_tag(&conn, &quiz.id, &tag_name)?,
                 };
                 tag_cache.insert(tag_name.clone(), tag.id.clone());
                 tag.id
             };
             // Link tag to question
-            let _ = local_db::add_tag_to_question(&conn, &created_question.id, &tag_id);
+            let _ = db::add_tag_to_question(&conn, &created_question.id, &tag_id);
         }
     }
 
-    let final_quiz = local_db::get_quiz(&conn, &quiz.id)?;
+    let final_quiz = db::get_quiz(&conn, &quiz.id)?;
     Ok(QuizImportResult {
         quiz: final_quiz,
         questions_imported: questions_count,
@@ -636,31 +636,31 @@ fn import_quiz_from_file(
 #[tauri::command]
 fn get_all_quizzes(state: State<DbState>) -> Result<Vec<Quiz>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_all_quizzes(&conn)
+    db::get_all_quizzes(&conn)
 }
 
 #[tauri::command]
 fn get_quiz(state: State<DbState>, quiz_id: String) -> Result<Quiz, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_quiz(&conn, &quiz_id)
+    db::get_quiz(&conn, &quiz_id)
 }
 
 #[tauri::command]
 fn create_quiz(state: State<DbState>, request: CreateQuizRequest) -> Result<Quiz, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_quiz(&conn, &request)
+    db::create_quiz(&conn, &request)
 }
 
 #[tauri::command]
 fn update_quiz(state: State<DbState>, quiz_id: String, request: UpdateQuizRequest) -> Result<Quiz, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_quiz(&conn, &quiz_id, &request)
+    db::update_quiz(&conn, &quiz_id, &request)
 }
 
 #[tauri::command]
 fn delete_quiz(state: State<DbState>, quiz_id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_quiz(&conn, &quiz_id)
+    db::delete_quiz(&conn, &quiz_id)
 }
 
 // ============================================
@@ -670,43 +670,43 @@ fn delete_quiz(state: State<DbState>, quiz_id: String) -> Result<(), String> {
 #[tauri::command]
 fn get_questions_for_quiz(state: State<DbState>, quiz_id: String) -> Result<Vec<Question>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_questions_for_quiz(&conn, &quiz_id)
+    db::get_questions_for_quiz(&conn, &quiz_id)
 }
 
 #[tauri::command]
 fn get_question(state: State<DbState>, question_id: String) -> Result<Question, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_question(&conn, &question_id)
+    db::get_question(&conn, &question_id)
 }
 
 #[tauri::command]
 fn create_question(state: State<DbState>, quiz_id: String, request: CreateQuestionRequest) -> Result<Question, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::create_question(&conn, &quiz_id, &request)
+    db::create_question(&conn, &quiz_id, &request)
 }
 
 #[tauri::command]
 fn update_question(state: State<DbState>, question_id: String, request: UpdateQuestionRequest) -> Result<Question, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_question(&conn, &question_id, &request)
+    db::update_question(&conn, &question_id, &request)
 }
 
 #[tauri::command]
 fn delete_question(state: State<DbState>, question_id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::delete_question(&conn, &question_id)
+    db::delete_question(&conn, &question_id)
 }
 
 #[tauri::command]
 fn reorder_questions(state: State<DbState>, quiz_id: String, question_ids: Vec<String>) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::reorder_questions(&conn, &quiz_id, &question_ids)
+    db::reorder_questions(&conn, &quiz_id, &question_ids)
 }
 
 #[tauri::command]
 fn update_question_choices(state: State<DbState>, question_id: String, choices: Vec<CreateChoiceRequest>) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::update_choices_for_question(&conn, &question_id, &choices)
+    db::update_choices_for_question(&conn, &question_id, &choices)
 }
 
 // ============================================
@@ -716,31 +716,31 @@ fn update_question_choices(state: State<DbState>, question_id: String, choices: 
 #[tauri::command]
 fn start_quiz_attempt(state: State<DbState>, quiz_id: String) -> Result<QuizAttempt, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::start_quiz_attempt(&conn, &quiz_id)
+    db::start_quiz_attempt(&conn, &quiz_id)
 }
 
 #[tauri::command]
 fn submit_quiz_attempt(state: State<DbState>, attempt_id: String, request: SubmitQuizRequest) -> Result<QuizAttempt, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::submit_quiz_attempt(&conn, &attempt_id, &request.answers)
+    db::submit_quiz_attempt(&conn, &attempt_id, &request.answers)
 }
 
 #[tauri::command]
 fn get_quiz_attempt(state: State<DbState>, attempt_id: String) -> Result<QuizAttempt, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_quiz_attempt(&conn, &attempt_id)
+    db::get_quiz_attempt(&conn, &attempt_id)
 }
 
 #[tauri::command]
 fn get_quiz_attempts(state: State<DbState>, quiz_id: String) -> Result<Vec<QuizAttempt>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_quiz_attempts(&conn, &quiz_id)
+    db::get_quiz_attempts(&conn, &quiz_id)
 }
 
 #[tauri::command]
 fn get_quiz_stats(state: State<DbState>, quiz_id: String) -> Result<QuizStats, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_quiz_stats(&conn, &quiz_id)
+    db::get_quiz_stats(&conn, &quiz_id)
 }
 
 // ============================================
@@ -750,19 +750,19 @@ fn get_quiz_stats(state: State<DbState>, quiz_id: String) -> Result<QuizStats, S
 #[tauri::command]
 fn start_study_session(state: State<DbState>, deck_id: String) -> Result<StudySession, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::start_study_session(&conn, &deck_id)
+    db::start_study_session(&conn, &deck_id)
 }
 
 #[tauri::command]
 fn end_study_session(state: State<DbState>, session_id: String, cards_studied: i32) -> Result<StudySession, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::end_study_session(&conn, &session_id, cards_studied)
+    db::end_study_session(&conn, &session_id, cards_studied)
 }
 
 #[tauri::command]
 fn get_deck_study_stats(state: State<DbState>, deck_id: String) -> Result<DeckStudyStats, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    local_db::get_deck_study_stats(&conn, &deck_id)
+    db::get_deck_study_stats(&conn, &deck_id)
 }
 
 // ============================================
