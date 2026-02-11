@@ -106,13 +106,6 @@ pub enum QuestionType {
 }
 
 impl QuestionType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            QuestionType::MultipleChoice => "multiple_choice",
-            QuestionType::FillInBlank => "fill_in_blank",
-        }
-    }
-
     pub fn from_str(s: &str) -> Self {
         match s {
             "fill_in_blank" => QuestionType::FillInBlank,
@@ -691,33 +684,6 @@ pub fn get_deck_local(conn: &Connection, id: &str) -> Result<Deck, String> {
     .map_err(|e| format!("Deck not found: {}", e))
 }
 
-pub fn get_deck_by_remote_id(conn: &Connection, remote_id: i64) -> Result<Option<Deck>, String> {
-    match conn.query_row(
-        "SELECT id, name, description, created_at, updated_at,
-                remote_id, sync_status, last_synced_at, remote_updated_at
-         FROM decks WHERE remote_id = ?1",
-        params![remote_id],
-        |row| {
-            Ok(Deck {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                description: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-                remote_id: row.get(5)?,
-                sync_status: SyncStatus::from_str(&row.get::<_, String>(6)?),
-                last_synced_at: row.get(7)?,
-                remote_updated_at: row.get(8)?,
-                card_count: None,
-            })
-        },
-    ) {
-        Ok(deck) => Ok(Some(deck)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(format!("Query failed: {}", e)),
-    }
-}
-
 pub fn update_deck_local(
     conn: &Connection,
     id: &str,
@@ -745,71 +711,6 @@ pub fn delete_deck_local(conn: &Connection, id: &str) -> Result<(), String> {
     conn.execute("DELETE FROM decks WHERE id = ?1", params![id])
         .map_err(|e| format!("Failed to delete deck: {}", e))?;
     Ok(())
-}
-
-pub fn mark_deck_synced(
-    conn: &Connection,
-    id: &str,
-    remote_id: i64,
-    remote_updated_at: &str,
-) -> Result<(), String> {
-    let now = chrono::Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decks SET remote_id = ?1, sync_status = 'synced',
-         last_synced_at = ?2, remote_updated_at = ?3 WHERE id = ?4",
-        params![remote_id, now, remote_updated_at, id],
-    )
-    .map_err(|e| format!("Failed to mark deck synced: {}", e))?;
-    Ok(())
-}
-
-pub fn mark_deck_conflict(conn: &Connection, id: &str) -> Result<(), String> {
-    conn.execute(
-        "UPDATE decks SET sync_status = 'conflict' WHERE id = ?1",
-        params![id],
-    )
-    .map_err(|e| format!("Failed to mark deck conflict: {}", e))?;
-    Ok(())
-}
-
-pub fn get_pending_sync_decks(conn: &Connection) -> Result<Vec<Deck>, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, name, description, created_at, updated_at,
-                    remote_id, sync_status, last_synced_at, remote_updated_at
-             FROM decks WHERE sync_status IN ('local_only', 'pending_sync')",
-        )
-        .map_err(|e| format!("Failed to prepare query: {}", e))?;
-
-    let decks = stmt
-        .query_map([], |row| {
-            Ok(Deck {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                description: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
-                remote_id: row.get(5)?,
-                sync_status: SyncStatus::from_str(&row.get::<_, String>(6)?),
-                last_synced_at: row.get(7)?,
-                remote_updated_at: row.get(8)?,
-                card_count: None,
-            })
-        })
-        .map_err(|e| format!("Failed to query decks: {}", e))?;
-
-    decks
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to collect decks: {}", e))
-}
-
-pub fn get_pending_sync_count(conn: &Connection) -> Result<usize, String> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM decks WHERE sync_status IN ('local_only', 'pending_sync')",
-        [],
-        |row| row.get(0),
-    )
-    .map_err(|e| format!("Failed to count pending: {}", e))
 }
 
 // ============================================
@@ -950,12 +851,6 @@ pub fn delete_card_local(conn: &Connection, id: &str, deck_id: &str) -> Result<(
     Ok(())
 }
 
-pub fn delete_all_cards_for_deck(conn: &Connection, deck_id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM cards WHERE deck_id = ?1", params![deck_id])
-        .map_err(|e| format!("Failed to delete cards: {}", e))?;
-    Ok(())
-}
-
 // ============================================
 // Tag Operations
 // ============================================
@@ -1029,12 +924,6 @@ pub fn delete_tag_local(conn: &Connection, deck_id: &str, id: &str) -> Result<()
     .map_err(|e| format!("Failed to delete tag: {}", e))?;
 
     let _ = mark_deck_pending_if_synced(conn, deck_id);
-    Ok(())
-}
-
-pub fn delete_all_tags_for_deck(conn: &Connection, deck_id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM tags WHERE deck_id = ?1", params![deck_id])
-        .map_err(|e| format!("Failed to delete tags: {}", e))?;
     Ok(())
 }
 
@@ -1214,89 +1103,6 @@ fn mark_deck_pending_if_synced(conn: &Connection, deck_id: &str) -> Result<(), S
         params![chrono::Utc::now().to_rfc3339(), deck_id],
     )
     .map_err(|e| format!("Failed to mark pending: {}", e))?;
-    Ok(())
-}
-
-// ============================================
-// Import Helper for Sync
-// ============================================
-
-pub fn import_deck_from_remote(
-    conn: &Connection,
-    remote_id: i64,
-    name: &str,
-    description: Option<&str>,
-    remote_updated_at: &str,
-) -> Result<Deck, String> {
-    let id = Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().to_rfc3339();
-
-    conn.execute(
-        "INSERT INTO decks (id, name, description, created_at, updated_at,
-         remote_id, sync_status, last_synced_at, remote_updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'synced', ?7, ?8)",
-        params![id, name, description, now, now, remote_id, now, remote_updated_at],
-    )
-    .map_err(|e| format!("Failed to import deck: {}", e))?;
-
-    let mut deck = get_deck_local(conn, &id)?;
-    deck.card_count = Some(0); // Newly imported deck has no cards yet
-    Ok(deck)
-}
-
-pub fn import_card_from_remote(
-    conn: &Connection,
-    deck_id: &str,
-    remote_id: i64,
-    front: &str,
-    front_type: &str,
-    front_language: Option<&str>,
-    back: &str,
-    back_type: &str,
-    back_language: Option<&str>,
-    notes: Option<&str>,
-    created_at: &str,
-    updated_at: &str,
-) -> Result<String, String> {
-    let id = Uuid::new_v4().to_string();
-
-    conn.execute(
-        "INSERT INTO cards (id, deck_id, front, front_type, front_language,
-         back, back_type, back_language, notes, created_at, updated_at, remote_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        params![
-            id, deck_id, front, front_type, front_language,
-            back, back_type, back_language, notes, created_at, updated_at, remote_id
-        ],
-    )
-    .map_err(|e| format!("Failed to import card: {}", e))?;
-
-    Ok(id)
-}
-
-pub fn import_tag_from_remote(
-    conn: &Connection,
-    deck_id: &str,
-    remote_id: i64,
-    name: &str,
-) -> Result<String, String> {
-    let id = Uuid::new_v4().to_string();
-
-    conn.execute(
-        "INSERT INTO tags (id, deck_id, name, remote_id) VALUES (?1, ?2, ?3, ?4)",
-        params![id, deck_id, name, remote_id],
-    )
-    .map_err(|e| format!("Failed to import tag: {}", e))?;
-
-    Ok(id)
-}
-
-pub fn link_card_tag(conn: &Connection, card_id: &str, tag_id: &str) -> Result<(), String> {
-    conn.execute(
-        "INSERT OR IGNORE INTO card_tags (card_id, tag_id) VALUES (?1, ?2)",
-        params![card_id, tag_id],
-    )
-    .map_err(|e| format!("Failed to link card-tag: {}", e))?;
     Ok(())
 }
 
@@ -1702,7 +1508,7 @@ pub fn submit_quiz_attempt(
     let now = chrono::Utc::now().to_rfc3339();
 
     // Get attempt info
-    let (quiz_id, started_at): (String, String) = conn
+    let (_quiz_id, started_at): (String, String) = conn
         .query_row(
             "SELECT quiz_id, started_at FROM quiz_attempts WHERE id = ?1",
             params![attempt_id],
