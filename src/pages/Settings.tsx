@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useAuth } from "@/context/AuthContext";
-import { importDeck, exportDeck, getAllDecks } from "@/lib/db";
+import { importDeck, exportDeck, getAllDecks, deleteUser } from "@/lib/db";
 import type { Deck } from "@/types";
 
 export function Settings() {
@@ -14,6 +14,9 @@ export function Settings() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadDecks();
@@ -69,6 +72,23 @@ export function Settings() {
       });
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user || deleteConfirmText !== "DELETE") return;
+
+    setDeleting(true);
+    try {
+      await deleteUser(user.id);
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to delete account",
+      });
+      setDeleting(false);
     }
   };
 
@@ -188,6 +208,65 @@ export function Settings() {
                         <span className="text-xs text-[#939293]">Export</span>
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Danger Zone */}
+          <section className="bg-[#403e41] rounded-xl border border-[#ff6188]/50 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-[#ff6188] mb-4">Danger Zone</h2>
+
+            <div className="space-y-4">
+              {!showDeleteConfirm ? (
+                <div>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full px-4 py-2.5 border border-[#ff6188] text-[#ff6188] rounded-lg hover:bg-[#ff6188]/10 font-medium transition-colors"
+                  >
+                    Delete Account
+                  </button>
+                  <p className="text-xs text-[#939293] mt-2">
+                    Permanently delete your account and all data including decks, quizzes, and stats.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 bg-[#ff6188]/10 border border-[#ff6188]/30 rounded-lg">
+                  <p className="text-[#ff6188] font-medium mb-2">
+                    Are you sure you want to delete your account?
+                  </p>
+                  <p className="text-sm text-[#939293] mb-4">
+                    This will permanently delete all your decks, cards, quizzes, questions, and stats.
+                    This action cannot be undone.
+                  </p>
+                  <p className="text-sm text-[#939293] mb-2">
+                    Type <span className="font-mono text-[#ff6188]">DELETE</span> to confirm:
+                  </p>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="Type DELETE"
+                    className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ff6188] mb-3"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={deleteConfirmText !== "DELETE" || deleting}
+                      className="flex-1 px-4 py-2 bg-[#ff6188] text-[#2d2a2e] rounded-lg hover:bg-[#ff6188]/90 font-medium transition-colors disabled:opacity-50"
+                    >
+                      {deleting ? "Deleting..." : "Delete Account"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirm(false);
+                        setDeleteConfirmText("");
+                      }}
+                      className="flex-1 px-4 py-2 border border-[#5b595c] text-[#fcfcfa] rounded-lg hover:bg-[#5b595c]/30 transition-colors"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
