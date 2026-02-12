@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -18,9 +18,43 @@ export function QuizView() {
   const [exporting, setExporting] = useState(false);
 
   // Search and filter state
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchQuestion, setSearchQuestion] = useState("");
+  const [searchAnswer, setSearchAnswer] = useState("");
+  const [searchTag, setSearchTag] = useState("");
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
+
+  // Resizable tag container - using direct DOM manipulation for smooth performance
+  const tagContainerRef = useRef<HTMLDivElement>(null);
+  const resizeState = useRef({ isResizing: false, startY: 0, startHeight: 0 });
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const container = tagContainerRef.current;
+    if (!container) return;
+
+    resizeState.current = {
+      isResizing: true,
+      startY: e.clientY,
+      startHeight: container.offsetHeight,
+    };
+
+    document.addEventListener("mousemove", handleResizeMove);
+    document.addEventListener("mouseup", handleResizeEnd);
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!resizeState.current.isResizing || !tagContainerRef.current) return;
+    const delta = e.clientY - resizeState.current.startY;
+    const newHeight = Math.max(64, Math.min(400, resizeState.current.startHeight + delta));
+    tagContainerRef.current.style.height = `${newHeight}px`;
+  };
+
+  const handleResizeEnd = () => {
+    resizeState.current.isResizing = false;
+    document.removeEventListener("mousemove", handleResizeMove);
+    document.removeEventListener("mouseup", handleResizeEnd);
+  };
 
   useEffect(() => {
     async function loadQuiz() {
@@ -43,21 +77,35 @@ export function QuizView() {
     loadQuiz();
   }, [id]);
 
+  // Filter tags based on tag search (for display only)
+  const filteredTags = useMemo(() => {
+    if (!searchTag.trim()) return quizTags;
+    const term = searchTag.toLowerCase();
+    return quizTags.filter((tag) => tag.name.toLowerCase().includes(term));
+  }, [quizTags, searchTag]);
+
   // Filter questions based on search and tags
   const filteredQuestions = useMemo(() => {
     if (!quiz?.questions) return [];
 
     let result: Question[] = [...quiz.questions];
 
-    // Text search
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (q) =>
-          q.content.toLowerCase().includes(term) ||
-          (q.explanation && q.explanation.toLowerCase().includes(term)) ||
-          (q.correctAnswer && q.correctAnswer.toLowerCase().includes(term))
-      );
+    // Question search
+    if (searchQuestion.trim()) {
+      const term = searchQuestion.toLowerCase();
+      result = result.filter((q) => q.content.toLowerCase().includes(term));
+    }
+
+    // Answer search (check choices for multiple choice, correctAnswer for fill-in)
+    if (searchAnswer.trim()) {
+      const term = searchAnswer.toLowerCase();
+      result = result.filter((q) => {
+        if (q.questionType === "multiple_choice") {
+          return q.choices.some((choice) => choice.text.toLowerCase().includes(term));
+        } else {
+          return q.correctAnswer?.toLowerCase().includes(term);
+        }
+      });
     }
 
     // Tag filter
@@ -73,7 +121,7 @@ export function QuizView() {
     }
 
     return result.sort((a, b) => a.position - b.position);
-  }, [quiz?.questions, searchTerm, selectedTagFilters, tagFilterMode]);
+  }, [quiz?.questions, searchQuestion, searchAnswer, selectedTagFilters, tagFilterMode]);
 
   const handleToggleTagFilter = (tagId: string) => {
     setSelectedTagFilters((prev) =>
@@ -82,12 +130,14 @@ export function QuizView() {
   };
 
   const clearFilters = () => {
-    setSearchTerm("");
+    setSearchQuestion("");
+    setSearchAnswer("");
+    setSearchTag("");
     setSelectedTagFilters([]);
     setTagFilterMode("any");
   };
 
-  const hasActiveFilters = searchTerm.trim() !== "" || selectedTagFilters.length > 0;
+  const hasActiveFilters = searchQuestion.trim() !== "" || searchAnswer.trim() !== "" || selectedTagFilters.length > 0;
 
   const handleDelete = async () => {
     if (!id) return;
@@ -347,70 +397,145 @@ export function QuizView() {
               </h3>
 
               {/* Search and Filter */}
-              <div className="mb-4 space-y-3">
-                <input
-                  type="text"
-                  placeholder="Search questions..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
-                />
+              <div className="mb-4 space-y-4">
+                {/* Search Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-[#939293] mb-1">Search Questions</label>
+                    <input
+                      type="text"
+                      placeholder="Search question content..."
+                      value={searchQuestion}
+                      onChange={(e) => setSearchQuestion(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#939293] mb-1">Search Answers</label>
+                    <input
+                      type="text"
+                      placeholder="Search answer choices..."
+                      value={searchAnswer}
+                      onChange={(e) => setSearchAnswer(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors text-sm"
+                    />
+                  </div>
+                </div>
 
                 {/* Tag Filters */}
                 {quizTags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-[#939293]">Tags:</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs text-[#939293]">Filter by Tags</label>
+                      {/* Tag Mode Toggle */}
+                      {selectedTagFilters.length > 1 && (
+                        <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5">
+                          <button
+                            onClick={() => setTagFilterMode("any")}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                              tagFilterMode === "any"
+                                ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                                : "text-[#939293] hover:text-[#fcfcfa]"
+                            }`}
+                          >
+                            Match Any
+                          </button>
+                          <button
+                            onClick={() => setTagFilterMode("all")}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                              tagFilterMode === "all"
+                                ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                                : "text-[#939293] hover:text-[#fcfcfa]"
+                            }`}
+                          >
+                            Match All
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Tag Mode Toggle */}
-                    {selectedTagFilters.length > 1 && (
-                      <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5 mr-2">
-                        <button
-                          onClick={() => setTagFilterMode("any")}
-                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                            tagFilterMode === "any"
-                              ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
-                              : "text-[#939293] hover:text-[#fcfcfa]"
-                          }`}
-                        >
-                          Any
-                        </button>
-                        <button
-                          onClick={() => setTagFilterMode("all")}
-                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                            tagFilterMode === "all"
-                              ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
-                              : "text-[#939293] hover:text-[#fcfcfa]"
-                          }`}
-                        >
-                          All
-                        </button>
+                    {/* Tag Search */}
+                    <input
+                      type="text"
+                      placeholder="Search tags..."
+                      value={searchTag}
+                      onChange={(e) => setSearchTag(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ab9df2] focus:ring-1 focus:ring-[#ab9df2]/50 transition-colors text-sm"
+                    />
+
+                    {/* Selected Tags (always visible) */}
+                    {selectedTagFilters.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-xs text-[#939293]">Selected:</span>
+                        {selectedTagFilters.map((tagId) => {
+                          const tag = quizTags.find((t) => t.id === tagId);
+                          return tag ? (
+                            <button
+                              key={tag.id}
+                              onClick={() => handleToggleTagFilter(tag.id)}
+                              className="px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2] text-[#2d2a2e] hover:bg-[#ab9df2]/80 transition-colors flex items-center gap-1"
+                            >
+                              {tag.name}
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          ) : null;
+                        })}
                       </div>
                     )}
 
-                    {quizTags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        onClick={() => handleToggleTagFilter(tag.id)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          selectedTagFilters.includes(tag.id)
-                            ? "bg-[#ab9df2] text-[#2d2a2e]"
-                            : "bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30"
-                        }`}
+                    {/* Available Tags (filtered by search) - Resizable */}
+                    <div className="relative">
+                      <div
+                        ref={tagContainerRef}
+                        className="flex flex-wrap content-start gap-2 overflow-y-auto p-2 bg-[#2d2a2e] rounded-lg border border-[#5b595c]"
+                        style={{ height: "128px" }}
                       >
-                        {tag.name}
-                      </button>
-                    ))}
+                        {filteredTags.length === 0 ? (
+                          <span className="text-xs text-[#939293]">No tags match your search</span>
+                        ) : (
+                          filteredTags
+                            .filter((tag) => !selectedTagFilters.includes(tag.id))
+                            .map((tag) => (
+                              <button
+                                key={tag.id}
+                                onClick={() => handleToggleTagFilter(tag.id)}
+                                className="px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30 transition-colors h-fit"
+                              >
+                                {tag.name}
+                              </button>
+                            ))
+                        )}
+                        {filteredTags.filter((tag) => !selectedTagFilters.includes(tag.id)).length === 0 &&
+                         filteredTags.length > 0 && (
+                          <span className="text-xs text-[#939293]">All matching tags selected</span>
+                        )}
+                      </div>
+                      {/* Resize Handle */}
+                      <div
+                        onMouseDown={handleResizeStart}
+                        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center hover:bg-[#5b595c]/30 rounded-b-lg group"
+                      >
+                        <div className="w-8 h-1 bg-[#5b595c] rounded-full group-hover:bg-[#939293] transition-colors" />
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Clear filters button */}
+                {/* Filter Actions */}
                 {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-sm text-[#ffd866] hover:text-[#ffd866]/80"
-                  >
-                    Clear filters
-                  </button>
+                  <div className="flex items-center gap-3 pt-2 border-t border-[#5b595c]">
+                    <span className="text-sm text-[#939293]">
+                      {filteredQuestions.length} question{filteredQuestions.length !== 1 ? "s" : ""} match
+                    </span>
+                    <button
+                      onClick={clearFilters}
+                      className="text-sm text-[#ff6188] hover:text-[#ff6188]/80 transition-colors"
+                    >
+                      Clear all filters
+                    </button>
+                  </div>
                 )}
               </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -59,9 +59,43 @@ export function DeckView() {
   const [loading, setLoading] = useState(true);
 
   // Search and filter state
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchFront, setSearchFront] = useState("");
+  const [searchBack, setSearchBack] = useState("");
+  const [searchTag, setSearchTag] = useState("");
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
+
+  // Resizable tag container - using direct DOM manipulation for smooth performance
+  const tagContainerRef = useRef<HTMLDivElement>(null);
+  const resizeState = useRef({ isResizing: false, startY: 0, startHeight: 0 });
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const container = tagContainerRef.current;
+    if (!container) return;
+
+    resizeState.current = {
+      isResizing: true,
+      startY: e.clientY,
+      startHeight: container.offsetHeight,
+    };
+
+    document.addEventListener("mousemove", handleResizeMove);
+    document.addEventListener("mouseup", handleResizeEnd);
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!resizeState.current.isResizing || !tagContainerRef.current) return;
+    const delta = e.clientY - resizeState.current.startY;
+    const newHeight = Math.max(64, Math.min(400, resizeState.current.startHeight + delta));
+    tagContainerRef.current.style.height = `${newHeight}px`;
+  };
+
+  const handleResizeEnd = () => {
+    resizeState.current.isResizing = false;
+    document.removeEventListener("mousemove", handleResizeMove);
+    document.removeEventListener("mouseup", handleResizeEnd);
+  };
 
   // Action states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -100,19 +134,27 @@ export function DeckView() {
     }
   };
 
+  // Filter tags based on tag search (for display only)
+  const filteredTags = useMemo(() => {
+    if (!searchTag.trim()) return tags;
+    const term = searchTag.toLowerCase();
+    return tags.filter((tag) => tag.name.toLowerCase().includes(term));
+  }, [tags, searchTag]);
+
   // Filter cards based on search and tags
   const filteredCards = useMemo(() => {
     let result = cards;
 
-    // Text search
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (card) =>
-          card.front.toLowerCase().includes(term) ||
-          card.back.toLowerCase().includes(term) ||
-          (card.notes && card.notes.toLowerCase().includes(term))
-      );
+    // Front search
+    if (searchFront.trim()) {
+      const term = searchFront.toLowerCase();
+      result = result.filter((card) => card.front.toLowerCase().includes(term));
+    }
+
+    // Back search
+    if (searchBack.trim()) {
+      const term = searchBack.toLowerCase();
+      result = result.filter((card) => card.back.toLowerCase().includes(term));
     }
 
     // Tag filter
@@ -128,9 +170,9 @@ export function DeckView() {
     }
 
     return result;
-  }, [cards, searchTerm, selectedTagFilters, tagFilterMode]);
+  }, [cards, searchFront, searchBack, selectedTagFilters, tagFilterMode]);
 
-  const hasActiveFilters = searchTerm.trim() !== "" || selectedTagFilters.length > 0;
+  const hasActiveFilters = searchFront.trim() !== "" || searchBack.trim() !== "" || selectedTagFilters.length > 0;
 
   const handleDeleteDeck = async () => {
     if (!id) return;
@@ -173,9 +215,21 @@ export function DeckView() {
   };
 
   const clearFilters = () => {
-    setSearchTerm("");
+    setSearchFront("");
+    setSearchBack("");
+    setSearchTag("");
     setSelectedTagFilters([]);
     setTagFilterMode("any");
+  };
+
+  // Build URL params for filtered study/listen
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (searchFront) params.set("front", searchFront);
+    if (searchBack) params.set("back", searchBack);
+    if (selectedTagFilters.length > 0) params.set("tags", selectedTagFilters.join(","));
+    if (selectedTagFilters.length > 1) params.set("tagMode", tagFilterMode);
+    return params.toString();
   };
 
   if (loading) {
@@ -384,80 +438,156 @@ export function DeckView() {
               </h3>
 
               {/* Search and Filter */}
-              <div className="mb-4 space-y-3">
-                <input
-                  type="text"
-                  placeholder="Search cards..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors"
-                />
+              <div className="mb-4 space-y-4">
+                {/* Search Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-[#939293] mb-1">Search Front</label>
+                    <input
+                      type="text"
+                      placeholder="Search front of cards..."
+                      value={searchFront}
+                      onChange={(e) => setSearchFront(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#939293] mb-1">Search Back</label>
+                    <input
+                      type="text"
+                      placeholder="Search back of cards..."
+                      value={searchBack}
+                      onChange={(e) => setSearchBack(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ffd866] focus:ring-1 focus:ring-[#ffd866]/50 transition-colors text-sm"
+                    />
+                  </div>
+                </div>
 
                 {/* Tag Filters */}
                 {tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-[#939293]">Tags:</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs text-[#939293]">Filter by Tags</label>
+                      {/* Tag Mode Toggle */}
+                      {selectedTagFilters.length > 1 && (
+                        <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5">
+                          <button
+                            onClick={() => setTagFilterMode("any")}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                              tagFilterMode === "any"
+                                ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                                : "text-[#939293] hover:text-[#fcfcfa]"
+                            }`}
+                          >
+                            Match Any
+                          </button>
+                          <button
+                            onClick={() => setTagFilterMode("all")}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                              tagFilterMode === "all"
+                                ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
+                                : "text-[#939293] hover:text-[#fcfcfa]"
+                            }`}
+                          >
+                            Match All
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Tag Mode Toggle */}
-                    {selectedTagFilters.length > 1 && (
-                      <div className="flex items-center bg-[#2d2a2e] rounded-lg p-0.5 mr-2">
-                        <button
-                          onClick={() => setTagFilterMode("any")}
-                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                            tagFilterMode === "any"
-                              ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
-                              : "text-[#939293] hover:text-[#fcfcfa]"
-                          }`}
-                        >
-                          Any
-                        </button>
-                        <button
-                          onClick={() => setTagFilterMode("all")}
-                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                            tagFilterMode === "all"
-                              ? "bg-[#ab9df2] text-[#2d2a2e] font-medium"
-                              : "text-[#939293] hover:text-[#fcfcfa]"
-                          }`}
-                        >
-                          All
-                        </button>
+                    {/* Tag Search */}
+                    <input
+                      type="text"
+                      placeholder="Search tags..."
+                      value={searchTag}
+                      onChange={(e) => setSearchTag(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] placeholder-[#939293] focus:outline-none focus:border-[#ab9df2] focus:ring-1 focus:ring-[#ab9df2]/50 transition-colors text-sm"
+                    />
+
+                    {/* Selected Tags (always visible) */}
+                    {selectedTagFilters.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-xs text-[#939293]">Selected:</span>
+                        {selectedTagFilters.map((tagId) => {
+                          const tag = tags.find((t) => t.id === tagId);
+                          return tag ? (
+                            <button
+                              key={tag.id}
+                              onClick={() => handleToggleTagFilter(tag.id)}
+                              className="px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2] text-[#2d2a2e] hover:bg-[#ab9df2]/80 transition-colors flex items-center gap-1"
+                            >
+                              {tag.name}
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          ) : null;
+                        })}
                       </div>
                     )}
 
-                    {tags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        onClick={() => handleToggleTagFilter(tag.id)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          selectedTagFilters.includes(tag.id)
-                            ? "bg-[#ab9df2] text-[#2d2a2e]"
-                            : "bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30"
-                        }`}
+                    {/* Available Tags (filtered by search) - Resizable */}
+                    <div className="relative">
+                      <div
+                        ref={tagContainerRef}
+                        className="flex flex-wrap content-start gap-2 overflow-y-auto p-2 bg-[#2d2a2e] rounded-lg border border-[#5b595c]"
+                        style={{ height: "128px" }}
                       >
-                        {tag.name}
-                      </button>
-                    ))}
+                        {filteredTags.length === 0 ? (
+                          <span className="text-xs text-[#939293]">No tags match your search</span>
+                        ) : (
+                          filteredTags
+                            .filter((tag) => !selectedTagFilters.includes(tag.id))
+                            .map((tag) => (
+                              <button
+                                key={tag.id}
+                                onClick={() => handleToggleTagFilter(tag.id)}
+                                className="px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2] hover:bg-[#ab9df2]/30 transition-colors h-fit"
+                              >
+                                {tag.name}
+                              </button>
+                            ))
+                        )}
+                        {filteredTags.filter((tag) => !selectedTagFilters.includes(tag.id)).length === 0 &&
+                         filteredTags.length > 0 && (
+                          <span className="text-xs text-[#939293]">All matching tags selected</span>
+                        )}
+                      </div>
+                      {/* Resize Handle */}
+                      <div
+                        onMouseDown={handleResizeStart}
+                        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center hover:bg-[#5b595c]/30 rounded-b-lg group"
+                      >
+                        <div className="w-8 h-1 bg-[#5b595c] rounded-full group-hover:bg-[#939293] transition-colors" />
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Clear filters and Study Filtered buttons */}
+                {/* Filter Actions */}
                 {hasActiveFilters && (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#5b595c]">
+                    <span className="text-sm text-[#939293]">
+                      {filteredCards.length} card{filteredCards.length !== 1 ? "s" : ""} match
+                    </span>
                     <button
                       onClick={clearFilters}
-                      className="text-sm text-[#ffd866] hover:text-[#ffd866]/80"
+                      className="text-sm text-[#ff6188] hover:text-[#ff6188]/80 transition-colors"
                     >
-                      Clear filters
+                      Clear all filters
                     </button>
+                    <div className="flex-1" />
                     <Link
-                      to={`/decks/${id}/study?${new URLSearchParams({
-                        ...(searchTerm && { q: searchTerm }),
-                        ...(selectedTagFilters.length > 0 && { tags: selectedTagFilters.join(',') }),
-                        ...(selectedTagFilters.length > 1 && { tagMode: tagFilterMode }),
-                      }).toString()}`}
-                      className="text-sm text-[#a9dc76] hover:text-[#a9dc76]/80"
+                      to={`/decks/${id}/study?${buildFilterParams()}`}
+                      className="px-4 py-1.5 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 text-sm font-medium transition-colors"
                     >
-                      Study filtered ({filteredCards.length})
+                      Study Filtered
+                    </Link>
+                    <Link
+                      to={`/decks/${id}/listen?${buildFilterParams()}`}
+                      className="px-4 py-1.5 bg-[#78dce8] text-[#2d2a2e] rounded-lg hover:bg-[#78dce8]/90 text-sm font-medium transition-colors"
+                    >
+                      Listen Filtered
                     </Link>
                   </div>
                 )}

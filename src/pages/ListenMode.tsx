@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import type { Card, Deck } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getCardsForDeck, getDeck } from "@/lib/db";
@@ -9,12 +9,27 @@ import { ListenModeControls } from "@/components/ListenModeControls";
 import { ListenModePhaseBar } from "@/components/ListenModePhaseBar";
 import { useListenMode } from "@/hooks/useListenMode";
 
+type FilterLogic = "any" | "all";
+
 export function ListenMode() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+
+  // URL filter params
+  const urlFrontSearch = searchParams.get("front") || "";
+  const urlBackSearch = searchParams.get("back") || "";
+  const urlTagsRaw = searchParams.get("tags") || "";
+  const urlTagMode = (searchParams.get("tagMode") as FilterLogic) || "any";
+  const hasUrlFilters = urlFrontSearch || urlBackSearch || urlTagsRaw.length > 0;
+
+  const urlTagIds = useMemo(() =>
+    urlTagsRaw ? urlTagsRaw.split(",").filter(Boolean) : [],
+    [urlTagsRaw]
+  );
 
   // Load deck and cards
   useEffect(() => {
@@ -27,7 +42,36 @@ export function ListenMode() {
             getCardsForDeck(id),
           ]);
           setDeck(deckData);
-          setCards(cardsData);
+
+          // Apply filters if present
+          let filteredCards = cardsData;
+
+          if (hasUrlFilters) {
+            if (urlFrontSearch) {
+              const term = urlFrontSearch.toLowerCase();
+              filteredCards = filteredCards.filter((card) =>
+                card.front.toLowerCase().includes(term)
+              );
+            }
+            if (urlBackSearch) {
+              const term = urlBackSearch.toLowerCase();
+              filteredCards = filteredCards.filter((card) =>
+                card.back.toLowerCase().includes(term)
+              );
+            }
+            if (urlTagIds.length > 0) {
+              filteredCards = filteredCards.filter((card) => {
+                const cardTagIds = card.tags.map((t) => t.id);
+                if (urlTagMode === "all") {
+                  return urlTagIds.every((tagId) => cardTagIds.includes(tagId));
+                } else {
+                  return urlTagIds.some((tagId) => cardTagIds.includes(tagId));
+                }
+              });
+            }
+          }
+
+          setCards(filteredCards);
         }
       } catch (error) {
         console.error("Failed to load cards:", error);
@@ -36,7 +80,7 @@ export function ListenMode() {
       }
     }
     loadDeckAndCards();
-  }, [id]);
+  }, [id, hasUrlFilters, urlFrontSearch, urlBackSearch, urlTagsRaw, urlTagMode]);
 
   // Listen mode hook
   const listenMode = useListenMode({

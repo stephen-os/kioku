@@ -21,10 +21,11 @@ export function StudyMode() {
   const [studyComplete, setStudyComplete] = useState(false);
 
   // URL filter params - use raw strings for stable dependencies
-  const urlSearchTerm = searchParams.get("q") || "";
+  const urlFrontSearch = searchParams.get("front") || "";
+  const urlBackSearch = searchParams.get("back") || "";
   const urlTagsRaw = searchParams.get("tags") || "";
   const urlTagMode = (searchParams.get("tagMode") as FilterLogic) || "any";
-  const hasUrlFilters = urlSearchTerm || urlTagsRaw.length > 0;
+  const hasUrlFilters = urlFrontSearch || urlBackSearch || urlTagsRaw.length > 0;
 
   // Parse tag IDs only when needed (memoized)
   const urlTagIds = useMemo(() =>
@@ -71,14 +72,19 @@ export function StudyMode() {
           if (hasUrlFilters) {
             let filteredCards = cardsData;
 
-            // Apply text search from URL
-            if (urlSearchTerm) {
-              const term = urlSearchTerm.toLowerCase();
-              filteredCards = filteredCards.filter(
-                (card) =>
-                  card.front.toLowerCase().includes(term) ||
-                  card.back.toLowerCase().includes(term) ||
-                  (card.notes && card.notes.toLowerCase().includes(term))
+            // Apply front search from URL
+            if (urlFrontSearch) {
+              const term = urlFrontSearch.toLowerCase();
+              filteredCards = filteredCards.filter((card) =>
+                card.front.toLowerCase().includes(term)
+              );
+            }
+
+            // Apply back search from URL
+            if (urlBackSearch) {
+              const term = urlBackSearch.toLowerCase();
+              filteredCards = filteredCards.filter((card) =>
+                card.back.toLowerCase().includes(term)
               );
             }
 
@@ -111,7 +117,7 @@ export function StudyMode() {
       }
     }
     loadDeckAndCards();
-  }, [id, hasUrlFilters, urlSearchTerm, urlTagsRaw, urlTagMode]);
+  }, [id, hasUrlFilters, urlFrontSearch, urlBackSearch, urlTagsRaw, urlTagMode]);
 
   // Start study session when studying begins
   useEffect(() => {
