@@ -20,11 +20,17 @@ export function StudyMode() {
   const [loading, setLoading] = useState(true);
   const [studyComplete, setStudyComplete] = useState(false);
 
-  // URL filter params
+  // URL filter params - use raw strings for stable dependencies
   const urlSearchTerm = searchParams.get("q") || "";
-  const urlTagIds = searchParams.get("tags")?.split(",").filter(Boolean) || [];
+  const urlTagsRaw = searchParams.get("tags") || "";
   const urlTagMode = (searchParams.get("tagMode") as FilterLogic) || "any";
-  const hasUrlFilters = urlSearchTerm || urlTagIds.length > 0;
+  const hasUrlFilters = urlSearchTerm || urlTagsRaw.length > 0;
+
+  // Parse tag IDs only when needed (memoized)
+  const urlTagIds = useMemo(() =>
+    urlTagsRaw ? urlTagsRaw.split(",").filter(Boolean) : [],
+    [urlTagsRaw]
+  );
 
   // Tag filter state
   const [showTagFilter, setShowTagFilter] = useState(false);
@@ -105,7 +111,7 @@ export function StudyMode() {
       }
     }
     loadDeckAndCards();
-  }, [id, hasUrlFilters, urlSearchTerm, urlTagIds, urlTagMode]);
+  }, [id, hasUrlFilters, urlSearchTerm, urlTagsRaw, urlTagMode]);
 
   // Start study session when studying begins
   useEffect(() => {
