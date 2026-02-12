@@ -61,7 +61,7 @@ export function StudyMode() {
           setAllCards(cardsData);
           setTags(tagsData);
 
-          // If URL has filters, apply them directly and skip the filter screen
+          // If URL has filters, apply them
           if (hasUrlFilters) {
             let filteredCards = cardsData;
 
@@ -91,11 +91,8 @@ export function StudyMode() {
             const shuffled = [...filteredCards].sort(() => Math.random() - 0.5);
             setCards(shuffled);
             setStudyStarted(true);
-          } else if (tagsData.length > 0) {
-            // No URL filters, but has tags - show filter screen
-            setShowTagFilter(true);
           } else {
-            // No tags, start studying immediately
+            // No URL filters - study all cards immediately
             const shuffled = [...cardsData].sort(() => Math.random() - 0.5);
             setCards(shuffled);
             setStudyStarted(true);
