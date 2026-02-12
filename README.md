@@ -166,4 +166,4 @@ npm run tauri:build
 
 ## License
 
-ISC
+MIT
