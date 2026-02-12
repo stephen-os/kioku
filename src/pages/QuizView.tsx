@@ -547,43 +547,7 @@ export function QuizView() {
               ) : (
                 <div className="space-y-3">
                   {filteredQuestions.map((question) => (
-                    <div
-                      key={question.id}
-                      className="flex items-start gap-3 p-3 bg-[#2d2a2e] rounded-lg"
-                    >
-                      <span className="text-[#939293] font-mono text-sm">
-                        {question.position + 1}.
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[#fcfcfa] truncate">
-                          {question.content}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <span className="text-xs px-2 py-0.5 rounded bg-[#5b595c]/50 text-[#939293]">
-                            {question.questionType === "multiple_choice"
-                              ? `${question.choices.length} choices`
-                              : "Fill in blank"}
-                          </span>
-                          {question.contentType === "CODE" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
-                              Code
-                            </span>
-                          )}
-                          {question.tags && question.tags.length > 0 && (
-                            <>
-                              {question.tags.map((tag) => (
-                                <span
-                                  key={tag.id}
-                                  className="text-xs px-2 py-0.5 rounded-full bg-[#ab9df2]/20 text-[#ab9df2]"
-                                >
-                                  {tag.name}
-                                </span>
-                              ))}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <QuestionRow key={question.id} question={question} />
                   ))}
                 </div>
               )}
@@ -591,6 +555,115 @@ export function QuizView() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function QuestionRow({ question }: { question: Question }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="bg-[#2d2a2e] rounded-lg overflow-hidden">
+      {/* Question Header - Clickable */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-start gap-3 p-3 text-left hover:bg-[#5b595c]/20 transition-colors"
+      >
+        <span className="text-[#939293] font-mono text-sm">
+          {question.position + 1}.
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className={`text-[#fcfcfa] ${isExpanded ? "whitespace-pre-wrap" : "truncate"}`}>
+            {question.content}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="text-xs px-2 py-0.5 rounded bg-[#5b595c]/50 text-[#939293]">
+              {question.questionType === "multiple_choice"
+                ? `${question.choices.length} choices`
+                : "Fill in blank"}
+            </span>
+            {question.contentType === "CODE" && (
+              <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
+                Code
+              </span>
+            )}
+            {question.tags && question.tags.length > 0 && (
+              <>
+                {question.tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="text-xs px-2 py-0.5 rounded-full bg-[#ab9df2]/20 text-[#ab9df2]"
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+        {/* Expand/Collapse Icon */}
+        <div className={`p-1 rounded hover:bg-[#5b595c]/50 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}>
+          <svg
+            className="w-5 h-5 text-[#939293]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Expanded Content - Answers */}
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 ml-8 border-t border-[#5b595c]/50">
+          {question.questionType === "multiple_choice" ? (
+            <div className="space-y-2">
+              <span className="text-xs text-[#939293] uppercase tracking-wider">Choices</span>
+              <div className="space-y-1.5">
+                {question.choices.map((choice, idx) => (
+                  <div
+                    key={choice.id}
+                    className={`flex items-start gap-2 p-2 rounded-lg text-sm ${
+                      choice.isCorrect
+                        ? "bg-[#a9dc76]/20 border border-[#a9dc76]/30"
+                        : "bg-[#403e41]"
+                    }`}
+                  >
+                    <span className={`font-mono text-xs mt-0.5 ${choice.isCorrect ? "text-[#a9dc76]" : "text-[#939293]"}`}>
+                      {String.fromCharCode(65 + idx)}.
+                    </span>
+                    <span className={choice.isCorrect ? "text-[#a9dc76]" : "text-[#fcfcfa]"}>
+                      {choice.text}
+                    </span>
+                    {choice.isCorrect && (
+                      <svg className="w-4 h-4 text-[#a9dc76] ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <span className="text-xs text-[#939293] uppercase tracking-wider">Correct Answer</span>
+              <div className="p-2 rounded-lg bg-[#a9dc76]/20 border border-[#a9dc76]/30">
+                <span className="text-[#a9dc76] text-sm">{question.correctAnswer}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Explanation if available */}
+          {question.explanation && (
+            <div className="mt-3 space-y-2">
+              <span className="text-xs text-[#939293] uppercase tracking-wider">Explanation</span>
+              <p className="text-sm text-[#939293] whitespace-pre-wrap">{question.explanation}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
