@@ -317,7 +317,7 @@ export function ListenMode() {
                       )}
                       <div className="mb-6">
                         {isCodeFront ? (
-                          <div className="w-full">
+                          <div className="w-full text-left">
                             <CodeBlock
                               code={currentCard?.front || ""}
                               language={currentCard?.frontLanguage}
@@ -353,7 +353,7 @@ export function ListenMode() {
                       )}
                       <div className="mb-6">
                         {isCodeBack ? (
-                          <div className="w-full">
+                          <div className="w-full text-left">
                             <CodeBlock
                               code={currentCard?.back || ""}
                               language={currentCard?.backLanguage}
