@@ -82,8 +82,8 @@ export function QuizEditor() {
       };
 
       if (isNew) {
-        const newQuiz = await createQuiz(request);
-        navigate(`/quizzes/${newQuiz.id}/edit`, { replace: true });
+        await createQuiz(request);
+        navigate("/quizzes", { replace: true });
       } else if (id) {
         await updateQuiz(id, request);
         await loadQuiz(id);
