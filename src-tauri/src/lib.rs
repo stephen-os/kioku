@@ -106,7 +106,9 @@ fn remove_user_password(state: State<DbState>, user_id: String) -> Result<LocalU
 #[tauri::command]
 fn get_all_decks(state: State<DbState>) -> Result<Vec<Deck>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    db::get_all_decks(&conn)
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::get_all_decks(&conn, &active_user.id)
 }
 
 #[tauri::command]
@@ -121,8 +123,11 @@ fn get_deck(state: State<DbState>, id: String) -> Result<Option<Deck>, String> {
 #[tauri::command]
 fn create_deck(state: State<DbState>, request: CreateDeckRequest) -> Result<Deck, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
     db::create_deck(
         &conn,
+        &active_user.id,
         &request.name,
         request.description.as_deref(),
         request.shuffle_cards.unwrap_or(false),
@@ -343,8 +348,12 @@ fn import_deck_from_file(
     let cards_count = import_data.cards.len();
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
 
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+
     let deck = db::create_deck(
         &conn,
+        &active_user.id,
         &import_data.name,
         import_data.description.as_deref(),
         import_data.shuffle_cards,
@@ -576,13 +585,16 @@ fn import_quiz_from_file(
     let questions_count = import_data.questions.len();
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
 
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+
     // Create the quiz
     let quiz_request = CreateQuizRequest {
         name: import_data.name,
         description: import_data.description,
         shuffle_questions: Some(import_data.shuffle_questions),
     };
-    let quiz = db::create_quiz(&conn, &quiz_request)?;
+    let quiz = db::create_quiz(&conn, &active_user.id, &quiz_request)?;
 
     // Keep track of created tags to avoid duplicates
     let mut tag_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
@@ -636,7 +648,9 @@ fn import_quiz_from_file(
 #[tauri::command]
 fn get_all_quizzes(state: State<DbState>) -> Result<Vec<Quiz>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    db::get_all_quizzes(&conn)
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::get_all_quizzes(&conn, &active_user.id)
 }
 
 #[tauri::command]
@@ -648,7 +662,9 @@ fn get_quiz(state: State<DbState>, quiz_id: String) -> Result<Quiz, String> {
 #[tauri::command]
 fn create_quiz(state: State<DbState>, request: CreateQuizRequest) -> Result<Quiz, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    db::create_quiz(&conn, &request)
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::create_quiz(&conn, &active_user.id, &request)
 }
 
 #[tauri::command]

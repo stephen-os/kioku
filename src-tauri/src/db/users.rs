@@ -71,7 +71,11 @@ pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<Loc
 }
 
 /// Verify a user's password
-pub fn verify_user_password(conn: &Connection, user_id: &str, password: Option<&str>) -> Result<bool, String> {
+pub fn verify_user_password(
+    conn: &Connection,
+    user_id: &str,
+    password: Option<&str>,
+) -> Result<bool, String> {
     let stored_hash: Option<String> = conn
         .query_row(
             "SELECT password_hash FROM users WHERE id = ?1",
@@ -91,7 +95,11 @@ pub fn verify_user_password(conn: &Connection, user_id: &str, password: Option<&
 }
 
 /// Log in a user
-pub fn login_user(conn: &Connection, user_id: &str, password: Option<&str>) -> Result<LocalUser, String> {
+pub fn login_user(
+    conn: &Connection,
+    user_id: &str,
+    password: Option<&str>,
+) -> Result<LocalUser, String> {
     if !verify_user_password(conn, user_id, password)? {
         return Err("Invalid password".to_string());
     }
@@ -147,10 +155,15 @@ pub fn delete_user(conn: &Connection, user_id: &str) -> Result<(), String> {
         }
     }
 
+    // Delete decks owned by this user
     conn.execute("DELETE FROM decks WHERE user_id = ?1", params![user_id])
         .map_err(|e| format!("Failed to delete user decks: {}", e))?;
+
+    // Delete quizzes owned by this user
     conn.execute("DELETE FROM quizzes WHERE user_id = ?1", params![user_id])
         .map_err(|e| format!("Failed to delete user quizzes: {}", e))?;
+
+    // Delete the user
     conn.execute("DELETE FROM users WHERE id = ?1", params![user_id])
         .map_err(|e| format!("Failed to delete user: {}", e))?;
 
@@ -168,30 +181,22 @@ pub fn update_user(
     let password_hash = password.map(|p| hash_password(p));
 
     match (password_hash, avatar) {
-        (Some(hash), Some(av)) => {
-            conn.execute(
-                "UPDATE users SET name = ?1, password_hash = ?2, avatar = ?3 WHERE id = ?4",
-                params![name, hash, av, user_id],
-            )
-        }
-        (Some(hash), None) => {
-            conn.execute(
-                "UPDATE users SET name = ?1, password_hash = ?2 WHERE id = ?3",
-                params![name, hash, user_id],
-            )
-        }
-        (None, Some(av)) => {
-            conn.execute(
-                "UPDATE users SET name = ?1, avatar = ?2 WHERE id = ?3",
-                params![name, av, user_id],
-            )
-        }
-        (None, None) => {
-            conn.execute(
-                "UPDATE users SET name = ?1 WHERE id = ?2",
-                params![name, user_id],
-            )
-        }
+        (Some(hash), Some(av)) => conn.execute(
+            "UPDATE users SET name = ?1, password_hash = ?2, avatar = ?3 WHERE id = ?4",
+            params![name, hash, av, user_id],
+        ),
+        (Some(hash), None) => conn.execute(
+            "UPDATE users SET name = ?1, password_hash = ?2 WHERE id = ?3",
+            params![name, hash, user_id],
+        ),
+        (None, Some(av)) => conn.execute(
+            "UPDATE users SET name = ?1, avatar = ?2 WHERE id = ?3",
+            params![name, av, user_id],
+        ),
+        (None, None) => conn.execute(
+            "UPDATE users SET name = ?1 WHERE id = ?2",
+            params![name, user_id],
+        ),
     }
     .map_err(|e| format!("Failed to update user: {}", e))?;
 

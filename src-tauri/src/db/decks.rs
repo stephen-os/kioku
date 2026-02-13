@@ -9,6 +9,7 @@ use super::models::{Card, CardTag, CreateCardRequest, Deck, Tag, UpdateCardReque
 
 pub fn create_deck(
     conn: &Connection,
+    user_id: &str,
     name: &str,
     description: Option<&str>,
     shuffle_cards: bool,
@@ -17,26 +18,26 @@ pub fn create_deck(
     let now = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO decks (id, name, description, shuffle_cards, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, name, description, shuffle_cards as i32, now, now],
+        "INSERT INTO decks (id, user_id, name, description, shuffle_cards, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, user_id, name, description, shuffle_cards as i32, now, now],
     )
     .map_err(|e| format!("Failed to create deck: {}", e))?;
 
     get_deck(conn, &id)
 }
 
-pub fn get_all_decks(conn: &Connection) -> Result<Vec<Deck>, String> {
+pub fn get_all_decks(conn: &Connection, user_id: &str) -> Result<Vec<Deck>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT d.id, d.name, d.description, d.shuffle_cards, d.created_at, d.updated_at,
                     (SELECT COUNT(*) FROM cards WHERE deck_id = d.id) as card_count
-             FROM decks d ORDER BY d.updated_at DESC",
+             FROM decks d WHERE d.user_id = ?1 ORDER BY d.updated_at DESC",
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
     let decks = stmt
-        .query_map([], |row| {
+        .query_map(params![user_id], |row| {
             Ok(Deck {
                 id: row.get(0)?,
                 name: row.get(1)?,

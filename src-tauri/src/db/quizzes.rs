@@ -10,15 +10,15 @@ use super::models::{
 // Quiz Operations
 // ============================================
 
-pub fn create_quiz(conn: &Connection, request: &CreateQuizRequest) -> Result<Quiz, String> {
+pub fn create_quiz(conn: &Connection, user_id: &str, request: &CreateQuizRequest) -> Result<Quiz, String> {
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let shuffle = request.shuffle_questions.unwrap_or(false);
 
     conn.execute(
-        "INSERT INTO quizzes (id, name, description, shuffle_questions, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, request.name, request.description, shuffle as i32, now, now],
+        "INSERT INTO quizzes (id, user_id, name, description, shuffle_questions, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, user_id, request.name, request.description, shuffle as i32, now, now],
     )
     .map_err(|e| format!("Failed to create quiz: {}", e))?;
 
@@ -58,17 +58,17 @@ pub fn get_quiz(conn: &Connection, quiz_id: &str) -> Result<Quiz, String> {
     })
 }
 
-pub fn get_all_quizzes(conn: &Connection) -> Result<Vec<Quiz>, String> {
+pub fn get_all_quizzes(conn: &Connection, user_id: &str) -> Result<Vec<Quiz>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT q.id, q.name, q.description, q.shuffle_questions, q.created_at, q.updated_at,
                     (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as question_count
-             FROM quizzes q ORDER BY q.created_at DESC",
+             FROM quizzes q WHERE q.user_id = ?1 ORDER BY q.created_at DESC",
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
     let quizzes = stmt
-        .query_map([], |row| {
+        .query_map(params![user_id], |row| {
             Ok(Quiz {
                 id: row.get(0)?,
                 name: row.get(1)?,

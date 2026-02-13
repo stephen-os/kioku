@@ -9,7 +9,7 @@ import type { AvatarId } from "@/types";
 
 export function Settings() {
   const navigate = useNavigate();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, refreshUsers } = useAuth();
   const toast = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
   const [importingDeck, setImportingDeck] = useState(false);
@@ -120,6 +120,7 @@ export function Settings() {
     try {
       await deleteUser(user.id);
       await logout();
+      await refreshUsers();
       navigate("/login");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete account");
