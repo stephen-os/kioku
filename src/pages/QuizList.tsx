@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Quiz, QuizStats } from "@/types";
 import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
 import { DropZone } from "@/components/DropZone";
 
 export function QuizList() {
+  const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizStats, setQuizStats] = useState<Record<string, QuizStats>>({});
   const [loading, setLoading] = useState(true);
@@ -59,8 +60,8 @@ export function QuizList() {
 
       if (selected && typeof selected === "string") {
         setImporting(true);
-        await importQuiz(selected);
-        await loadQuizzes();
+        const result = await importQuiz(selected);
+        navigate(`/quizzes/${result.quiz.id}`);
       }
     } catch (error) {
       console.error("Failed to import quiz:", error);
@@ -73,15 +74,15 @@ export function QuizList() {
   const handleFileDrop = useCallback(async (filePath: string) => {
     setImporting(true);
     try {
-      await importQuiz(filePath);
-      await loadQuizzes();
+      const result = await importQuiz(filePath);
+      navigate(`/quizzes/${result.quiz.id}`);
     } catch (error) {
       console.error("Failed to import quiz:", error);
       alert(`Failed to import quiz: ${error}`);
     } finally {
       setImporting(false);
     }
-  }, [loadQuizzes]);
+  }, [navigate]);
 
   if (loading) {
     return (

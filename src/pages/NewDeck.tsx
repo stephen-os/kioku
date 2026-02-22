@@ -29,7 +29,7 @@ export function NewDeck() {
         description: description.trim() || undefined,
         shuffleCards,
       });
-      navigate(`/decks/${deck.id}`);
+      navigate(`/decks/${deck.id}/edit`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create deck");
     } finally {

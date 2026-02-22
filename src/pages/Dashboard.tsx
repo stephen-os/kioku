@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Deck } from "@/types";
 import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
@@ -7,6 +7,7 @@ import { DropZone } from "@/components/DropZone";
 import { useToast } from "@/context/ToastContext";
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -44,7 +45,7 @@ export function Dashboard() {
 
       const result = await importDeck(filePath as string);
       toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
-      loadDecks();
+      navigate(`/decks/${result.deck.id}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
@@ -58,13 +59,13 @@ export function Dashboard() {
     try {
       const result = await importDeck(filePath);
       toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
-      loadDecks();
+      navigate(`/decks/${result.deck.id}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImporting(false);
     }
-  }, [loadDecks, toast]);
+  }, [navigate, toast]);
 
   const handleDelete = async (deckId: string) => {
     setDeletingId(deckId);
