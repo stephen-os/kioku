@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Quiz, QuizStats, Question } from "@/types";
@@ -10,6 +10,7 @@ type FilterLogic = "any" | "all";
 
 export function QuizView() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const toast = useToast();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [stats, setStats] = useState<QuizStats | null>(null);
@@ -148,7 +149,7 @@ export function QuizView() {
     try {
       await deleteQuiz(id);
       toast.success("Quiz deleted");
-      window.location.href = "/quizzes";
+      navigate("/quizzes");
     } catch (error) {
       console.error("Failed to delete quiz:", error);
       toast.error("Failed to delete quiz");
