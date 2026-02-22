@@ -132,6 +132,28 @@ export function Export() {
       return;
     }
 
+    // If only one item selected, export as single file
+    const totalSelected = selectedDecks.size + selectedQuizzes.size;
+    if (totalSelected === 1) {
+      if (selectedDecks.size === 1) {
+        const deckId = Array.from(selectedDecks)[0];
+        const deck = decks.find((d) => d.id === deckId);
+        if (deck) {
+          await handleExportSingleDeck(deck);
+          setSelectedDecks(new Set());
+          return;
+        }
+      } else {
+        const quizId = Array.from(selectedQuizzes)[0];
+        const quiz = quizzes.find((q) => q.id === quizId);
+        if (quiz) {
+          await handleExportSingleQuiz(quiz);
+          setSelectedQuizzes(new Set());
+          return;
+        }
+      }
+    }
+
     setExporting(true);
 
     try {
@@ -174,6 +196,7 @@ export function Export() {
       setSelectedDecks(new Set());
       setSelectedQuizzes(new Set());
     } catch (error) {
+      console.error("Export failed:", error);
       toast.error(error instanceof Error ? error.message : "Export failed");
     } finally {
       setExporting(false);

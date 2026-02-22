@@ -18,7 +18,7 @@
       ]
     },
     {
-      "identifier": "fs:allow-write",
+      "identifier": "fs:allow-write-file",
       "allow": [
         { "path": "$DOWNLOAD/**" },
         { "path": "$DOCUMENT/**" },
