@@ -29,10 +29,12 @@ import {
   QuizTag,
 } from "@/lib/db";
 import { CodeEditor } from "@/components/CodeEditor";
+import { useToast } from "@/context/ToastContext";
 
 export function QuizEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const isNew = !id || id === "new";
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -64,6 +66,7 @@ export function QuizEditor() {
       setShuffleQuestions(data.shuffleQuestions);
     } catch (error) {
       console.error("Failed to load quiz:", error);
+      toast.error("Failed to load quiz");
       navigate("/quizzes");
     } finally {
       setLoading(false);
@@ -87,9 +90,11 @@ export function QuizEditor() {
       } else if (id) {
         await updateQuiz(id, request);
         await loadQuiz(id);
+        toast.success("Quiz saved");
       }
     } catch (error) {
       console.error("Failed to save quiz:", error);
+      toast.error("Failed to save quiz");
     } finally {
       setSaving(false);
     }
@@ -109,8 +114,10 @@ export function QuizEditor() {
     try {
       await deleteQuestion(questionId);
       if (id) await loadQuiz(id);
+      toast.success("Question deleted");
     } catch (error) {
       console.error("Failed to delete question:", error);
+      toast.error("Failed to delete question");
     }
   };
 
@@ -124,16 +131,19 @@ export function QuizEditor() {
       if (editingQuestion) {
         await updateQuestion(editingQuestion.id, request as UpdateQuestionRequest);
         await updateQuestionChoices(editingQuestion.id, choices);
+        toast.success("Question updated");
       } else {
         const newQuestion = await createQuestion(id, request as CreateQuestionRequest);
         if (choices.length > 0) {
           await updateQuestionChoices(newQuestion.id, choices);
         }
+        toast.success("Question added");
       }
       await loadQuiz(id);
       setShowQuestionModal(false);
     } catch (error) {
       console.error("Failed to save question:", error);
+      toast.error("Failed to save question");
     }
   };
 
@@ -154,6 +164,7 @@ export function QuizEditor() {
       if (id) await loadQuiz(id);
     } catch (error) {
       console.error("Failed to reorder questions:", error);
+      toast.error("Failed to reorder questions");
     }
   };
 
@@ -524,6 +535,7 @@ interface QuestionModalProps {
 }
 
 function QuestionModal({ question, quizId, quizTags, onSave, onClose, onTagsChange }: QuestionModalProps) {
+  const toast = useToast();
   const [questionType, setQuestionType] = useState<QuestionType>(
     question?.questionType || "multiple_choice"
   );
@@ -596,6 +608,7 @@ function QuestionModal({ question, quizId, quizTags, onSave, onClose, onTagsChan
         onTagsChange?.();
       } catch (error) {
         console.error("Failed to add tag:", error);
+        toast.error("Failed to add tag");
       }
     } else {
       // New question - just track locally
@@ -618,6 +631,7 @@ function QuestionModal({ question, quizId, quizTags, onSave, onClose, onTagsChan
       setShowTagDropdown(false);
     } catch (error) {
       console.error("Failed to create tag:", error);
+      toast.error("Failed to create tag");
     }
   };
 
@@ -629,6 +643,7 @@ function QuestionModal({ question, quizId, quizTags, onSave, onClose, onTagsChan
         onTagsChange?.();
       } catch (error) {
         console.error("Failed to remove tag:", error);
+        toast.error("Failed to remove tag");
       }
     } else {
       setSelectedTags((prev) => prev.filter((t) => t.id !== tagId));

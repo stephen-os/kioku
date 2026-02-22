@@ -7,6 +7,7 @@ import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getDeck, getCardsForDeck, getTagsForDeck, deleteDeck, exportDeck, getDeckStudyStats } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
+import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
 
@@ -52,6 +53,7 @@ function formatDate(dateString: string | null): string {
 export function DeckView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -129,6 +131,7 @@ export function DeckView() {
       }
     } catch (error) {
       console.error("Failed to load deck:", error);
+      toast.error("Failed to load deck");
     } finally {
       setLoading(false);
     }
@@ -179,9 +182,11 @@ export function DeckView() {
     setDeletingDeck(true);
     try {
       await deleteDeck(id);
+      toast.success("Deck deleted");
       navigate("/");
     } catch (error) {
       console.error("Failed to delete deck:", error);
+      toast.error("Failed to delete deck");
     } finally {
       setDeletingDeck(false);
     }
@@ -198,9 +203,11 @@ export function DeckView() {
       });
       if (filePath) {
         await writeTextFile(filePath, exportData);
+        toast.success("Deck exported");
       }
     } catch (error) {
       console.error("Failed to export deck:", error);
+      toast.error("Failed to export deck");
     } finally {
       setExporting(false);
     }

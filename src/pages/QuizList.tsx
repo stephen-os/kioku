@@ -4,9 +4,11 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { Quiz, QuizStats } from "@/types";
 import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
 import { DropZone } from "@/components/DropZone";
+import { useToast } from "@/context/ToastContext";
 
 export function QuizList() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizStats, setQuizStats] = useState<Record<string, QuizStats>>({});
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,7 @@ export function QuizList() {
       setQuizStats(stats);
     } catch (error) {
       console.error("Failed to load quizzes:", error);
+      toast.error("Failed to load quizzes");
     } finally {
       setLoading(false);
     }
@@ -43,9 +46,11 @@ export function QuizList() {
     setDeletingId(quizId);
     try {
       await deleteQuiz(quizId);
+      toast.success("Quiz deleted");
       loadQuizzes();
     } catch (error) {
       console.error("Failed to delete quiz:", error);
+      toast.error("Failed to delete quiz");
     } finally {
       setDeletingId(null);
     }
@@ -61,11 +66,12 @@ export function QuizList() {
       if (selected && typeof selected === "string") {
         setImporting(true);
         const result = await importQuiz(selected);
+        toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
         navigate(`/quizzes/${result.quiz.id}`);
       }
     } catch (error) {
       console.error("Failed to import quiz:", error);
-      alert(`Failed to import quiz: ${error}`);
+      toast.error("Failed to import quiz");
     } finally {
       setImporting(false);
     }
@@ -75,14 +81,15 @@ export function QuizList() {
     setImporting(true);
     try {
       const result = await importQuiz(filePath);
+      toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
       navigate(`/quizzes/${result.quiz.id}`);
     } catch (error) {
       console.error("Failed to import quiz:", error);
-      alert(`Failed to import quiz: ${error}`);
+      toast.error("Failed to import quiz");
     } finally {
       setImporting(false);
     }
-  }, [navigate]);
+  }, [navigate, toast]);
 
   if (loading) {
     return (

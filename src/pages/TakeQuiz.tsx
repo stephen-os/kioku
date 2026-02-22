@@ -4,10 +4,12 @@ import type { Quiz, QuestionAnswer } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getQuiz, startQuizAttempt, submitQuizAttempt } from "@/lib/db";
 import { CodeBlock } from "@/components/CodeEditor";
+import { useToast } from "@/context/ToastContext";
 
 export function TakeQuiz() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +43,7 @@ export function TakeQuiz() {
         setAttemptId(attempt.id);
       } catch (error) {
         console.error("Failed to load quiz:", error);
+        toast.error("Failed to load quiz");
       } finally {
         setLoading(false);
       }
@@ -97,9 +100,10 @@ export function TakeQuiz() {
       navigate(`/quizzes/${id}/results/${attemptId}`);
     } catch (error) {
       console.error("Failed to submit quiz:", error);
+      toast.error("Failed to submit quiz");
       setSubmitting(false);
     }
-  }, [attemptId, questions, answers, navigate, id]);
+  }, [attemptId, questions, answers, navigate, id, toast]);
 
   // Keyboard navigation
   useEffect(() => {

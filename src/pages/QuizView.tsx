@@ -4,11 +4,13 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Quiz, QuizStats, Question } from "@/types";
 import { getQuiz, getQuizStats, deleteQuiz, getTagsForQuiz, QuizTag, exportQuiz } from "@/lib/db";
+import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
 
 export function QuizView() {
   const { id } = useParams<{ id: string }>();
+  const toast = useToast();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [stats, setStats] = useState<QuizStats | null>(null);
   const [quizTags, setQuizTags] = useState<QuizTag[]>([]);
@@ -70,6 +72,7 @@ export function QuizView() {
         setQuizTags(tagsData);
       } catch (error) {
         console.error("Failed to load quiz:", error);
+        toast.error("Failed to load quiz");
       } finally {
         setLoading(false);
       }
@@ -144,9 +147,11 @@ export function QuizView() {
     setDeleting(true);
     try {
       await deleteQuiz(id);
+      toast.success("Quiz deleted");
       window.location.href = "/quizzes";
     } catch (error) {
       console.error("Failed to delete quiz:", error);
+      toast.error("Failed to delete quiz");
       setDeleting(false);
     }
   };
@@ -162,9 +167,11 @@ export function QuizView() {
       });
       if (filePath) {
         await writeTextFile(filePath, exportData);
+        toast.success("Quiz exported");
       }
     } catch (error) {
       console.error("Failed to export quiz:", error);
+      toast.error("Failed to export quiz");
     } finally {
       setExporting(false);
     }

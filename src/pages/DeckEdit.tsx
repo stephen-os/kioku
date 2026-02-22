@@ -25,10 +25,12 @@ import {
   removeTagFromCard,
 } from "@/lib/db";
 import { CodeEditor, CodeBlock } from "@/components/CodeEditor";
+import { useToast } from "@/context/ToastContext";
 
 export function DeckEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const isNew = id === "new";
 
   const [cards, setCards] = useState<Card[]>([]);
@@ -65,6 +67,7 @@ export function DeckEdit() {
       }
     } catch (error) {
       console.error("Failed to load deck:", error);
+      toast.error("Failed to load deck");
       navigate("/");
     } finally {
       setLoading(false);
@@ -92,9 +95,11 @@ export function DeckEdit() {
         };
         await updateDeck(id, request);
         await loadDeck(id);
+        toast.success("Deck saved");
       }
     } catch (error) {
       console.error("Failed to save deck:", error);
+      toast.error("Failed to save deck");
     } finally {
       setSaving(false);
     }
@@ -115,8 +120,10 @@ export function DeckEdit() {
     try {
       await deleteCard(cardId, id);
       await loadDeck(id);
+      toast.success("Card deleted");
     } catch (error) {
       console.error("Failed to delete card:", error);
+      toast.error("Failed to delete card");
     }
   };
 
@@ -126,13 +133,16 @@ export function DeckEdit() {
     try {
       if (editingCard) {
         await updateCard(editingCard.id, id, request as UpdateCardRequest);
+        toast.success("Card updated");
       } else {
         await createCard(id, request as CreateCardRequest);
+        toast.success("Card added");
       }
       await loadDeck(id);
       setShowCardModal(false);
     } catch (error) {
       console.error("Failed to save card:", error);
+      toast.error("Failed to save card");
     }
   };
 
@@ -414,6 +424,7 @@ interface CardModalProps {
 }
 
 function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: CardModalProps) {
+  const toast = useToast();
   const [front, setFront] = useState(card?.front || "");
   const [frontType, setFrontType] = useState<ContentType>(card?.frontType || "TEXT");
   const [frontLanguage, setFrontLanguage] = useState<CodeLanguage | null>(
@@ -478,6 +489,7 @@ function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: Ca
         onTagsChange?.();
       } catch (error) {
         console.error("Failed to add tag:", error);
+        toast.error("Failed to add tag");
       }
     } else {
       // New card - just track locally (will be added when card is created)
@@ -500,6 +512,7 @@ function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: Ca
       setShowTagDropdown(false);
     } catch (error) {
       console.error("Failed to create tag:", error);
+      toast.error("Failed to create tag");
     }
   };
 
@@ -511,6 +524,7 @@ function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: Ca
         onTagsChange?.();
       } catch (error) {
         console.error("Failed to remove tag:", error);
+        toast.error("Failed to remove tag");
       }
     } else {
       setSelectedTags((prev) => prev.filter((t) => t.id !== tagId));

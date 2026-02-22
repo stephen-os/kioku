@@ -8,12 +8,14 @@ import { CodeBlock } from "@/components/CodeEditor";
 import { ListenModeControls } from "@/components/ListenModeControls";
 import { ListenModePhaseBar } from "@/components/ListenModePhaseBar";
 import { useListenMode } from "@/hooks/useListenMode";
+import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
 
 export function ListenMode() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const toast = useToast();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,7 @@ export function ListenMode() {
         }
       } catch (error) {
         console.error("Failed to load cards:", error);
+        toast.error("Failed to load cards");
       } finally {
         setLoading(false);
       }

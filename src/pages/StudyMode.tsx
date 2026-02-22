@@ -5,12 +5,14 @@ import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getCardsForDeck, getDeck, getTagsForDeck, startStudySession, endStudySession } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
+import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
 
 export function StudyMode() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const toast = useToast();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [allCards, setAllCards] = useState<Card[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
@@ -112,6 +114,7 @@ export function StudyMode() {
         }
       } catch (error) {
         console.error("Failed to load cards:", error);
+        toast.error("Failed to load cards");
       } finally {
         setLoading(false);
       }
@@ -127,7 +130,10 @@ export function StudyMode() {
           sessionIdRef.current = session.id;
           cardsViewedRef.current = new Set([0]); // First card is viewed
         })
-        .catch((err) => console.error("Failed to start study session:", err));
+        .catch((err) => {
+          console.error("Failed to start study session:", err);
+          toast.error("Failed to start study session");
+        });
     }
   }, [studyStarted, id, cards.length]);
 
@@ -136,9 +142,10 @@ export function StudyMode() {
     return () => {
       if (sessionIdRef.current && id) {
         const cardsStudied = cardsViewedRef.current.size;
-        endStudySession(sessionIdRef.current, cardsStudied).catch((err) =>
-          console.error("Failed to end study session:", err)
-        );
+        endStudySession(sessionIdRef.current, cardsStudied).catch((err) => {
+          console.error("Failed to end study session:", err);
+          // Note: toast may not be available during cleanup
+        });
         sessionIdRef.current = null;
       }
     };
