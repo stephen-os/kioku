@@ -8,6 +8,7 @@ import { getDeck, getCardsForDeck, getTagsForDeck, deleteDeck, exportDeck, getDe
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
 import { useToast } from "@/context/ToastContext";
+import { getDeckFilename } from "@/lib/slug";
 
 type FilterLogic = "any" | "all";
 
@@ -198,7 +199,7 @@ export function DeckView() {
     try {
       const exportData = await exportDeck(id);
       const filePath = await save({
-        defaultPath: `${deck.name.replace(/[^a-zA-Z0-9]/g, "_")}.json`,
+        defaultPath: getDeckFilename(deck.name),
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (filePath) {

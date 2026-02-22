@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
+import JSZip from "jszip";
 import { getAllDecks, getAllQuizzes, exportDeck, exportQuiz } from "@/lib/db";
 import { useToast } from "@/context/ToastContext";
+import { getDeckFilename, getQuizFilename, getBulkExportFilename } from "@/lib/slug";
 import type { Deck, Quiz } from "@/types";
 
 export function Export() {
@@ -79,7 +81,7 @@ export function Export() {
       const exportData = await exportDeck(deck.id);
 
       const filePath = await save({
-        defaultPath: `${deck.name.replace(/[^a-zA-Z0-9]/g, "_")}.json`,
+        defaultPath: getDeckFilename(deck.name),
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
 
@@ -105,7 +107,7 @@ export function Export() {
       const exportData = await exportQuiz(quiz.id);
 
       const filePath = await save({
-        defaultPath: `${quiz.name.replace(/[^a-zA-Z0-9]/g, "_")}_quiz.json`,
+        defaultPath: getQuizFilename(quiz.name),
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
 
@@ -133,46 +135,29 @@ export function Export() {
     setExporting(true);
 
     try {
-      // Export selected decks
-      const deckExports = await Promise.all(
-        Array.from(selectedDecks).map(async (id) => {
-          const deck = decks.find((d) => d.id === id);
-          if (!deck) return null;
-          const data = await exportDeck(id);
-          return { name: deck.name, type: "deck" as const, data };
-        })
-      );
+      const zip = new JSZip();
 
-      // Export selected quizzes
-      const quizExports = await Promise.all(
-        Array.from(selectedQuizzes).map(async (id) => {
-          const quiz = quizzes.find((q) => q.id === id);
-          if (!quiz) return null;
-          const data = await exportQuiz(id);
-          return { name: quiz.name, type: "quiz" as const, data };
-        })
-      );
+      // Export selected decks into decks/ folder
+      const deckPromises = Array.from(selectedDecks).map(async (id) => {
+        const deck = decks.find((d) => d.id === id);
+        if (!deck) return;
+        const data = await exportDeck(id);
+        zip.file(`decks/${getDeckFilename(deck.name)}`, data);
+      });
 
-      const allExports = [...deckExports, ...quizExports].filter(Boolean) as {
-        name: string;
-        type: "deck" | "quiz";
-        data: string;
-      }[];
+      // Export selected quizzes into quizzes/ folder
+      const quizPromises = Array.from(selectedQuizzes).map(async (id) => {
+        const quiz = quizzes.find((q) => q.id === id);
+        if (!quiz) return;
+        const data = await exportQuiz(id);
+        zip.file(`quizzes/${getQuizFilename(quiz.name)}`, data);
+      });
 
-      // Create combined export
-      const combined = {
-        exportedAt: new Date().toISOString(),
-        decks: allExports
-          .filter((e) => e.type === "deck")
-          .map((e) => JSON.parse(e.data)),
-        quizzes: allExports
-          .filter((e) => e.type === "quiz")
-          .map((e) => JSON.parse(e.data)),
-      };
+      await Promise.all([...deckPromises, ...quizPromises]);
 
       const filePath = await save({
-        defaultPath: `kioku_export_${new Date().toISOString().split("T")[0]}.json`,
-        filters: [{ name: "JSON", extensions: ["json"] }],
+        defaultPath: getBulkExportFilename(),
+        filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
       });
 
       if (!filePath) {
@@ -180,7 +165,8 @@ export function Export() {
         return;
       }
 
-      await writeTextFile(filePath, JSON.stringify(combined, null, 2));
+      const zipData = await zip.generateAsync({ type: "uint8array" });
+      await writeFile(filePath, zipData);
 
       toast.success(`Exported ${selectedDecks.size} deck(s) and ${selectedQuizzes.size} quiz(zes) successfully`);
 
@@ -195,57 +181,52 @@ export function Export() {
   };
 
   const handleExportAll = async () => {
-    // Select all and export
-    setSelectedDecks(new Set(decks.map((d) => d.id)));
-    setSelectedQuizzes(new Set(quizzes.map((q) => q.id)));
+    if (decks.length === 0 && quizzes.length === 0) {
+      toast.error("No items to export");
+      return;
+    }
 
-    // Need to wait a tick for state to update, then export
-    setTimeout(async () => {
-      setExporting(true);
+    setExporting(true);
 
-      try {
-        const deckExports = await Promise.all(
-          decks.map(async (deck) => {
-            const data = await exportDeck(deck.id);
-            return JSON.parse(data);
-          })
-        );
+    try {
+      const zip = new JSZip();
 
-        const quizExports = await Promise.all(
-          quizzes.map(async (quiz) => {
-            const data = await exportQuiz(quiz.id);
-            return JSON.parse(data);
-          })
-        );
+      // Export all decks into decks/ folder
+      const deckPromises = decks.map(async (deck) => {
+        const data = await exportDeck(deck.id);
+        zip.file(`decks/${getDeckFilename(deck.name)}`, data);
+      });
 
-        const combined = {
-          exportedAt: new Date().toISOString(),
-          decks: deckExports,
-          quizzes: quizExports,
-        };
+      // Export all quizzes into quizzes/ folder
+      const quizPromises = quizzes.map(async (quiz) => {
+        const data = await exportQuiz(quiz.id);
+        zip.file(`quizzes/${getQuizFilename(quiz.name)}`, data);
+      });
 
-        const filePath = await save({
-          defaultPath: `kioku_full_export_${new Date().toISOString().split("T")[0]}.json`,
-          filters: [{ name: "JSON", extensions: ["json"] }],
-        });
+      await Promise.all([...deckPromises, ...quizPromises]);
 
-        if (!filePath) {
-          setExporting(false);
-          return;
-        }
+      const filePath = await save({
+        defaultPath: getBulkExportFilename(),
+        filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+      });
 
-        await writeTextFile(filePath, JSON.stringify(combined, null, 2));
-
-        toast.success(`Exported all ${decks.length} deck(s) and ${quizzes.length} quiz(zes) successfully`);
-
-        setSelectedDecks(new Set());
-        setSelectedQuizzes(new Set());
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Export failed");
-      } finally {
+      if (!filePath) {
         setExporting(false);
+        return;
       }
-    }, 0);
+
+      const zipData = await zip.generateAsync({ type: "uint8array" });
+      await writeFile(filePath, zipData);
+
+      toast.success(`Exported all ${decks.length} deck(s) and ${quizzes.length} quiz(zes) successfully`);
+
+      setSelectedDecks(new Set());
+      setSelectedQuizzes(new Set());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loading) {

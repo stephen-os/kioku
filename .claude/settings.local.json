@@ -38,7 +38,8 @@
       "Bash(while read line)",
       "Bash(do echo \"$line\")",
       "Bash(done)",
-      "Bash(zip:*)"
+      "Bash(zip:*)",
+      "Bash(grep:*)"
     ]
   }
 }

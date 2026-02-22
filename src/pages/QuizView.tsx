@@ -5,6 +5,7 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Quiz, QuizStats, Question } from "@/types";
 import { getQuiz, getQuizStats, deleteQuiz, getTagsForQuiz, QuizTag, exportQuiz } from "@/lib/db";
 import { useToast } from "@/context/ToastContext";
+import { getQuizFilename } from "@/lib/slug";
 
 type FilterLogic = "any" | "all";
 
@@ -163,7 +164,7 @@ export function QuizView() {
     try {
       const exportData = await exportQuiz(id);
       const filePath = await save({
-        defaultPath: `${quiz.name.replace(/[^a-zA-Z0-9]/g, "_")}_quiz.json`,
+        defaultPath: getQuizFilename(quiz.name),
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (filePath) {
