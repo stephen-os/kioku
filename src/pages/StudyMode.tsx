@@ -26,7 +26,8 @@ export function StudyMode() {
   const urlFrontSearch = searchParams.get("front") || "";
   const urlBackSearch = searchParams.get("back") || "";
   const urlTagsRaw = searchParams.get("tags") || "";
-  const urlTagMode = (searchParams.get("tagMode") as FilterLogic) || "any";
+  const rawTagMode = searchParams.get("tagMode");
+  const urlTagMode: FilterLogic = rawTagMode === "any" || rawTagMode === "all" ? rawTagMode : "any";
   const hasUrlFilters = urlFrontSearch || urlBackSearch || urlTagsRaw.length > 0;
 
   // Parse tag IDs only when needed (memoized)
@@ -55,6 +56,8 @@ export function StudyMode() {
   // Study session tracking
   const sessionIdRef = useRef<string | null>(null);
   const cardsViewedRef = useRef<Set<number>>(new Set());
+  const mountedRef = useRef(true);
+  const sessionStartingRef = useRef(false);
 
   useEffect(() => {
     async function loadDeckAndCards() {
@@ -124,27 +127,41 @@ export function StudyMode() {
 
   // Start study session when studying begins
   useEffect(() => {
-    if (studyStarted && id && cards.length > 0 && !sessionIdRef.current) {
+    if (studyStarted && id && cards.length > 0 && !sessionIdRef.current && !sessionStartingRef.current) {
+      sessionStartingRef.current = true;
       startStudySession(id)
         .then((session) => {
-          sessionIdRef.current = session.id;
-          cardsViewedRef.current = new Set([0]); // First card is viewed
+          if (mountedRef.current) {
+            sessionIdRef.current = session.id;
+            cardsViewedRef.current = new Set([0]); // First card is viewed
+          } else {
+            // Component unmounted during session start - end it immediately
+            endStudySession(session.id, 0).catch((err) => {
+              console.error("Failed to end orphaned study session:", err);
+            });
+          }
         })
         .catch((err) => {
           console.error("Failed to start study session:", err);
-          toast.error("Failed to start study session");
+          if (mountedRef.current) {
+            toast.error("Failed to start study session");
+          }
+        })
+        .finally(() => {
+          sessionStartingRef.current = false;
         });
     }
-  }, [studyStarted, id, cards.length]);
+  }, [studyStarted, id, cards.length, toast]);
 
-  // End study session on unmount or when navigating away
+  // Track mounted state and end study session on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (sessionIdRef.current && id) {
         const cardsStudied = cardsViewedRef.current.size;
         endStudySession(sessionIdRef.current, cardsStudied).catch((err) => {
           console.error("Failed to end study session:", err);
-          // Note: toast may not be available during cleanup
         });
         sessionIdRef.current = null;
       }
