@@ -362,53 +362,71 @@ fn import_deck_from_file(
     let active_user = db::get_active_user(&conn)?
         .ok_or_else(|| "No active user".to_string())?;
 
-    let deck = db::create_deck(
-        &conn,
-        &active_user.id,
-        &import_data.name,
-        import_data.description.as_deref(),
-        import_data.shuffle_cards,
-    )?;
+    // Begin transaction for atomic import
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
 
-    // Keep track of created tags to avoid duplicates
-    let mut tag_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let result = (|| -> Result<ImportResult, String> {
+        let deck = db::create_deck(
+            &conn,
+            &active_user.id,
+            &import_data.name,
+            import_data.description.as_deref(),
+            import_data.shuffle_cards,
+        )?;
 
-    for card in import_data.cards {
-        let request = CreateCardRequest {
-            front: card.front,
-            front_type: Some(card.front_type),
-            front_language: card.front_language,
-            back: card.back,
-            back_type: Some(card.back_type),
-            back_language: card.back_language,
-            notes: card.notes,
-        };
-        let created_card = db::create_card(&conn, &deck.id, &request)?;
+        // Keep track of created tags to avoid duplicates
+        let mut tag_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
-        // Handle tags for this card
-        for tag_name in card.tags {
-            let tag_id = if let Some(id) = tag_cache.get(&tag_name) {
-                id.clone()
-            } else {
-                // Check if tag exists or create it
-                let tag = match db::get_tag_by_name(&conn, &deck.id, &tag_name)? {
-                    Some(existing) => existing,
-                    None => db::create_tag(&conn, &deck.id, &tag_name)?,
-                };
-                tag_cache.insert(tag_name.clone(), tag.id.clone());
-                tag.id
+        for card in import_data.cards {
+            let request = CreateCardRequest {
+                front: card.front,
+                front_type: Some(card.front_type),
+                front_language: card.front_language,
+                back: card.back,
+                back_type: Some(card.back_type),
+                back_language: card.back_language,
+                notes: card.notes,
             };
-            // Link tag to card
-            let _ = db::add_tag_to_card(&conn, &deck.id, &created_card.id, &tag_id);
+            let created_card = db::create_card(&conn, &deck.id, &request)?;
+
+            // Handle tags for this card
+            for tag_name in card.tags {
+                let tag_id = if let Some(id) = tag_cache.get(&tag_name) {
+                    id.clone()
+                } else {
+                    // Check if tag exists or create it
+                    let tag = match db::get_tag_by_name(&conn, &deck.id, &tag_name)? {
+                        Some(existing) => existing,
+                        None => db::create_tag(&conn, &deck.id, &tag_name)?,
+                    };
+                    tag_cache.insert(tag_name.clone(), tag.id.clone());
+                    tag.id
+                };
+                // Link tag to card
+                let _ = db::add_tag_to_card(&conn, &deck.id, &created_card.id, &tag_id);
+            }
+        }
+
+        let final_deck = db::get_deck(&conn, &deck.id)?
+            .ok_or_else(|| "Failed to retrieve imported deck".to_string())?;
+        Ok(ImportResult {
+            deck: final_deck,
+            cards_imported: cards_count,
+        })
+    })();
+
+    match result {
+        Ok(import_result) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(import_result)
+        }
+        Err(e) => {
+            let _ = conn.execute("ROLLBACK", []);
+            Err(e)
         }
     }
-
-    let final_deck = db::get_deck(&conn, &deck.id)?
-        .ok_or_else(|| "Failed to retrieve imported deck".to_string())?;
-    Ok(ImportResult {
-        deck: final_deck,
-        cards_imported: cards_count,
-    })
 }
 
 #[tauri::command]
@@ -612,57 +630,75 @@ fn import_quiz_from_file(
     let active_user = db::get_active_user(&conn)?
         .ok_or_else(|| "No active user".to_string())?;
 
-    // Create the quiz
-    let quiz_request = CreateQuizRequest {
-        name: import_data.name,
-        description: import_data.description,
-        shuffle_questions: Some(import_data.shuffle_questions),
-    };
-    let quiz = db::create_quiz(&conn, &active_user.id, &quiz_request)?;
+    // Begin transaction for atomic import
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
 
-    // Keep track of created tags to avoid duplicates
-    let mut tag_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-
-    // Create questions
-    for question in import_data.questions {
-        let question_request = CreateQuestionRequest {
-            question_type: question.question_type,
-            content: question.content,
-            content_type: Some(question.content_type),
-            content_language: question.content_language,
-            correct_answer: question.correct_answer,
-            multiple_answers: Some(question.multiple_answers),
-            explanation: question.explanation,
-            choices: Some(question.choices.into_iter().map(|c| CreateChoiceRequest {
-                text: c.text,
-                is_correct: c.is_correct,
-            }).collect()),
+    let result = (|| -> Result<QuizImportResult, String> {
+        // Create the quiz
+        let quiz_request = CreateQuizRequest {
+            name: import_data.name,
+            description: import_data.description,
+            shuffle_questions: Some(import_data.shuffle_questions),
         };
-        let created_question = db::create_question(&conn, &quiz.id, &question_request)?;
+        let quiz = db::create_quiz(&conn, &active_user.id, &quiz_request)?;
 
-        // Handle tags for this question
-        for tag_name in question.tags {
-            let tag_id = if let Some(id) = tag_cache.get(&tag_name) {
-                id.clone()
-            } else {
-                // Check if tag exists or create it
-                let tag = match db::get_quiz_tag_by_name(&conn, &quiz.id, &tag_name)? {
-                    Some(existing) => existing,
-                    None => db::create_quiz_tag(&conn, &quiz.id, &tag_name)?,
-                };
-                tag_cache.insert(tag_name.clone(), tag.id.clone());
-                tag.id
+        // Keep track of created tags to avoid duplicates
+        let mut tag_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+
+        // Create questions
+        for question in import_data.questions {
+            let question_request = CreateQuestionRequest {
+                question_type: question.question_type,
+                content: question.content,
+                content_type: Some(question.content_type),
+                content_language: question.content_language,
+                correct_answer: question.correct_answer,
+                multiple_answers: Some(question.multiple_answers),
+                explanation: question.explanation,
+                choices: Some(question.choices.into_iter().map(|c| CreateChoiceRequest {
+                    text: c.text,
+                    is_correct: c.is_correct,
+                }).collect()),
             };
-            // Link tag to question
-            let _ = db::add_tag_to_question(&conn, &created_question.id, &tag_id);
+            let created_question = db::create_question(&conn, &quiz.id, &question_request)?;
+
+            // Handle tags for this question
+            for tag_name in question.tags {
+                let tag_id = if let Some(id) = tag_cache.get(&tag_name) {
+                    id.clone()
+                } else {
+                    // Check if tag exists or create it
+                    let tag = match db::get_quiz_tag_by_name(&conn, &quiz.id, &tag_name)? {
+                        Some(existing) => existing,
+                        None => db::create_quiz_tag(&conn, &quiz.id, &tag_name)?,
+                    };
+                    tag_cache.insert(tag_name.clone(), tag.id.clone());
+                    tag.id
+                };
+                // Link tag to question
+                let _ = db::add_tag_to_question(&conn, &created_question.id, &tag_id);
+            }
+        }
+
+        let final_quiz = db::get_quiz(&conn, &quiz.id)?;
+        Ok(QuizImportResult {
+            quiz: final_quiz,
+            questions_imported: questions_count,
+        })
+    })();
+
+    match result {
+        Ok(import_result) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(import_result)
+        }
+        Err(e) => {
+            let _ = conn.execute("ROLLBACK", []);
+            Err(e)
         }
     }
-
-    let final_quiz = db::get_quiz(&conn, &quiz.id)?;
-    Ok(QuizImportResult {
-        quiz: final_quiz,
-        questions_imported: questions_count,
-    })
 }
 
 // ============================================
