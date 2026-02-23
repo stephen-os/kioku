@@ -68,6 +68,20 @@ export function DeckView() {
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
 
+  // Debounced search values for filtering (reduces re-renders on large decks)
+  const [debouncedSearchFront, setDebouncedSearchFront] = useState("");
+  const [debouncedSearchBack, setDebouncedSearchBack] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchFront(searchFront), 150);
+    return () => clearTimeout(timer);
+  }, [searchFront]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchBack(searchBack), 150);
+    return () => clearTimeout(timer);
+  }, [searchBack]);
+
   // Resizable tag container - using direct DOM manipulation for smooth performance
   const tagContainerRef = useRef<HTMLDivElement>(null);
   const resizeState = useRef({ isResizing: false, startY: 0, startHeight: 0 });
@@ -145,19 +159,19 @@ export function DeckView() {
     return tags.filter((tag) => tag.name.toLowerCase().includes(term));
   }, [tags, searchTag]);
 
-  // Filter cards based on search and tags
+  // Filter cards based on search and tags (uses debounced search for performance)
   const filteredCards = useMemo(() => {
     let result = cards;
 
-    // Front search
-    if (searchFront.trim()) {
-      const term = searchFront.toLowerCase();
+    // Front search (debounced)
+    if (debouncedSearchFront.trim()) {
+      const term = debouncedSearchFront.toLowerCase();
       result = result.filter((card) => card.front.toLowerCase().includes(term));
     }
 
-    // Back search
-    if (searchBack.trim()) {
-      const term = searchBack.toLowerCase();
+    // Back search (debounced)
+    if (debouncedSearchBack.trim()) {
+      const term = debouncedSearchBack.toLowerCase();
       result = result.filter((card) => card.back.toLowerCase().includes(term));
     }
 
@@ -174,7 +188,7 @@ export function DeckView() {
     }
 
     return result;
-  }, [cards, searchFront, searchBack, selectedTagFilters, tagFilterMode]);
+  }, [cards, debouncedSearchFront, debouncedSearchBack, selectedTagFilters, tagFilterMode]);
 
   const hasActiveFilters = searchFront.trim() !== "" || searchBack.trim() !== "" || selectedTagFilters.length > 0;
 

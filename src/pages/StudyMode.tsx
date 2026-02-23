@@ -59,6 +59,12 @@ export function StudyMode() {
   const mountedRef = useRef(true);
   const sessionStartingRef = useRef(false);
 
+  // Refs for keyboard handlers to avoid event listener churn
+  const handleFlipRef = useRef<() => void>(() => {});
+  const handleNextRef = useRef<() => void>(() => {});
+  const handlePrevRef = useRef<() => void>(() => {});
+  const studyCompleteRef = useRef(false);
+
   useEffect(() => {
     async function loadDeckAndCards() {
       if (!id) return;
@@ -273,6 +279,17 @@ export function StudyMode() {
     animateToPrevious();
   }, [animateToPrevious]);
 
+  // Keep handler refs updated (avoids event listener churn)
+  useEffect(() => {
+    handleFlipRef.current = handleFlip;
+    handleNextRef.current = handleNext;
+    handlePrevRef.current = handlePrev;
+  }, [handleFlip, handleNext, handlePrev]);
+
+  useEffect(() => {
+    studyCompleteRef.current = studyComplete;
+  }, [studyComplete]);
+
   const handleRestart = useCallback(() => {
     setCurrentIndex(0);
     setIsFlipped(false);
@@ -293,10 +310,10 @@ export function StudyMode() {
     setIsFlipped(false);
   }, []);
 
-  // Keyboard navigation
+  // Keyboard navigation (uses refs to avoid listener churn)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (studyComplete) return;
+      if (studyCompleteRef.current) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -305,22 +322,22 @@ export function StudyMode() {
         case " ":
         case "Enter":
           e.preventDefault();
-          handleFlip();
+          handleFlipRef.current();
           break;
         case "ArrowRight":
           e.preventDefault();
-          handleNext();
+          handleNextRef.current();
           break;
         case "ArrowLeft":
           e.preventDefault();
-          handlePrev();
+          handlePrevRef.current();
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleFlip, handleNext, handlePrev, studyComplete]);
+  }, []);
 
   // Touch gesture handling
   const onTouchStart = useCallback(
