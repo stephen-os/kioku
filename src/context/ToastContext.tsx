@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -25,8 +25,23 @@ const DEFAULT_DURATION = 5000;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Clear all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      timeoutRefs.current.clear();
+    };
+  }, []);
 
   const removeToast = useCallback((id: string) => {
+    // Clear the timeout if it exists
+    const timeoutId = timeoutRefs.current.get(id);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutRefs.current.delete(id);
+    }
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
@@ -37,14 +52,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
       setToasts((prev) => [...prev, toast]);
 
-      // Auto-dismiss
+      // Auto-dismiss with tracked timeout
       if (duration > 0) {
-        setTimeout(() => {
-          removeToast(id);
+        const timeoutId = setTimeout(() => {
+          timeoutRefs.current.delete(id);
+          setToasts((prev) => prev.filter((t) => t.id !== id));
         }, duration);
+        timeoutRefs.current.set(id, timeoutId);
       }
     },
-    [removeToast]
+    []
   );
 
   const success = useCallback(
