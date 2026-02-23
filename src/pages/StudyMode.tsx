@@ -9,6 +9,9 @@ import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
 
+// Animation timing constants
+const CARD_SWIPE_DURATION_MS = 280;
+
 export function StudyMode() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -260,7 +263,7 @@ export function StudyMode() {
           setShowCard(true);
           setIsAnimating(false);
         });
-      }, 280);
+      }, CARD_SWIPE_DURATION_MS);
     } else {
       setStudyComplete(true);
     }
@@ -284,7 +287,7 @@ export function StudyMode() {
           setShowCard(true);
           setIsAnimating(false);
         });
-      }, 280);
+      }, CARD_SWIPE_DURATION_MS);
     }
   }, [currentIndex, isAnimating]);
 

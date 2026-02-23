@@ -12,6 +12,9 @@ import { getDeckFilename } from "@/lib/slug";
 
 type FilterLogic = "any" | "all";
 
+// Search debounce delay to reduce re-renders during typing
+const SEARCH_DEBOUNCE_MS = 150;
+
 interface DeckStudyStats {
   totalSessions: number;
   totalStudyTimeSeconds: number;
@@ -73,12 +76,12 @@ export function DeckView() {
   const [debouncedSearchBack, setDebouncedSearchBack] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchFront(searchFront), 150);
+    const timer = setTimeout(() => setDebouncedSearchFront(searchFront), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [searchFront]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchBack(searchBack), 150);
+    const timer = setTimeout(() => setDebouncedSearchBack(searchBack), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [searchBack]);
 
