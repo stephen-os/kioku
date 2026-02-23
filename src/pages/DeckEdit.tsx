@@ -517,7 +517,7 @@ function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: Ca
     if (card) {
       // Existing card - add tag immediately
       try {
-        await addTagToCard(card.id, tag.id, deckId);
+        await addTagToCard(deckId, card.id, tag.id);
         setSelectedTags((prev) => [...prev, tag]);
         onTagsChange?.();
       } catch (error) {
@@ -537,7 +537,7 @@ function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: Ca
     try {
       const newTag = await createTag(deckId, tagInput.trim());
       if (card) {
-        await addTagToCard(card.id, newTag.id, deckId);
+        await addTagToCard(deckId, card.id, newTag.id);
         onTagsChange?.();
       }
       setSelectedTags((prev) => [...prev, newTag]);
@@ -552,7 +552,7 @@ function CardModal({ card, deckId, deckTags, onSave, onClose, onTagsChange }: Ca
   const handleRemoveTag = async (tagId: string) => {
     if (card) {
       try {
-        await removeTagFromCard(card.id, tagId, deckId);
+        await removeTagFromCard(deckId, card.id, tagId);
         setSelectedTags((prev) => prev.filter((t) => t.id !== tagId));
         onTagsChange?.();
       } catch (error) {
