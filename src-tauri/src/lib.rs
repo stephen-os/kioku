@@ -114,10 +114,7 @@ fn get_all_decks(state: State<DbState>) -> Result<Vec<Deck>, String> {
 #[tauri::command]
 fn get_deck(state: State<DbState>, id: String) -> Result<Option<Deck>, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    match db::get_deck(&conn, &id) {
-        Ok(deck) => Ok(Some(deck)),
-        Err(_) => Ok(None),
-    }
+    db::get_deck(&conn, &id)
 }
 
 #[tauri::command]
@@ -392,7 +389,8 @@ fn import_deck_from_file(
         }
     }
 
-    let final_deck = db::get_deck(&conn, &deck.id)?;
+    let final_deck = db::get_deck(&conn, &deck.id)?
+        .ok_or_else(|| "Failed to retrieve imported deck".to_string())?;
     Ok(ImportResult {
         deck: final_deck,
         cards_imported: cards_count,
@@ -403,7 +401,8 @@ fn import_deck_from_file(
 fn export_deck_to_json(state: State<DbState>, deck_id: String) -> Result<String, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
 
-    let deck = db::get_deck(&conn, &deck_id)?;
+    let deck = db::get_deck(&conn, &deck_id)?
+        .ok_or_else(|| format!("Deck not found: {}", deck_id))?;
     let cards = db::get_cards_for_deck(&conn, &deck_id)?;
 
     #[derive(serde::Serialize)]

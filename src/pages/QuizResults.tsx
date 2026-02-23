@@ -4,9 +4,11 @@ import type { Quiz, QuizAttempt, Question } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getQuiz, getQuizAttempt } from "@/lib/db";
 import { CodeBlock } from "@/components/CodeEditor";
+import { useToast } from "@/context/ToastContext";
 
 export function QuizResults() {
   const { id, attemptId } = useParams<{ id: string; attemptId: string }>();
+  const toast = useToast();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,12 +27,13 @@ export function QuizResults() {
         setAttempt(attemptData);
       } catch (error) {
         console.error("Failed to load results:", error);
+        toast.error("Failed to load quiz results");
       } finally {
         setLoading(false);
       }
     }
     loadResults();
-  }, [id, attemptId]);
+  }, [id, attemptId, toast]);
 
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return "--:--";

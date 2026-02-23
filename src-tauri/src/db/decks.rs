@@ -24,7 +24,8 @@ pub fn create_deck(
     )
     .map_err(|e| format!("Failed to create deck: {}", e))?;
 
-    get_deck(conn, &id)
+    get_deck(conn, &id)?
+        .ok_or_else(|| "Failed to retrieve created deck".to_string())
 }
 
 pub fn get_all_decks(conn: &Connection, user_id: &str) -> Result<Vec<Deck>, String> {
@@ -55,8 +56,8 @@ pub fn get_all_decks(conn: &Connection, user_id: &str) -> Result<Vec<Deck>, Stri
         .map_err(|e| format!("Failed to collect decks: {}", e))
 }
 
-pub fn get_deck(conn: &Connection, id: &str) -> Result<Deck, String> {
-    conn.query_row(
+pub fn get_deck(conn: &Connection, id: &str) -> Result<Option<Deck>, String> {
+    match conn.query_row(
         "SELECT id, name, description, shuffle_cards, created_at, updated_at
          FROM decks WHERE id = ?1",
         params![id],
@@ -71,8 +72,11 @@ pub fn get_deck(conn: &Connection, id: &str) -> Result<Deck, String> {
                 card_count: None,
             })
         },
-    )
-    .map_err(|e| format!("Deck not found: {}", e))
+    ) {
+        Ok(deck) => Ok(Some(deck)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(format!("Database error: {}", e)),
+    }
 }
 
 pub fn update_deck(
@@ -91,7 +95,8 @@ pub fn update_deck(
     )
     .map_err(|e| format!("Failed to update deck: {}", e))?;
 
-    get_deck(conn, id)
+    get_deck(conn, id)?
+        .ok_or_else(|| format!("Deck not found after update: {}", id))
 }
 
 pub fn delete_deck(conn: &Connection, id: &str) -> Result<(), String> {

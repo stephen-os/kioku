@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type {
   Card,
@@ -43,6 +43,33 @@ export function DeckEdit() {
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
 
+  // Track original values to detect unsaved changes
+  const originalValuesRef = useRef({ name: "", description: "", shuffleCards: false });
+
+  const hasUnsavedChanges = useCallback(() => {
+    if (isNew) {
+      // For new decks, any content means unsaved changes
+      return name.trim() !== "" || description.trim() !== "";
+    }
+    const orig = originalValuesRef.current;
+    return name !== orig.name ||
+           description !== orig.description ||
+           shuffleCards !== orig.shuffleCards;
+  }, [isNew, name, description, shuffleCards]);
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   useEffect(() => {
     if (!isNew && id) {
       loadDeck(id);
@@ -62,6 +89,12 @@ export function DeckEdit() {
         setName(deckData.name);
         setDescription(deckData.description || "");
         setShuffleCards(deckData.shuffleCards);
+        // Store original values to detect unsaved changes
+        originalValuesRef.current = {
+          name: deckData.name,
+          description: deckData.description || "",
+          shuffleCards: deckData.shuffleCards,
+        };
       } else {
         navigate("/");
       }
