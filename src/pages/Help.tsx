@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 type Section = "overview" | "decks" | "quizzes" | "import" | "stats";
 
@@ -243,6 +243,7 @@ function ImportSection() {
 
       <h3 className="text-lg font-medium text-[#ffd866] mt-6 mb-3">Deck JSON Schema</h3>
       <CodeBlock
+        label="Copy Schema"
         code={`{
   "name": "Deck Name",
   "description": "Optional description",
@@ -344,6 +345,7 @@ function ImportSection() {
 
       <h3 className="text-lg font-medium text-[#ffd866] mt-6 mb-3">Quiz JSON Schema</h3>
       <CodeBlock
+        label="Copy Schema"
         code={`{
   "name": "Quiz Name",
   "description": "Optional description",
@@ -444,10 +446,45 @@ function FeatureCard({ title, description, color }: { title: string; description
   );
 }
 
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({ code, label }: { code: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }, [code]);
+
   return (
-    <pre className="bg-[#2d2a2e] rounded-lg p-4 overflow-x-auto text-sm">
-      <code className="text-[#a9dc76]">{code}</code>
-    </pre>
+    <div className="relative group">
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-2 py-1 text-xs rounded bg-[#5b595c] hover:bg-[#5b595c]/80 text-[#fcfcfa] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+        title="Copy to clipboard"
+      >
+        {copied ? (
+          <>
+            <svg className="w-3.5 h-3.5 text-[#a9dc76]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Copied!
+          </>
+        ) : (
+          <>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            {label || "Copy"}
+          </>
+        )}
+      </button>
+      <pre className="bg-[#2d2a2e] rounded-lg p-4 overflow-x-auto text-sm select-all cursor-text">
+        <code className="text-[#a9dc76]">{code}</code>
+      </pre>
+    </div>
   );
 }
