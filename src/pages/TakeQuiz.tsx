@@ -32,6 +32,12 @@ export function TakeQuiz() {
   const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
 
   useEffect(() => {
+    // Reset state when quiz ID changes
+    setAnswers({});
+    setCurrentIndex(0);
+    setLoading(true);
+    setAttemptId(null);
+
     async function loadQuiz() {
       if (!id) return;
       try {
