@@ -85,13 +85,11 @@ function getLanguageExtension(language: CodeLanguage | null | undefined) {
       return StreamLanguage.define(dockerFile);
     case "TOML":
       return StreamLanguage.define(toml);
+    // Languages without CodeMirror support - no highlighting is better than wrong highlighting
     case "CSHARP":
-      return java(); // C# is similar enough to Java for basic highlighting
     case "KOTLIN":
     case "SCALA":
-      return java(); // JVM languages use Java highlighting as fallback
     case "R":
-      return python(); // R is similar to Python for basic highlighting
     case "REGEX":
     case "PLAINTEXT":
     default:
