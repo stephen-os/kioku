@@ -438,39 +438,6 @@ export function DeckView() {
             </div>
           )}
 
-          {/* Stats */}
-          {stats && stats.totalSessions > 0 && (
-            <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
-              <h3 className="text-lg font-semibold text-[#fcfcfa] mb-4">Your Stats</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#a9dc76] font-mono">
-                    {formatDuration(stats.totalStudyTimeSeconds)}
-                  </div>
-                  <div className="text-sm text-[#939293]">Study Time</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#78dce8] font-mono">
-                    {stats.totalCardsStudied}
-                  </div>
-                  <div className="text-sm text-[#939293]">Cards Studied</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#ffd866] font-mono">
-                    {stats.totalSessions}
-                  </div>
-                  <div className="text-sm text-[#939293]">Sessions</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#ab9df2] font-mono">
-                    {formatDate(stats.lastStudiedAt)}
-                  </div>
-                  <div className="text-sm text-[#939293]">Last Studied</div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Cards Preview */}
           {cards.length > 0 && (
             <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6">
@@ -721,7 +688,7 @@ function CardRow({ card, index }: { card: Card; index: number }) {
         </div>
 
         {/* Tags */}
-        {card.tags && card.tags.length > 0 && (
+        {card.tags?.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {card.tags.map((tag) => (
               <span
