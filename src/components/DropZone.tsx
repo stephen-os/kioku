@@ -17,43 +17,33 @@ export function DropZone({
   label = "Drop file here to import",
 }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
-  // Track if the drag contains actual files (not UI elements)
-  const isFileDragRef = useRef(false);
+  // Track if an internal (non-file) drag is happening
+  const isInternalDragRef = useRef(false);
 
-  // Use browser drag events to detect if files are being dragged
+  // Detect internal drags (UI elements, not files) via browser events
   useEffect(() => {
     if (disabled) return;
 
-    const handleDragEnter = (e: DragEvent) => {
-      // Check if the drag contains files
-      if (e.dataTransfer?.types.includes("Files")) {
-        isFileDragRef.current = true;
-      }
+    const handleDragStart = () => {
+      // If drag starts within the app, it's an internal drag (not a file from OS)
+      isInternalDragRef.current = true;
     };
 
-    const handleDragLeave = (e: DragEvent) => {
-      // Only reset when leaving the window entirely
-      if (e.relatedTarget === null) {
-        isFileDragRef.current = false;
-      }
+    const handleDragEnd = () => {
+      isInternalDragRef.current = false;
     };
 
-    const handleDrop = () => {
-      isFileDragRef.current = false;
-    };
-
-    window.addEventListener("dragenter", handleDragEnter);
-    window.addEventListener("dragleave", handleDragLeave);
-    window.addEventListener("drop", handleDrop);
+    // Listen for drag start/end on the document to detect internal drags
+    document.addEventListener("dragstart", handleDragStart);
+    document.addEventListener("dragend", handleDragEnd);
 
     return () => {
-      window.removeEventListener("dragenter", handleDragEnter);
-      window.removeEventListener("dragleave", handleDragLeave);
-      window.removeEventListener("drop", handleDrop);
+      document.removeEventListener("dragstart", handleDragStart);
+      document.removeEventListener("dragend", handleDragEnd);
     };
   }, [disabled]);
 
-  // Handle Tauri drag-drop events
+  // Handle Tauri drag-drop events (only fires for external file drags)
   useEffect(() => {
     if (disabled) return;
 
@@ -63,15 +53,14 @@ export function DropZone({
       const eventType = event.payload.type;
 
       if (eventType === "enter" || eventType === "over") {
-        // Only show overlay if we detected a file drag
-        if (isFileDragRef.current) {
+        // Only show overlay if this is NOT an internal drag
+        if (!isInternalDragRef.current) {
           setIsDragging(true);
         }
       } else if (eventType === "leave") {
         setIsDragging(false);
       } else if (eventType === "drop") {
         setIsDragging(false);
-        isFileDragRef.current = false;
         const paths = event.payload.paths;
         if (paths && paths.length > 0) {
           const filePath = paths[0];
