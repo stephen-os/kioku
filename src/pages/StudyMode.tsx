@@ -181,19 +181,36 @@ export function StudyMode() {
     }
   }, [currentIndex, studyStarted, cards.length]);
 
-  // Filter cards based on selected tags
+  // Filter cards based on selected tags AND URL search filters
   const filteredCards = useMemo(() => {
-    if (selectedTagFilters.length === 0) return allCards;
+    let result = allCards;
 
-    return allCards.filter((card) => {
-      const cardTagIds = card.tags.map((t) => t.id);
-      if (tagFilterMode === "all") {
-        return selectedTagFilters.every((tagId) => cardTagIds.includes(tagId));
-      } else {
-        return selectedTagFilters.some((tagId) => cardTagIds.includes(tagId));
-      }
-    });
-  }, [allCards, selectedTagFilters, tagFilterMode]);
+    // Apply URL front search (persists across filter changes)
+    if (urlFrontSearch) {
+      const term = urlFrontSearch.toLowerCase();
+      result = result.filter((card) => card.front.toLowerCase().includes(term));
+    }
+
+    // Apply URL back search (persists across filter changes)
+    if (urlBackSearch) {
+      const term = urlBackSearch.toLowerCase();
+      result = result.filter((card) => card.back.toLowerCase().includes(term));
+    }
+
+    // Apply tag filters
+    if (selectedTagFilters.length > 0) {
+      result = result.filter((card) => {
+        const cardTagIds = card.tags.map((t) => t.id);
+        if (tagFilterMode === "all") {
+          return selectedTagFilters.every((tagId) => cardTagIds.includes(tagId));
+        } else {
+          return selectedTagFilters.some((tagId) => cardTagIds.includes(tagId));
+        }
+      });
+    }
+
+    return result;
+  }, [allCards, selectedTagFilters, tagFilterMode, urlFrontSearch, urlBackSearch]);
 
   const handleToggleTagFilter = (tagId: string) => {
     setSelectedTagFilters((prev) =>
@@ -204,8 +221,8 @@ export function StudyMode() {
   };
 
   const handleStartStudy = () => {
-    const cardsToStudy = selectedTagFilters.length > 0 ? filteredCards : allCards;
-    const shuffled = [...cardsToStudy].sort(() => Math.random() - 0.5);
+    // Always use filteredCards - it includes both URL search and tag filters
+    const shuffled = [...filteredCards].sort(() => Math.random() - 0.5);
     setCards(shuffled);
     setShowTagFilter(false);
     setStudyStarted(true);
