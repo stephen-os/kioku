@@ -41,8 +41,13 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
+      "wix": {
+        "dialogImagePath": "icons/icon.png",
+        "bannerPath": "icons/icon.png"
+      },
       "nsis": {
-        "installMode": "perMachine"
+        "installMode": "perMachine",
+        "installerIcon": "icons/icon.ico"
       }
     }
   },
