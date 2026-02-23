@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface DropZoneProps {
@@ -17,21 +17,61 @@ export function DropZone({
   label = "Drop file here to import",
 }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
+  // Track if the drag contains actual files (not UI elements)
+  const isFileDragRef = useRef(false);
 
+  // Use browser drag events to detect if files are being dragged
   useEffect(() => {
     if (disabled) return;
 
-    const window = getCurrentWindow();
+    const handleDragEnter = (e: DragEvent) => {
+      // Check if the drag contains files
+      if (e.dataTransfer?.types.includes("Files")) {
+        isFileDragRef.current = true;
+      }
+    };
 
-    const unlistenPromise = window.onDragDropEvent((event) => {
+    const handleDragLeave = (e: DragEvent) => {
+      // Only reset when leaving the window entirely
+      if (e.relatedTarget === null) {
+        isFileDragRef.current = false;
+      }
+    };
+
+    const handleDrop = () => {
+      isFileDragRef.current = false;
+    };
+
+    window.addEventListener("dragenter", handleDragEnter);
+    window.addEventListener("dragleave", handleDragLeave);
+    window.addEventListener("drop", handleDrop);
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter);
+      window.removeEventListener("dragleave", handleDragLeave);
+      window.removeEventListener("drop", handleDrop);
+    };
+  }, [disabled]);
+
+  // Handle Tauri drag-drop events
+  useEffect(() => {
+    if (disabled) return;
+
+    const appWindow = getCurrentWindow();
+
+    const unlistenPromise = appWindow.onDragDropEvent((event) => {
       const eventType = event.payload.type;
 
       if (eventType === "enter" || eventType === "over") {
-        setIsDragging(true);
+        // Only show overlay if we detected a file drag
+        if (isFileDragRef.current) {
+          setIsDragging(true);
+        }
       } else if (eventType === "leave") {
         setIsDragging(false);
       } else if (eventType === "drop") {
         setIsDragging(false);
+        isFileDragRef.current = false;
         const paths = event.payload.paths;
         if (paths && paths.length > 0) {
           const filePath = paths[0];
