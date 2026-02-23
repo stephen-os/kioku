@@ -14,7 +14,7 @@ export function Dashboard() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const toast = useToast();
 
-  const loadDecks = useCallback(async () => {
+  const loadDecks = useCallback(async (): Promise<void> => {
     try {
       const data = await getAllDecks();
       setDecks(data);
@@ -29,7 +29,7 @@ export function Dashboard() {
     loadDecks();
   }, [loadDecks]);
 
-  const handleImport = async () => {
+  const handleImport = async (): Promise<void> => {
     setImporting(true);
 
     try {
@@ -53,7 +53,7 @@ export function Dashboard() {
     }
   };
 
-  const handleFileDrop = useCallback(async (filePath: string) => {
+  const handleFileDrop = useCallback(async (filePath: string): Promise<void> => {
     setImporting(true);
 
     try {
@@ -67,7 +67,7 @@ export function Dashboard() {
     }
   }, [navigate, toast]);
 
-  const handleDelete = async (deckId: string) => {
+  const handleDelete = async (deckId: string): Promise<void> => {
     setDeletingId(deckId);
     try {
       await deleteDeck(deckId);
