@@ -3,6 +3,9 @@ mod db;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
+// Max import file size: 10 MB
+const MAX_IMPORT_FILE_SIZE: u64 = 10 * 1024 * 1024;
+
 use db::{
     Card, CardTag, CreateCardRequest, CreateDeckRequest, DbState, Deck, Tag,
     UpdateCardRequest, UpdateDeckRequest,
@@ -306,6 +309,17 @@ fn import_deck_from_file(
     state: State<DbState>,
     file_path: String,
 ) -> Result<ImportResult, String> {
+    // Validate file size before reading
+    let metadata = std::fs::metadata(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    if metadata.len() > MAX_IMPORT_FILE_SIZE {
+        return Err(format!(
+            "File too large: {} MB (max {} MB)",
+            metadata.len() / (1024 * 1024),
+            MAX_IMPORT_FILE_SIZE / (1024 * 1024)
+        ));
+    }
+
     let content = std::fs::read_to_string(&file_path)
         .map_err(|e| format!("Failed to read file: {}", e))?;
 
@@ -534,6 +548,17 @@ fn import_quiz_from_file(
     state: State<DbState>,
     file_path: String,
 ) -> Result<QuizImportResult, String> {
+    // Validate file size before reading
+    let metadata = std::fs::metadata(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    if metadata.len() > MAX_IMPORT_FILE_SIZE {
+        return Err(format!(
+            "File too large: {} MB (max {} MB)",
+            metadata.len() / (1024 * 1024),
+            MAX_IMPORT_FILE_SIZE / (1024 * 1024)
+        ));
+    }
+
     let content = std::fs::read_to_string(&file_path)
         .map_err(|e| format!("Failed to read file: {}", e))?;
 
