@@ -6,7 +6,7 @@ import { ToastContainer } from "./components/Toast";
 import { Layout } from "./components/Layout";
 
 // Eagerly loaded pages (critical path)
-import { Dashboard } from "./pages/Dashboard";
+import { DeckDashboard } from "./pages/DeckDashboard";
 import { Login } from "./pages/Login";
 
 // Lazy-loaded pages (code splitting)
@@ -21,7 +21,7 @@ const Help = lazy(() => import("./pages/Help").then(m => ({ default: m.Help })))
 const Export = lazy(() => import("./pages/Export").then(m => ({ default: m.Export })));
 
 // Quiz pages (lazy-loaded)
-const QuizList = lazy(() => import("./pages/QuizList").then(m => ({ default: m.QuizList })));
+const QuizDashboard = lazy(() => import("./pages/QuizDashboard").then(m => ({ default: m.QuizDashboard })));
 const QuizView = lazy(() => import("./pages/QuizView").then(m => ({ default: m.QuizView })));
 const QuizEditor = lazy(() => import("./pages/QuizEditor").then(m => ({ default: m.QuizEditor })));
 const TakeQuiz = lazy(() => import("./pages/TakeQuiz").then(m => ({ default: m.TakeQuiz })));
@@ -106,14 +106,14 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route index element={<DeckDashboard />} />
           <Route path="decks/new" element={<NewDeck />} />
           <Route path="decks/:id" element={<DeckView />} />
           <Route path="decks/:id/edit" element={<DeckEdit />} />
           <Route path="decks/:id/study" element={<StudyMode />} />
           <Route path="decks/:id/listen" element={<ListenMode />} />
           {/* Quiz routes */}
-          <Route path="quizzes" element={<QuizList />} />
+          <Route path="quizzes" element={<QuizDashboard />} />
           <Route path="quizzes/new" element={<QuizEditor />} />
           <Route path="quizzes/:id" element={<QuizView />} />
           <Route path="quizzes/:id/edit" element={<QuizEditor />} />

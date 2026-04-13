@@ -1,20 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Quiz, QuizStats } from "@/types";
-import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
+import type { Deck } from "@/types";
+import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
 import { DropZone, SearchBar, SearchToggleButton } from "@/components";
 import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
 
-export function QuizList() {
+export function DeckDashboard() {
   const navigate = useNavigate();
-  const toast = useToast();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [quizStats, setQuizStats] = useState<Record<string, QuizStats>>({});
+  const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const toast = useToast();
 
   const {
     filters,
@@ -24,91 +23,81 @@ export function QuizList() {
     hasActiveFilters,
     isVisible: isSearchVisible,
     toggleVisibility: toggleSearch,
-    filteredItems: filteredQuizzes,
+    filteredItems: filteredDecks,
   } = useSearchFilter({
-    items: quizzes,
-    getSearchableFields: (quiz) => ({
-      name: quiz.name,
-      description: quiz.description,
+    items: decks,
+    getSearchableFields: (deck) => ({
+      name: deck.name,
+      description: deck.description,
     }),
-    storageKey: "quizzes",
+    storageKey: "decks",
   });
 
-  const loadQuizzes = useCallback(async () => {
+  const loadDecks = useCallback(async (): Promise<void> => {
     try {
-      const data = await getAllQuizzes();
-      setQuizzes(data);
-
-      // Load stats for each quiz
-      const stats: Record<string, QuizStats> = {};
-      for (const quiz of data) {
-        try {
-          stats[quiz.id] = await getQuizStats(quiz.id);
-        } catch {
-          // Quiz might not have any attempts yet
-        }
-      }
-      setQuizStats(stats);
+      const data = await getAllDecks();
+      setDecks(data);
     } catch (error) {
-      console.error("Failed to load quizzes:", error);
-      toast.error("Failed to load quizzes");
+      console.error("Failed to load decks:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadQuizzes();
-  }, [loadQuizzes]);
+    loadDecks();
+  }, [loadDecks]);
 
-  const handleDelete = async (quizId: string) => {
-    setDeletingId(quizId);
-    try {
-      await deleteQuiz(quizId);
-      toast.success("Quiz deleted");
-      loadQuizzes();
-    } catch (error) {
-      console.error("Failed to delete quiz:", error);
-      toast.error("Failed to delete quiz");
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const handleImport = async (): Promise<void> => {
+    setImporting(true);
 
-  const handleImport = async () => {
     try {
-      const selected = await open({
+      const filePath = await open({
         multiple: false,
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
 
-      if (selected && typeof selected === "string") {
-        setImporting(true);
-        const result = await importQuiz(selected);
-        toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
-        navigate(`/quizzes/${result.quiz.id}`);
+      if (!filePath) {
+        setImporting(false);
+        return;
       }
+
+      const result = await importDeck(filePath as string);
+      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
+      navigate(`/decks/${result.deck.id}`);
     } catch (error) {
-      console.error("Failed to import quiz:", error);
-      toast.error("Failed to import quiz");
+      toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImporting(false);
     }
   };
 
-  const handleFileDrop = useCallback(async (filePath: string) => {
+  const handleFileDrop = useCallback(async (filePath: string): Promise<void> => {
     setImporting(true);
+
     try {
-      const result = await importQuiz(filePath);
-      toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
-      navigate(`/quizzes/${result.quiz.id}`);
+      const result = await importDeck(filePath);
+      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
+      navigate(`/decks/${result.deck.id}`);
     } catch (error) {
-      console.error("Failed to import quiz:", error);
-      toast.error("Failed to import quiz");
+      toast.error(error instanceof Error ? error.message : "Import failed");
     } finally {
       setImporting(false);
     }
   }, [navigate, toast]);
+
+  const handleDelete = async (deckId: string): Promise<void> => {
+    setDeletingId(deckId);
+    try {
+      await deleteDeck(deckId);
+      toast.success("Deck deleted");
+      loadDecks();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete deck");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -125,12 +114,12 @@ export function QuizList() {
     <DropZone
       onFileDrop={handleFileDrop}
       disabled={importing}
-      label="Drop quiz file to import"
+      label="Drop deck file to import"
     >
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">
           <div className="fade-in">
-            {/* Header */}
+          {/* Header with Actions */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-2">
               <SearchToggleButton
@@ -138,7 +127,7 @@ export function QuizList() {
                 hasActiveFilters={hasActiveFilters}
                 onClick={toggleSearch}
               />
-              <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Quizzes</h2>
+              <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
             </div>
             <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
               <button
@@ -146,13 +135,13 @@ export function QuizList() {
                 disabled={importing}
                 className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#fcfcfa] bg-[#5b595c] hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
               >
-                {importing ? "Importing..." : "Import Quiz"}
+                {importing ? "Importing..." : "Import Deck"}
               </button>
               <Link
-                to="/quizzes/new"
+                to="/decks/new"
                 className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#2d2a2e] bg-[#ffd866] hover:bg-[#ffd866]/90 transition-colors"
               >
-                + New Quiz
+                + New Deck
               </Link>
             </div>
           </div>
@@ -166,12 +155,12 @@ export function QuizList() {
             onDescriptionChange={setDescriptionFilter}
             onClear={clearFilters}
             hasActiveFilters={hasActiveFilters}
-            namePlaceholder="Filter by quiz name..."
+            namePlaceholder="Filter by deck name..."
             descriptionPlaceholder="Filter by description..."
           />
 
-          {/* Quizzes Grid */}
-          {filteredQuizzes.length === 0 ? (
+          {/* Decks Grid */}
+          {filteredDecks.length === 0 ? (
             <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
               <div className="text-center">
                 <svg
@@ -184,16 +173,16 @@ export function QuizList() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                   />
                 </svg>
                 <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
-                  {hasActiveFilters ? "No matching quizzes" : "No quizzes"}
+                  {hasActiveFilters ? "No matching decks" : "No decks"}
                 </h3>
                 <p className="mt-1 text-sm text-[#939293]">
                   {hasActiveFilters
                     ? "Try adjusting your search filters."
-                    : "Create your first quiz to test your knowledge."}
+                    : "Get started by creating a new deck or importing one."}
                 </p>
                 {hasActiveFilters && (
                   <button
@@ -207,13 +196,12 @@ export function QuizList() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredQuizzes.map((quiz) => (
-                <QuizCard
-                  key={quiz.id}
-                  quiz={quiz}
-                  stats={quizStats[quiz.id]}
-                  onDelete={() => handleDelete(quiz.id)}
-                  isDeleting={deletingId === quiz.id}
+              {filteredDecks.map((deck) => (
+                <DeckCard
+                  key={deck.id}
+                  deck={deck}
+                  onDelete={() => handleDelete(deck.id)}
+                  isDeleting={deletingId === deck.id}
                 />
               ))}
             </div>
@@ -225,78 +213,52 @@ export function QuizList() {
   );
 }
 
-interface QuizCardProps {
-  quiz: Quiz;
-  stats?: QuizStats;
+interface DeckCardProps {
+  deck: Deck;
   onDelete: () => void;
   isDeleting: boolean;
 }
 
-function QuizCard({ quiz, stats, onDelete, isDeleting }: QuizCardProps) {
+function DeckCard({ deck, onDelete, isDeleting }: DeckCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <div className="block bg-[#403e41] overflow-hidden rounded-xl border border-[#5b595c] hover:border-[#939293] transition-colors">
-      <Link to={`/quizzes/${quiz.id}`} className="block px-5 py-4">
+      <Link to={`/decks/${deck.id}`} className="block px-5 py-4">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
-              {quiz.questionCount ?? quiz.questions?.length ?? 0} questions
+              {deck.cardCount ?? 0} cards
             </span>
-            {quiz.shuffleQuestions && (
+            {deck.shuffleCards && (
               <span className="text-xs px-2 py-0.5 rounded bg-[#ab9df2]/20 text-[#ab9df2]">
                 Shuffle
               </span>
             )}
           </div>
           <span className="text-xs text-[#939293] font-mono">
-            {new Date(quiz.createdAt).toLocaleDateString()}
+            {new Date(deck.createdAt).toLocaleDateString()}
           </span>
         </div>
         <h3 className="text-base font-medium text-[#fcfcfa] truncate">
-          {quiz.name}
+          {deck.name}
         </h3>
         <p className="mt-1 text-sm text-[#939293] line-clamp-2">
-          {quiz.description || "No description"}
+          {deck.description || "No description"}
         </p>
-
-        {/* Stats */}
-        {stats && stats.totalAttempts > 0 && (
-          <div className="mt-3 pt-3 border-t border-[#5b595c] grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-lg font-bold text-[#a9dc76]">
-                {stats.bestScore}%
-              </div>
-              <div className="text-xs text-[#939293]">Best</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-[#ffd866]">
-                {Math.round(stats.averageScore)}%
-              </div>
-              <div className="text-xs text-[#939293]">Avg</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-[#78dce8]">
-                {stats.totalAttempts}
-              </div>
-              <div className="text-xs text-[#939293]">Attempts</div>
-            </div>
-          </div>
-        )}
       </Link>
-
       <div className="px-5 pb-4 flex gap-2">
         <Link
-          to={`/quizzes/${quiz.id}/take`}
+          to={`/decks/${deck.id}/study`}
           className="flex-1 text-center px-3 py-2 bg-[#a9dc76]/20 text-[#a9dc76] text-sm rounded-lg hover:bg-[#a9dc76]/30 transition-colors font-medium"
         >
-          Take Quiz
+          Study
         </Link>
         <Link
-          to={`/quizzes/${quiz.id}/edit`}
+          to={`/decks/${deck.id}`}
           className="flex-1 text-center px-3 py-2 bg-[#ffd866]/20 text-[#ffd866] text-sm rounded-lg hover:bg-[#ffd866]/30 transition-colors font-medium"
         >
-          Edit
+          Manage
         </Link>
         {showDeleteConfirm ? (
           <div className="flex gap-1">
@@ -318,7 +280,7 @@ function QuizCard({ quiz, stats, onDelete, isDeleting }: QuizCardProps) {
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="px-3 py-2 text-[#ff6188] hover:bg-[#ff6188]/10 rounded-lg transition-colors"
-            title="Delete quiz"
+            title="Delete deck"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
