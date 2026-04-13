@@ -321,9 +321,3 @@ pub struct CreateUserRequest {
     pub avatar: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub user_id: String,
-    pub password: Option<String>,
-}
