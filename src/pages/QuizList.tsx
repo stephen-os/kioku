@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Quiz, QuizStats } from "@/types";
 import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
-import { DropZone } from "@/components/DropZone";
+import { DropZone, SearchBar, SearchToggleButton } from "@/components";
+import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
 
 export function QuizList() {
@@ -14,6 +15,24 @@ export function QuizList() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+
+  const {
+    filters,
+    setNameFilter,
+    setDescriptionFilter,
+    clearFilters,
+    hasActiveFilters,
+    isVisible: isSearchVisible,
+    toggleVisibility: toggleSearch,
+    filteredItems: filteredQuizzes,
+  } = useSearchFilter({
+    items: quizzes,
+    getSearchableFields: (quiz) => ({
+      name: quiz.name,
+      description: quiz.description,
+    }),
+    storageKey: "quizzes",
+  });
 
   const loadQuizzes = useCallback(async () => {
     try {
@@ -113,7 +132,14 @@ export function QuizList() {
           <div className="fade-in">
             {/* Header */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Quizzes</h2>
+            <div className="flex items-center gap-2">
+              <SearchToggleButton
+                isVisible={isSearchVisible}
+                hasActiveFilters={hasActiveFilters}
+                onClick={toggleSearch}
+              />
+              <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Quizzes</h2>
+            </div>
             <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
               <button
                 onClick={handleImport}
@@ -131,8 +157,21 @@ export function QuizList() {
             </div>
           </div>
 
+          {/* Search Bar */}
+          <SearchBar
+            isVisible={isSearchVisible}
+            nameValue={filters.name}
+            descriptionValue={filters.description}
+            onNameChange={setNameFilter}
+            onDescriptionChange={setDescriptionFilter}
+            onClear={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+            namePlaceholder="Filter by quiz name..."
+            descriptionPlaceholder="Filter by description..."
+          />
+
           {/* Quizzes Grid */}
-          {quizzes.length === 0 ? (
+          {filteredQuizzes.length === 0 ? (
             <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
               <div className="text-center">
                 <svg
@@ -148,15 +187,27 @@ export function QuizList() {
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
                   />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">No quizzes</h3>
+                <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
+                  {hasActiveFilters ? "No matching quizzes" : "No quizzes"}
+                </h3>
                 <p className="mt-1 text-sm text-[#939293]">
-                  Create your first quiz to test your knowledge.
+                  {hasActiveFilters
+                    ? "Try adjusting your search filters."
+                    : "Create your first quiz to test your knowledge."}
                 </p>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="mt-3 text-sm text-[#ffd866] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {quizzes.map((quiz) => (
+              {filteredQuizzes.map((quiz) => (
                 <QuizCard
                   key={quiz.id}
                   quiz={quiz}

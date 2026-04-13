@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Deck } from "@/types";
 import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
-import { DropZone } from "@/components/DropZone";
+import { DropZone, SearchBar, SearchToggleButton } from "@/components";
+import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
 
 export function Dashboard() {
@@ -13,6 +14,24 @@ export function Dashboard() {
   const [importing, setImporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const toast = useToast();
+
+  const {
+    filters,
+    setNameFilter,
+    setDescriptionFilter,
+    clearFilters,
+    hasActiveFilters,
+    isVisible: isSearchVisible,
+    toggleVisibility: toggleSearch,
+    filteredItems: filteredDecks,
+  } = useSearchFilter({
+    items: decks,
+    getSearchableFields: (deck) => ({
+      name: deck.name,
+      description: deck.description,
+    }),
+    storageKey: "decks",
+  });
 
   const loadDecks = useCallback(async (): Promise<void> => {
     try {
@@ -102,7 +121,14 @@ export function Dashboard() {
           <div className="fade-in">
           {/* Header with Actions */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
+            <div className="flex items-center gap-2">
+              <SearchToggleButton
+                isVisible={isSearchVisible}
+                hasActiveFilters={hasActiveFilters}
+                onClick={toggleSearch}
+              />
+              <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
+            </div>
             <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
               <button
                 onClick={handleImport}
@@ -120,8 +146,21 @@ export function Dashboard() {
             </div>
           </div>
 
+          {/* Search Bar */}
+          <SearchBar
+            isVisible={isSearchVisible}
+            nameValue={filters.name}
+            descriptionValue={filters.description}
+            onNameChange={setNameFilter}
+            onDescriptionChange={setDescriptionFilter}
+            onClear={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+            namePlaceholder="Filter by deck name..."
+            descriptionPlaceholder="Filter by description..."
+          />
+
           {/* Decks Grid */}
-          {decks.length === 0 ? (
+          {filteredDecks.length === 0 ? (
             <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
               <div className="text-center">
                 <svg
@@ -137,15 +176,27 @@ export function Dashboard() {
                     d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                   />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">No decks</h3>
+                <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
+                  {hasActiveFilters ? "No matching decks" : "No decks"}
+                </h3>
                 <p className="mt-1 text-sm text-[#939293]">
-                  Get started by creating a new deck or importing one.
+                  {hasActiveFilters
+                    ? "Try adjusting your search filters."
+                    : "Get started by creating a new deck or importing one."}
                 </p>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="mt-3 text-sm text-[#ffd866] hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {decks.map((deck) => (
+              {filteredDecks.map((deck) => (
                 <DeckCard
                   key={deck.id}
                   deck={deck}
