@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface DropZoneProps {
   children: ReactNode;
-  onFileDrop: (filePath: string) => void;
+  onFileDrop: (filePaths: string[]) => void;
   accept?: string; // File extension without dot, e.g., "json"
   disabled?: boolean;
   label?: string;
@@ -14,7 +14,7 @@ export function DropZone({
   onFileDrop,
   accept = "json",
   disabled = false,
-  label = "Drop file here to import",
+  label = "Drop files here to import",
 }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   // Track if an internal (non-file) drag is happening
@@ -63,13 +63,15 @@ export function DropZone({
         setIsDragging(false);
         const paths = event.payload.paths;
         if (paths && paths.length > 0) {
-          const filePath = paths[0];
-          // Check file extension
-          if (accept && !filePath.toLowerCase().endsWith(`.${accept}`)) {
-            console.warn(`Invalid file type. Expected .${accept}`);
+          // Filter paths by extension
+          const validPaths = accept
+            ? paths.filter((p) => p.toLowerCase().endsWith(`.${accept}`))
+            : paths;
+          if (validPaths.length === 0) {
+            console.warn(`No valid files. Expected .${accept}`);
             return;
           }
-          onFileDrop(filePath);
+          onFileDrop(validPaths);
         }
       }
     });

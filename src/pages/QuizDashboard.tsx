@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Quiz, QuizStats } from "@/types";
 import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
@@ -8,7 +8,6 @@ import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
 
 export function QuizDashboard() {
-  const navigate = useNavigate();
   const toast = useToast();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizStats, setQuizStats] = useState<Record<string, QuizStats>>({});
@@ -76,39 +75,52 @@ export function QuizDashboard() {
   };
 
   const handleImport = async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
+    const filePaths = await open({
+      multiple: true,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
 
-      if (selected && typeof selected === "string") {
-        setImporting(true);
-        const result = await importQuiz(selected);
-        toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
-        navigate(`/quizzes/${result.quiz.id}`);
-      }
-    } catch (error) {
-      console.error("Failed to import quiz:", error);
-      toast.error("Failed to import quiz");
-    } finally {
-      setImporting(false);
+    if (!filePaths || filePaths.length === 0) {
+      return;
     }
+
+    setImporting(true);
+    const paths = Array.isArray(filePaths) ? filePaths : [filePaths];
+    const results = await Promise.allSettled(
+      paths.map((path) => importQuiz(path))
+    );
+
+    results.forEach((result, index) => {
+      const filename = paths[index].split(/[\\/]/).pop() ?? paths[index];
+      if (result.status === "fulfilled") {
+        toast.success(`Imported "${result.value.quiz.name}" with ${result.value.questionsImported} questions`);
+      } else {
+        toast.error(`Failed to import ${filename}`);
+      }
+    });
+
+    setImporting(false);
+    loadQuizzes();
   };
 
-  const handleFileDrop = useCallback(async (filePath: string) => {
+  const handleFileDrop = useCallback(async (filePaths: string[]) => {
     setImporting(true);
-    try {
-      const result = await importQuiz(filePath);
-      toast.success(`Imported "${result.quiz.name}" with ${result.questionsImported} questions`);
-      navigate(`/quizzes/${result.quiz.id}`);
-    } catch (error) {
-      console.error("Failed to import quiz:", error);
-      toast.error("Failed to import quiz");
-    } finally {
-      setImporting(false);
-    }
-  }, [navigate, toast]);
+    const results = await Promise.allSettled(
+      filePaths.map((path) => importQuiz(path))
+    );
+
+    results.forEach((result, index) => {
+      const filename = filePaths[index].split(/[\\/]/).pop() ?? filePaths[index];
+      if (result.status === "fulfilled") {
+        toast.success(`Imported "${result.value.quiz.name}" with ${result.value.questionsImported} questions`);
+      } else {
+        toast.error(`Failed to import ${filename}`);
+      }
+    });
+
+    setImporting(false);
+    loadQuizzes();
+  }, [toast, loadQuizzes]);
 
   if (loading) {
     return (
@@ -125,7 +137,7 @@ export function QuizDashboard() {
     <DropZone
       onFileDrop={handleFileDrop}
       disabled={importing}
-      label="Drop quiz file to import"
+      label="Drop quiz files to import"
     >
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">

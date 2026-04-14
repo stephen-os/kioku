@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Deck } from "@/types";
 import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
@@ -8,7 +8,6 @@ import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
 
 export function DeckDashboard() {
-  const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -49,42 +48,52 @@ export function DeckDashboard() {
   }, [loadDecks]);
 
   const handleImport = async (): Promise<void> => {
-    setImporting(true);
+    const filePaths = await open({
+      multiple: true,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
 
-    try {
-      const filePath = await open({
-        multiple: false,
-        filters: [{ name: "JSON", extensions: ["json"] }],
-      });
-
-      if (!filePath) {
-        setImporting(false);
-        return;
-      }
-
-      const result = await importDeck(filePath as string);
-      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
-      navigate(`/decks/${result.deck.id}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Import failed");
-    } finally {
-      setImporting(false);
+    if (!filePaths || filePaths.length === 0) {
+      return;
     }
+
+    setImporting(true);
+    const paths = Array.isArray(filePaths) ? filePaths : [filePaths];
+    const results = await Promise.allSettled(
+      paths.map((path) => importDeck(path))
+    );
+
+    results.forEach((result, index) => {
+      const filename = paths[index].split(/[\\/]/).pop() ?? paths[index];
+      if (result.status === "fulfilled") {
+        toast.success(`Imported "${result.value.deck.name}" with ${result.value.cardsImported} cards`);
+      } else {
+        toast.error(`Failed to import ${filename}`);
+      }
+    });
+
+    setImporting(false);
+    loadDecks();
   };
 
-  const handleFileDrop = useCallback(async (filePath: string): Promise<void> => {
+  const handleFileDrop = useCallback(async (filePaths: string[]): Promise<void> => {
     setImporting(true);
+    const results = await Promise.allSettled(
+      filePaths.map((path) => importDeck(path))
+    );
 
-    try {
-      const result = await importDeck(filePath);
-      toast.success(`Imported "${result.deck.name}" with ${result.cardsImported} cards`);
-      navigate(`/decks/${result.deck.id}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Import failed");
-    } finally {
-      setImporting(false);
-    }
-  }, [navigate, toast]);
+    results.forEach((result, index) => {
+      const filename = filePaths[index].split(/[\\/]/).pop() ?? filePaths[index];
+      if (result.status === "fulfilled") {
+        toast.success(`Imported "${result.value.deck.name}" with ${result.value.cardsImported} cards`);
+      } else {
+        toast.error(`Failed to import ${filename}`);
+      }
+    });
+
+    setImporting(false);
+    loadDecks();
+  }, [toast, loadDecks]);
 
   const handleDelete = async (deckId: string): Promise<void> => {
     setDeletingId(deckId);
@@ -114,7 +123,7 @@ export function DeckDashboard() {
     <DropZone
       onFileDrop={handleFileDrop}
       disabled={importing}
-      label="Drop deck file to import"
+      label="Drop deck files to import"
     >
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">
