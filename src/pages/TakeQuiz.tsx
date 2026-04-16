@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import type { Quiz, QuestionAnswer } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getQuiz, startQuizAttempt, submitQuizAttempt } from "@/lib/db";
 import { CodeBlock } from "@/components/CodeEditor";
+import { BackButton } from "@/components";
 import { useToast } from "@/context/ToastContext";
 
 export function TakeQuiz() {
@@ -170,12 +171,12 @@ export function TakeQuiz() {
         <p className="text-[#939293] mb-6">
           This quiz doesn't have any questions yet.
         </p>
-        <Link
-          to={`/quizzes/${id}/edit`}
+        <BackButton
+          fallbackPath={`/quizzes/${id}/edit`}
+          label="Edit Quiz"
           className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
-        >
-          Edit Quiz
-        </Link>
+          showIcon={false}
+        />
       </div>
     );
   }
@@ -190,15 +191,11 @@ export function TakeQuiz() {
       <div className="bg-[#403e41] border-b border-[#5b595c] flex-shrink-0">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <Link
-              to={`/quizzes/${id}`}
+            <BackButton
+              fallbackPath={`/quizzes/${id}`}
+              label="Exit Quiz"
               className="text-[#78dce8] hover:text-[#ffd866] flex items-center transition-colors"
-            >
-              <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Exit Quiz
-            </Link>
+            />
             <div className="text-center">
               <h1 className="text-xl font-bold text-[#fcfcfa] font-mono truncate max-w-[300px]">
                 {quiz?.name}

@@ -4,6 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Quiz, QuizStats, Question } from "@/types";
 import { getQuiz, getQuizStats, deleteQuiz, getTagsForQuiz, QuizTag, exportQuiz } from "@/lib/db";
+import { BackButton } from "@/components";
 import { useToast } from "@/context/ToastContext";
 import { getQuizFilename } from "@/lib/slug";
 
@@ -205,12 +206,7 @@ export function QuizView() {
         <p className="text-[#939293] mb-6">
           This quiz doesn't exist or has been deleted.
         </p>
-        <Link
-          to="/quizzes"
-          className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
-        >
-          Back to Quizzes
-        </Link>
+        <BackButton fallbackPath="/quizzes" label="Back to Quizzes" />
       </div>
     );
   }
@@ -222,15 +218,7 @@ export function QuizView() {
       <main className="max-w-4xl mx-auto py-6 px-6">
         <div className="fade-in">
           {/* Back Link */}
-          <Link
-            to="/quizzes"
-            className="inline-flex items-center text-[#78dce8] hover:text-[#ffd866] mb-6 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Quizzes
-          </Link>
+          <BackButton fallbackPath="/quizzes" label="Back" />
 
           {/* Quiz Header */}
           <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">

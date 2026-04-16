@@ -14,6 +14,7 @@ export {
   FavoriteButton,
   SearchBar,
   SearchToggleButton,
+  BackButton,
 } from "./ui";
 
 // Card components

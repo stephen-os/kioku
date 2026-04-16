@@ -9,7 +9,7 @@ import {
   clearLessonItemProgress,
   linkCourseItems,
 } from "@/lib/db";
-import { FavoriteButton } from "@/components";
+import { FavoriteButton, BackButton } from "@/components";
 import { useToast } from "@/context/ToastContext";
 
 export function CourseView() {
@@ -160,15 +160,10 @@ export function CourseView() {
       <main className="max-w-4xl mx-auto py-6 px-6">
         <div className="fade-in">
           {/* Back link */}
-          <Link
-            to="/courses"
-            className="inline-flex items-center gap-1 text-sm text-[#939293] hover:text-[#fcfcfa] mb-4"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Courses
-          </Link>
+          <BackButton
+            fallbackPath="/courses"
+            label="Back to Courses"
+          />
 
           {/* Header */}
           <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">

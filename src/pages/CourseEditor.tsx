@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import type { Course, Lesson, Deck, Quiz } from "@/types";
+import { BackButton } from "@/components";
 import {
   getCourseWithLessons,
   createCourse,
@@ -283,15 +284,10 @@ export function CourseEditor() {
       <main className="max-w-4xl mx-auto py-6 px-6">
         <div className="fade-in">
           {/* Back link */}
-          <Link
-            to={isNew ? "/courses" : `/courses/${id}`}
-            className="inline-flex items-center gap-1 text-sm text-[#939293] hover:text-[#fcfcfa] mb-4"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            {isNew ? "Back to Courses" : "Back to Course"}
-          </Link>
+          <BackButton
+            fallbackPath={isNew ? "/courses" : `/courses/${id}`}
+            label={isNew ? "Back to Courses" : "Back to Course"}
+          />
 
           {/* Course Info Form */}
           <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">

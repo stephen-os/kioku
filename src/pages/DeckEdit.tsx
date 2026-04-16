@@ -11,6 +11,7 @@ import type {
   CodeLanguage,
 } from "@/types";
 import { CODE_LANGUAGES, CODE_LANGUAGE_LABELS } from "@/types";
+import { BackButton } from "@/components";
 import {
   getDeck,
   createDeck,
@@ -193,12 +194,10 @@ export function DeckEdit() {
       <main className="max-w-4xl mx-auto py-6 px-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => navigate(isNew ? "/" : `/decks/${id}`)}
-            className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-          >
-            &larr; {isNew ? "Back to Decks" : "Back to Deck"}
-          </button>
+          <BackButton
+            fallbackPath={isNew ? "/" : `/decks/${id}`}
+            label={isNew ? "Back to Decks" : "Back to Deck"}
+          />
           <button
             onClick={handleSaveDeck}
             disabled={saving || !name.trim()}

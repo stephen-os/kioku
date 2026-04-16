@@ -5,6 +5,7 @@ import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getCardsForDeck, getDeck, getTagsForDeck, startStudySession, endStudySession } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
+import { BackButton } from "@/components";
 import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
@@ -425,15 +426,7 @@ export function StudyMode() {
         <div className="bg-[#403e41] border-b border-[#5b595c] flex-shrink-0">
           <div className="max-w-4xl mx-auto px-6 py-4">
             <div className="flex justify-between items-center">
-              <Link
-                to={`/decks/${id}`}
-                className="text-[#78dce8] hover:text-[#ffd866] flex items-center transition-colors"
-              >
-                <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to Deck
-              </Link>
+              <BackButton fallbackPath={`/decks/${id}`} label="Back" />
               <h1 className="text-xl font-bold text-[#fcfcfa] font-mono truncate max-w-[300px]">
                 {deck?.name}
               </h1>
@@ -598,15 +591,7 @@ export function StudyMode() {
       <div className="bg-[#403e41] border-b border-[#5b595c] flex-shrink-0">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <Link
-              to={`/decks/${id}`}
-              className="text-[#78dce8] hover:text-[#ffd866] flex items-center transition-colors"
-            >
-              <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Deck
-            </Link>
+            <BackButton fallbackPath={`/decks/${id}`} label="Back" />
             <div className="text-center">
               <h1 className="text-xl font-bold text-[#fcfcfa] font-mono truncate max-w-[300px]">
                 {deck?.name}
@@ -662,12 +647,11 @@ export function StudyMode() {
                     Change Filters
                   </button>
                 )}
-                <Link
-                  to={`/decks/${id}`}
+                <BackButton
+                  fallbackPath={`/decks/${id}`}
+                  label="Back to Deck"
                   className="px-6 py-3 border border-[#5b595c] rounded-lg text-[#fcfcfa] hover:bg-[#5b595c]/30 font-medium transition-colors"
-                >
-                  Back to Deck
-                </Link>
+                />
               </div>
             </div>
           </div>

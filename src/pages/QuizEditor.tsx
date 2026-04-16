@@ -13,6 +13,7 @@ import type {
   QuestionTag,
 } from "@/types";
 import { CODE_LANGUAGES, CODE_LANGUAGE_LABELS } from "@/types";
+import { BackButton } from "@/components";
 import {
   getQuiz,
   createQuiz,
@@ -183,15 +184,11 @@ export function QuizEditor() {
         <main className="max-w-xl mx-auto py-6 px-6">
           <div className="fade-in">
             {/* Back Link */}
-            <button
-              onClick={() => navigate("/quizzes")}
+            <BackButton
+              fallbackPath="/quizzes"
+              label="Back to Quizzes"
               className="inline-flex items-center text-[#78dce8] hover:text-[#ffd866] mb-6 transition-colors"
-            >
-              <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Quizzes
-            </button>
+            />
 
             <h1 className="text-2xl font-bold text-[#fcfcfa] font-mono mb-6">Create New Quiz</h1>
 
@@ -267,12 +264,10 @@ export function QuizEditor() {
       <main className="max-w-4xl mx-auto py-6 px-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => navigate("/quizzes")}
-            className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-          >
-            &larr; Back to Quizzes
-          </button>
+          <BackButton
+            fallbackPath="/quizzes"
+            label="Back to Quizzes"
+          />
           <button
             onClick={handleSaveQuiz}
             disabled={saving || !name.trim()}

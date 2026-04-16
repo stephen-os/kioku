@@ -7,6 +7,7 @@ import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getDeck, getCardsForDeck, getTagsForDeck, deleteDeck, exportDeck, getDeckStudyStats } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
+import { BackButton } from "@/components";
 import { useToast } from "@/context/ToastContext";
 import { getDeckFilename } from "@/lib/slug";
 
@@ -276,12 +277,7 @@ export function DeckView() {
         <p className="text-[#939293] mb-6">
           This deck doesn't exist or has been deleted.
         </p>
-        <Link
-          to="/"
-          className="px-4 py-2 bg-[#ffd866] text-[#2d2a2e] rounded-lg hover:bg-[#ffd866]/90 font-medium transition-colors"
-        >
-          Back to Decks
-        </Link>
+        <BackButton fallbackPath="/" label="Back to Decks" />
       </div>
     );
   }
@@ -291,15 +287,7 @@ export function DeckView() {
       <main className="max-w-4xl mx-auto py-6 px-6">
         <div className="fade-in">
           {/* Back Link */}
-          <Link
-            to="/"
-            className="inline-flex items-center text-[#78dce8] hover:text-[#ffd866] mb-6 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Decks
-          </Link>
+          <BackButton fallbackPath="/" label="Back" />
 
           {/* Deck Header */}
           <div className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
