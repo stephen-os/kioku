@@ -518,6 +518,7 @@ export interface LinkItemsResult {
 
 export interface CourseImportResult {
   course: Course;
+  decksImported: number;
+  quizzesImported: number;
   itemsLinked: number;
-  itemsNotFound: string[];
 }

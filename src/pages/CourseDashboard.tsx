@@ -89,6 +89,17 @@ export function CourseDashboard() {
     }
   };
 
+  const formatImportMessage = (result: Awaited<ReturnType<typeof importCourse>>): string => {
+    const parts = [`Imported "${result.course.name}"`];
+    if (result.decksImported > 0 || result.quizzesImported > 0) {
+      const items = [];
+      if (result.decksImported > 0) items.push(`${result.decksImported} deck${result.decksImported > 1 ? 's' : ''}`);
+      if (result.quizzesImported > 0) items.push(`${result.quizzesImported} quiz${result.quizzesImported > 1 ? 'zes' : ''}`);
+      parts.push(`with ${items.join(' and ')}`);
+    }
+    return parts.join(' ');
+  };
+
   const handleImport = async (): Promise<void> => {
     const filePaths = await open({
       multiple: true,
@@ -106,16 +117,10 @@ export function CourseDashboard() {
     results.forEach((result, index) => {
       const filename = paths[index].split(/[\\/]/).pop() ?? paths[index];
       if (result.status === "fulfilled") {
-        if (result.value.itemsNotFound.length > 0) {
-          toast.success(
-            `Imported "${result.value.course.name}" with ${result.value.itemsLinked} items. ` +
-            `${result.value.itemsNotFound.length} items not found.`
-          );
-        } else {
-          toast.success(`Imported "${result.value.course.name}" with ${result.value.itemsLinked} items`);
-        }
+        toast.success(formatImportMessage(result.value));
       } else {
-        toast.error(`Failed to import ${filename}`);
+        const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        toast.error(`Failed to import ${filename}: ${reason}`);
       }
     });
 
@@ -132,16 +137,10 @@ export function CourseDashboard() {
     results.forEach((result, index) => {
       const filename = filePaths[index].split(/[\\/]/).pop() ?? filePaths[index];
       if (result.status === "fulfilled") {
-        if (result.value.itemsNotFound.length > 0) {
-          toast.success(
-            `Imported "${result.value.course.name}" with ${result.value.itemsLinked} items. ` +
-            `${result.value.itemsNotFound.length} items not found.`
-          );
-        } else {
-          toast.success(`Imported "${result.value.course.name}" with ${result.value.itemsLinked} items`);
-        }
+        toast.success(formatImportMessage(result.value));
       } else {
-        toast.error(`Failed to import ${filename}`);
+        const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        toast.error(`Failed to import ${filename}: ${reason}`);
       }
     });
 
