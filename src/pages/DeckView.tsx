@@ -16,6 +16,9 @@ type FilterLogic = "any" | "all";
 // Search debounce delay to reduce re-renders during typing
 const SEARCH_DEBOUNCE_MS = 150;
 
+// Session storage key prefix for filter persistence
+const FILTER_STORAGE_KEY = "deck-filters-";
+
 interface DeckStudyStats {
   totalSessions: number;
   totalStudyTimeSeconds: number;
@@ -65,16 +68,56 @@ export function DeckView() {
   const [stats, setStats] = useState<DeckStudyStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Search and filter state
-  const [searchFront, setSearchFront] = useState("");
-  const [searchBack, setSearchBack] = useState("");
+  // Search and filter state - initialized from sessionStorage if available
+  const [searchFront, setSearchFront] = useState(() => {
+    if (!id) return "";
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.searchFront || "";
+      }
+    } catch {}
+    return "";
+  });
+  const [searchBack, setSearchBack] = useState(() => {
+    if (!id) return "";
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.searchBack || "";
+      }
+    } catch {}
+    return "";
+  });
   const [searchTag, setSearchTag] = useState("");
-  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
-  const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>(() => {
+    if (!id) return [];
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.selectedTagFilters || [];
+      }
+    } catch {}
+    return [];
+  });
+  const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>(() => {
+    if (!id) return "any";
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.tagFilterMode || "any";
+      }
+    } catch {}
+    return "any";
+  });
 
   // Debounced search values for filtering (reduces re-renders on large decks)
-  const [debouncedSearchFront, setDebouncedSearchFront] = useState("");
-  const [debouncedSearchBack, setDebouncedSearchBack] = useState("");
+  const [debouncedSearchFront, setDebouncedSearchFront] = useState(searchFront);
+  const [debouncedSearchBack, setDebouncedSearchBack] = useState(searchBack);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchFront(searchFront), SEARCH_DEBOUNCE_MS);
@@ -85,6 +128,18 @@ export function DeckView() {
     const timer = setTimeout(() => setDebouncedSearchBack(searchBack), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [searchBack]);
+
+  // Persist filters to sessionStorage when they change
+  useEffect(() => {
+    if (!id) return;
+    const filterState = {
+      searchFront,
+      searchBack,
+      selectedTagFilters,
+      tagFilterMode,
+    };
+    sessionStorage.setItem(FILTER_STORAGE_KEY + id, JSON.stringify(filterState));
+  }, [id, searchFront, searchBack, selectedTagFilters, tagFilterMode]);
 
   // Resizable tag container - using direct DOM manipulation for smooth performance
   const tagContainerRef = useRef<HTMLDivElement>(null);

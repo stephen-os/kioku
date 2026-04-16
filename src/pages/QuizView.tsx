@@ -10,6 +10,9 @@ import { getQuizFilename } from "@/lib/slug";
 
 type FilterLogic = "any" | "all";
 
+// Session storage key prefix for filter persistence
+const FILTER_STORAGE_KEY = "quiz-filters-";
+
 export function QuizView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -22,12 +25,52 @@ export function QuizView() {
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // Search and filter state
-  const [searchQuestion, setSearchQuestion] = useState("");
-  const [searchAnswer, setSearchAnswer] = useState("");
+  // Search and filter state - initialized from sessionStorage if available
+  const [searchQuestion, setSearchQuestion] = useState(() => {
+    if (!id) return "";
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.searchQuestion || "";
+      }
+    } catch {}
+    return "";
+  });
+  const [searchAnswer, setSearchAnswer] = useState(() => {
+    if (!id) return "";
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.searchAnswer || "";
+      }
+    } catch {}
+    return "";
+  });
   const [searchTag, setSearchTag] = useState("");
-  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
-  const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>("any");
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>(() => {
+    if (!id) return [];
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.selectedTagFilters || [];
+      }
+    } catch {}
+    return [];
+  });
+  const [tagFilterMode, setTagFilterMode] = useState<FilterLogic>(() => {
+    if (!id) return "any";
+    try {
+      const saved = sessionStorage.getItem(FILTER_STORAGE_KEY + id);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.tagFilterMode || "any";
+      }
+    } catch {}
+    return "any";
+  });
 
   // Resizable tag container - using direct DOM manipulation for smooth performance
   const tagContainerRef = useRef<HTMLDivElement>(null);
@@ -82,6 +125,18 @@ export function QuizView() {
     }
     loadQuiz();
   }, [id]);
+
+  // Persist filters to sessionStorage when they change
+  useEffect(() => {
+    if (!id) return;
+    const filterState = {
+      searchQuestion,
+      searchAnswer,
+      selectedTagFilters,
+      tagFilterMode,
+    };
+    sessionStorage.setItem(FILTER_STORAGE_KEY + id, JSON.stringify(filterState));
+  }, [id, searchQuestion, searchAnswer, selectedTagFilters, tagFilterMode]);
 
   // Filter tags based on tag search (for display only)
   const filteredTags = useMemo(() => {
