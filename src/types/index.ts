@@ -198,18 +198,20 @@ export const CODE_LANGUAGES: CodeLanguage[] = [
 ];
 
 // ============================================
-// Listen Mode Types
+// Autoplay Mode Types
 // ============================================
 
 export type LoopMode = 'none' | 'all' | 'single';
-export type ListenPhase = 'idle' | 'front' | 'pause' | 'back' | 'transition';
+export type AutoplayPhase = 'idle' | 'front' | 'pause' | 'back' | 'transition';
 
-export interface ListenModeSettings {
+export interface AutoplaySettings {
   voice: string;
-  pauseDuration: number; // seconds (10-30)
+  pauseDuration: number; // seconds (0-60)
   volume: number; // 0-1
   loopMode: LoopMode;
   isShuffled: boolean;
+  showFront: boolean; // whether to display/read front of card
+  showBack: boolean; // whether to display/read back of card
 }
 
 export interface TTSVoice {

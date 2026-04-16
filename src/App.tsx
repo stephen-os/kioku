@@ -12,7 +12,7 @@ import { Login } from "./pages/Login";
 // Lazy-loaded pages (code splitting)
 const DeckView = lazy(() => import("./pages/DeckView").then(m => ({ default: m.DeckView })));
 const StudyMode = lazy(() => import("./pages/StudyMode").then(m => ({ default: m.StudyMode })));
-const ListenMode = lazy(() => import("./pages/ListenMode").then(m => ({ default: m.ListenMode })));
+const AutoplayMode = lazy(() => import("./pages/AutoplayMode").then(m => ({ default: m.AutoplayMode })));
 const NewDeck = lazy(() => import("./pages/NewDeck").then(m => ({ default: m.NewDeck })));
 const DeckEdit = lazy(() => import("./pages/DeckEdit").then(m => ({ default: m.DeckEdit })));
 const Settings = lazy(() => import("./pages/Settings").then(m => ({ default: m.Settings })));
@@ -116,7 +116,7 @@ function AppRoutes() {
           <Route path="decks/:id" element={<DeckView />} />
           <Route path="decks/:id/edit" element={<DeckEdit />} />
           <Route path="decks/:id/study" element={<StudyMode />} />
-          <Route path="decks/:id/listen" element={<ListenMode />} />
+          <Route path="decks/:id/autoplay" element={<AutoplayMode />} />
           {/* Quiz routes */}
           <Route path="quizzes" element={<QuizDashboard />} />
           <Route path="quizzes/new" element={<QuizEditor />} />

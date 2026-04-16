@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { LoopMode, TTSVoice } from "@/types";
 import { getAvailableVoices, getVoiceDisplayName } from "@/lib/tts";
 
-interface ListenModeControlsProps {
+interface AutoplayControlsProps {
   // Playback state
   isPlaying: boolean;
   isComplete: boolean;
@@ -13,6 +13,8 @@ interface ListenModeControlsProps {
   volume: number;
   loopMode: LoopMode;
   isShuffled: boolean;
+  showFront: boolean;
+  showBack: boolean;
 
   // Actions
   onPlay: () => void;
@@ -24,6 +26,8 @@ interface ListenModeControlsProps {
   onVolumeChange: (volume: number) => void;
   onLoopModeChange: (mode: LoopMode) => void;
   onShuffleToggle: () => void;
+  onShowFrontChange: (show: boolean) => void;
+  onShowBackChange: (show: boolean) => void;
 
   // Navigation state
   canGoNext: boolean;
@@ -34,7 +38,7 @@ interface ListenModeControlsProps {
   onToggleSettings: () => void;
 }
 
-export function ListenModeControls({
+export function AutoplayControls({
   isPlaying,
   isComplete,
   voice,
@@ -42,6 +46,8 @@ export function ListenModeControls({
   volume,
   loopMode,
   isShuffled,
+  showFront,
+  showBack,
   onPlay,
   onPause,
   onNext,
@@ -51,11 +57,13 @@ export function ListenModeControls({
   onVolumeChange,
   onLoopModeChange,
   onShuffleToggle,
+  onShowFrontChange,
+  onShowBackChange,
   canGoNext,
   canGoPrevious,
   showSettings,
   onToggleSettings,
-}: ListenModeControlsProps) {
+}: AutoplayControlsProps) {
   const [voices, setVoices] = useState<TTSVoice[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
 
@@ -104,6 +112,46 @@ export function ListenModeControls({
       {showSettings && (
         <div className="border-b border-[#5b595c] p-4">
           <div className="max-w-2xl mx-auto space-y-4">
+            {/* Card Side Toggles */}
+            <div>
+              <label className="block text-xs text-[#939293] uppercase tracking-wider mb-2">
+                Show Card Sides
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showFront}
+                    onChange={(e) => onShowFrontChange(e.target.checked)}
+                    disabled={showFront && !showBack}
+                    className="w-4 h-4 rounded border-[#5b595c] bg-[#2d2a2e] text-[#ffd866] focus:ring-[#ffd866] focus:ring-offset-0 disabled:opacity-50"
+                  />
+                  <span className={`text-sm ${showFront ? "text-[#fcfcfa]" : "text-[#939293]"}`}>
+                    Front
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showBack}
+                    onChange={(e) => onShowBackChange(e.target.checked)}
+                    disabled={showBack && !showFront}
+                    className="w-4 h-4 rounded border-[#5b595c] bg-[#2d2a2e] text-[#ffd866] focus:ring-[#ffd866] focus:ring-offset-0 disabled:opacity-50"
+                  />
+                  <span className={`text-sm ${showBack ? "text-[#fcfcfa]" : "text-[#939293]"}`}>
+                    Back
+                  </span>
+                </label>
+              </div>
+              <p className="text-xs text-[#939293] mt-1">
+                {showFront && showBack
+                  ? "Full review: Front, pause, then back"
+                  : showFront
+                  ? "Front only: See questions, auto-advance"
+                  : "Back only: See answers, recall questions"}
+              </p>
+            </div>
+
             {/* Voice Selection */}
             <div>
               <label className="block text-xs text-[#939293] uppercase tracking-wider mb-2">
@@ -129,24 +177,26 @@ export function ListenModeControls({
               </select>
             </div>
 
-            {/* Pause Duration */}
-            <div>
-              <label className="block text-xs text-[#939293] uppercase tracking-wider mb-2">
-                Pause Duration: {pauseDuration}s
-              </label>
-              <input
-                type="range"
-                min="5"
-                max="60"
-                value={pauseDuration}
-                onChange={(e) => onPauseDurationChange(Number(e.target.value))}
-                className="w-full h-2 bg-[#5b595c] rounded-lg appearance-none cursor-pointer accent-[#ffd866]"
-              />
-              <div className="flex justify-between text-xs text-[#939293] mt-1">
-                <span>5s</span>
-                <span>60s</span>
+            {/* Pause Duration - only show if both front and back are enabled */}
+            {showFront && showBack && (
+              <div>
+                <label className="block text-xs text-[#939293] uppercase tracking-wider mb-2">
+                  Pause Duration: {pauseDuration}s
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  value={pauseDuration}
+                  onChange={(e) => onPauseDurationChange(Number(e.target.value))}
+                  className="w-full h-2 bg-[#5b595c] rounded-lg appearance-none cursor-pointer accent-[#ffd866]"
+                />
+                <div className="flex justify-between text-xs text-[#939293] mt-1">
+                  <span>0s (instant)</span>
+                  <span>60s</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

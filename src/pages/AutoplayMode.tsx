@@ -5,15 +5,15 @@ import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getCardsForDeck, getDeck } from "@/lib/db";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
-import { ListenModeControls } from "@/components/ListenModeControls";
-import { ListenModePhaseBar } from "@/components/ListenModePhaseBar";
+import { AutoplayControls } from "@/components/AutoplayControls";
+import { AutoplayPhaseBar } from "@/components/AutoplayPhaseBar";
 import { BackButton } from "@/components";
-import { useListenMode } from "@/hooks/useListenMode";
+import { useAutoplay } from "@/hooks/useAutoplay";
 import { useToast } from "@/context/ToastContext";
 
 type FilterLogic = "any" | "all";
 
-export function ListenMode() {
+export function AutoplayMode() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const toast = useToast();
@@ -86,8 +86,8 @@ export function ListenMode() {
     loadDeckAndCards();
   }, [id, hasUrlFilters, urlFrontSearch, urlBackSearch, urlTagsRaw, urlTagMode]);
 
-  // Listen mode hook
-  const listenMode = useListenMode({
+  // Autoplay hook
+  const autoplay = useAutoplay({
     cards,
     onComplete: () => {
       // Optional: do something when complete
@@ -105,6 +105,8 @@ export function ListenMode() {
     volume,
     loopMode,
     isShuffled,
+    showFront,
+    showBack,
     play,
     pause,
     next,
@@ -115,20 +117,22 @@ export function ListenMode() {
     setVolume,
     setLoopMode,
     toggleShuffle,
+    setShowFront,
+    setShowBack,
     restart,
     progress,
     isComplete,
     error,
     clearError,
     currentIndex,
-  } = listenMode;
+  } = autoplay;
 
   // Determine if can navigate
   const canGoPrevious = currentIndex > 0;
   const canGoNext = currentIndex < cards.length - 1;
 
-  // Card is flipped when showing the back
-  const isFlipped = phase === "back";
+  // Card is flipped when showing the back (only if both sides are shown)
+  const isFlipped = showFront && showBack && phase === "back";
 
   // Loading state
   if (loading) {
@@ -147,7 +151,7 @@ export function ListenMode() {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 bg-[#2d2a2e]">
         <div className="text-6xl mb-4">📭</div>
-        <h1 className="text-xl font-semibold text-[#fcfcfa] mb-2">No cards to listen</h1>
+        <h1 className="text-xl font-semibold text-[#fcfcfa] mb-2">No cards to play</h1>
         <p className="text-[#939293] mb-6">
           Add some cards to this deck first
         </p>
@@ -176,6 +180,169 @@ export function ListenMode() {
       return "Next card...";
     }
     return `Card ${currentIndex + 1} of ${cards.length}`;
+  };
+
+  // Render card content based on settings
+  const renderCardContent = () => {
+    // If showing only one side, render it directly without flip animation
+    if (!showFront || !showBack) {
+      const content = showFront ? currentCard?.front : currentCard?.back;
+      const isCode = showFront ? isCodeFront : isCodeBack;
+      const language = showFront ? currentCard?.frontLanguage : currentCard?.backLanguage;
+      const label = showFront ? "Front" : "Back";
+
+      return (
+        <div className="w-full h-full bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto">
+          <div className="text-center w-full max-w-2xl" data-selectable="true">
+            <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
+              {label}
+            </div>
+            {isCode && (
+              <div className="flex items-center justify-center mb-3">
+                <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
+                  {CODE_LANGUAGE_LABELS[language || "PLAINTEXT"]}
+                </span>
+              </div>
+            )}
+            <div className="mb-6">
+              {isCode ? (
+                <div className="w-full text-left">
+                  <CodeBlock
+                    code={content || ""}
+                    language={language}
+                  />
+                </div>
+              ) : (
+                <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
+                  {content}
+                </p>
+              )}
+            </div>
+            {/* Show notes and tags on back */}
+            {!showFront && currentCard?.notes && (
+              <div className="mt-8 pt-6 border-t border-[#5b595c]">
+                <div className="text-sm text-[#939293] uppercase tracking-wider mb-2">
+                  Notes
+                </div>
+                <div className="text-[#939293] text-base">{currentCard.notes}</div>
+              </div>
+            )}
+            {!showFront && currentCard?.tags && currentCard.tags.length > 0 && (
+              <div className="mt-4 flex justify-center gap-2 flex-wrap">
+                {currentCard.tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2]"
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Both sides - use flip animation
+    return (
+      <div
+        className="relative w-full h-full transition-transform duration-500"
+        style={{
+          transformStyle: "preserve-3d",
+          transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+        }}
+      >
+        {/* Front Face */}
+        <div
+          className="absolute inset-0 bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto"
+          style={{ backfaceVisibility: "hidden" }}
+        >
+          <div className="text-center w-full max-w-2xl" data-selectable="true">
+            <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
+              Front
+            </div>
+            {isCodeFront && (
+              <div className="flex items-center justify-center mb-3">
+                <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
+                  {CODE_LANGUAGE_LABELS[currentCard?.frontLanguage || "PLAINTEXT"]}
+                </span>
+              </div>
+            )}
+            <div className="mb-6">
+              {isCodeFront ? (
+                <div className="w-full text-left">
+                  <CodeBlock
+                    code={currentCard?.front || ""}
+                    language={currentCard?.frontLanguage}
+                  />
+                </div>
+              ) : (
+                <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
+                  {currentCard?.front}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Back Face */}
+        <div
+          className="absolute inset-0 bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto"
+          style={{
+            backfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
+        >
+          <div className="text-center w-full max-w-2xl" data-selectable="true">
+            <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
+              Back
+            </div>
+            {isCodeBack && (
+              <div className="flex items-center justify-center mb-3">
+                <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
+                  {CODE_LANGUAGE_LABELS[currentCard?.backLanguage || "PLAINTEXT"]}
+                </span>
+              </div>
+            )}
+            <div className="mb-6">
+              {isCodeBack ? (
+                <div className="w-full text-left">
+                  <CodeBlock
+                    code={currentCard?.back || ""}
+                    language={currentCard?.backLanguage}
+                  />
+                </div>
+              ) : (
+                <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
+                  {currentCard?.back}
+                </p>
+              )}
+            </div>
+            {currentCard?.notes && (
+              <div className="mt-8 pt-6 border-t border-[#5b595c]">
+                <div className="text-sm text-[#939293] uppercase tracking-wider mb-2">
+                  Notes
+                </div>
+                <div className="text-[#939293] text-base">{currentCard.notes}</div>
+              </div>
+            )}
+            {currentCard?.tags && currentCard.tags.length > 0 && (
+              <div className="mt-4 flex justify-center gap-2 flex-wrap">
+                {currentCard.tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2]"
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -249,7 +416,7 @@ export function ListenMode() {
                 Great Job!
               </h2>
               <p className="text-[#939293] mb-8">
-                You've listened to all {cards.length} cards in this deck.
+                You've reviewed all {cards.length} cards in this deck.
               </p>
               <div className="flex justify-center gap-4">
                 <button
@@ -259,7 +426,7 @@ export function ListenMode() {
                   }}
                   className="px-6 py-3 bg-[#a9dc76] text-[#2d2a2e] rounded-lg hover:bg-[#a9dc76]/90 font-medium transition-colors"
                 >
-                  Listen Again
+                  Play Again
                 </button>
                 <BackButton
                   fallbackPath={`/decks/${id}`}
@@ -283,120 +450,24 @@ export function ListenMode() {
               </div>
             </div>
 
-            {/* Card Container with Flip Animation */}
+            {/* Card Container */}
             <div
               className="flex-1 min-h-0 overflow-hidden"
               style={{ perspective: "1000px" }}
             >
-              <div
-                className="w-full h-full"
-              >
-                {/* 3D Flip Card */}
-                <div
-                  className="relative w-full h-full transition-transform duration-500"
-                  style={{
-                    transformStyle: "preserve-3d",
-                    transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                  }}
-                >
-                  {/* Front Face */}
-                  <div
-                    className="absolute inset-0 bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto"
-                    style={{ backfaceVisibility: "hidden" }}
-                  >
-                    <div className="text-center w-full max-w-2xl" data-selectable="true">
-                      <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
-                        Front
-                      </div>
-                      {isCodeFront && (
-                        <div className="flex items-center justify-center mb-3">
-                          <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
-                            {CODE_LANGUAGE_LABELS[currentCard?.frontLanguage || "PLAINTEXT"]}
-                          </span>
-                        </div>
-                      )}
-                      <div className="mb-6">
-                        {isCodeFront ? (
-                          <div className="w-full text-left">
-                            <CodeBlock
-                              code={currentCard?.front || ""}
-                              language={currentCard?.frontLanguage}
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
-                            {currentCard?.front}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Back Face */}
-                  <div
-                    className="absolute inset-0 bg-[#403e41] rounded-2xl border border-[#5b595c] p-12 flex flex-col items-center justify-center overflow-auto"
-                    style={{
-                      backfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)",
-                    }}
-                  >
-                    <div className="text-center w-full max-w-2xl" data-selectable="true">
-                      <div className="text-sm text-[#939293] uppercase tracking-wider mb-4">
-                        Back
-                      </div>
-                      {isCodeBack && (
-                        <div className="flex items-center justify-center mb-3">
-                          <span className="text-xs bg-[#78dce8]/20 text-[#78dce8] px-2 py-0.5 rounded">
-                            {CODE_LANGUAGE_LABELS[currentCard?.backLanguage || "PLAINTEXT"]}
-                          </span>
-                        </div>
-                      )}
-                      <div className="mb-6">
-                        {isCodeBack ? (
-                          <div className="w-full text-left">
-                            <CodeBlock
-                              code={currentCard?.back || ""}
-                              language={currentCard?.backLanguage}
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-2xl text-center whitespace-pre-wrap text-[#fcfcfa]">
-                            {currentCard?.back}
-                          </p>
-                        )}
-                      </div>
-                      {currentCard?.notes && (
-                        <div className="mt-8 pt-6 border-t border-[#5b595c]">
-                          <div className="text-sm text-[#939293] uppercase tracking-wider mb-2">
-                            Notes
-                          </div>
-                          <div className="text-[#939293] text-base">{currentCard.notes}</div>
-                        </div>
-                      )}
-                      {currentCard?.tags && currentCard.tags.length > 0 && (
-                        <div className="mt-4 flex justify-center gap-2 flex-wrap">
-                          {currentCard.tags.map((tag) => (
-                            <span
-                              key={tag.id}
-                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#ab9df2]/20 text-[#ab9df2]"
-                            >
-                              {tag.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+              <div className="w-full h-full">
+                {renderCardContent()}
               </div>
             </div>
 
             {/* Phase Progress Bar */}
             <div className="mt-6 flex-shrink-0">
-              <ListenModePhaseBar
+              <AutoplayPhaseBar
                 phase={phase}
                 pauseDuration={pauseDuration}
                 pauseTimeRemaining={pauseTimeRemaining}
+                showFront={showFront}
+                showBack={showBack}
                 onSkipToPhase={skipToPhase}
                 disabled={isComplete}
               />
@@ -407,7 +478,7 @@ export function ListenMode() {
 
       {/* Controls */}
       {!isComplete && (
-        <ListenModeControls
+        <AutoplayControls
           isPlaying={isPlaying}
           isComplete={isComplete}
           voice={voice}
@@ -415,6 +486,8 @@ export function ListenMode() {
           volume={volume}
           loopMode={loopMode}
           isShuffled={isShuffled}
+          showFront={showFront}
+          showBack={showBack}
           onPlay={play}
           onPause={pause}
           onNext={next}
@@ -424,6 +497,8 @@ export function ListenMode() {
           onVolumeChange={setVolume}
           onLoopModeChange={setLoopMode}
           onShuffleToggle={toggleShuffle}
+          onShowFrontChange={setShowFront}
+          onShowBackChange={setShowBack}
           canGoNext={canGoNext}
           canGoPrevious={canGoPrevious}
           showSettings={showSettings}

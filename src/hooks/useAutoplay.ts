@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Card, LoopMode, ListenPhase, ContentType } from "@/types";
+import type { Card, LoopMode, AutoplayPhase, ContentType } from "@/types";
 import { speak, stopSpeaking, initializeVoices, DEFAULT_VOICE, RECOMMENDED_VOICES } from "@/lib/tts";
 
 // localStorage keys
 const STORAGE_KEYS = {
-  voice: "kioku-listen-voice",
-  pauseDuration: "kioku-listen-pause",
-  volume: "kioku-listen-volume",
+  voice: "kioku-autoplay-voice",
+  pauseDuration: "kioku-autoplay-pause",
+  volume: "kioku-autoplay-volume",
+  showFront: "kioku-autoplay-show-front",
+  showBack: "kioku-autoplay-show-back",
 } as const;
 
 // Load persisted value from localStorage
@@ -39,16 +41,16 @@ function prepareTextForTTS(content: string, contentType: ContentType): string {
   return content;
 }
 
-interface UseListenModeOptions {
+interface UseAutoplayOptions {
   cards: Card[];
   onComplete?: () => void;
 }
 
-interface UseListenModeReturn {
+interface UseAutoplayReturn {
   // Current state
   currentIndex: number;
   currentCard: Card | null;
-  phase: ListenPhase;
+  phase: AutoplayPhase;
   isPlaying: boolean;
   isSpeaking: boolean;
   pauseTimeRemaining: number;
@@ -59,6 +61,8 @@ interface UseListenModeReturn {
   volume: number;
   loopMode: LoopMode;
   isShuffled: boolean;
+  showFront: boolean;
+  showBack: boolean;
 
   // Actions
   play: () => void;
@@ -72,6 +76,8 @@ interface UseListenModeReturn {
   setVolume: (volume: number) => void;
   setLoopMode: (mode: LoopMode) => void;
   toggleShuffle: () => void;
+  setShowFront: (show: boolean) => void;
+  setShowBack: (show: boolean) => void;
   restart: () => void;
 
   // Progress
@@ -86,13 +92,13 @@ interface UseListenModeReturn {
   voicesLoaded: boolean;
 }
 
-export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseListenModeReturn {
+export function useAutoplay({ cards, onComplete }: UseAutoplayOptions): UseAutoplayReturn {
   // Card order (indices into cards array)
   const [cardOrder, setCardOrder] = useState<number[]>([]);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
 
   // Playback state
-  const [phase, setPhase] = useState<ListenPhase>("idle");
+  const [phase, setPhase] = useState<AutoplayPhase>("idle");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSpeakingState, setIsSpeakingState] = useState(false);
   const [pauseTimeRemaining, setPauseTimeRemaining] = useState(0);
@@ -106,6 +112,8 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
   const [volume, setVolumeState] = useState(() => loadSetting(STORAGE_KEYS.volume, 0.8));
   const [loopMode, setLoopMode] = useState<LoopMode>("none");
   const [isShuffled, setIsShuffled] = useState(false);
+  const [showFront, setShowFrontState] = useState(() => loadSetting(STORAGE_KEYS.showFront, true));
+  const [showBack, setShowBackState] = useState(() => loadSetting(STORAGE_KEYS.showBack, true));
 
   // Refs
   const pauseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -119,6 +127,8 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
   const loopModeRef = useRef(loopMode);
   const onCompleteRef = useRef(onComplete);
   const skipToPhaseRef = useRef<"front" | "pause" | "back" | null>(null);
+  const showFrontRef = useRef(showFront);
+  const showBackRef = useRef(showBack);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -139,7 +149,9 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
     volumeRef.current = volume;
     pauseDurationRef.current = pauseDuration;
     loopModeRef.current = loopMode;
-  }, [voice, volume, pauseDuration, loopMode]);
+    showFrontRef.current = showFront;
+    showBackRef.current = showBack;
+  }, [voice, volume, pauseDuration, loopMode, showFront, showBack]);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -204,9 +216,9 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
 
   // Main playback loop - uses refs to avoid restarting on every state change
   useEffect(() => {
-    console.log("[ListenMode] Playback effect triggered", { isPlaying, isComplete });
+    console.log("[Autoplay] Playback effect triggered", { isPlaying, isComplete });
     if (!isPlaying || isComplete) {
-      console.log("[ListenMode] Playback effect early exit - not playing or complete");
+      console.log("[Autoplay] Playback effect early exit - not playing or complete");
       return;
     }
 
@@ -238,7 +250,16 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
 
     const startPauseTimerAsync = (): Promise<void> => {
       return new Promise((resolve) => {
-        let remaining = pauseDurationRef.current;
+        const duration = pauseDurationRef.current;
+
+        // If duration is 0, resolve immediately
+        if (duration <= 0) {
+          setPauseTimeRemaining(0);
+          resolve();
+          return;
+        }
+
+        let remaining = duration;
         setPauseTimeRemaining(remaining);
 
         pauseTimerRef.current = setInterval(() => {
@@ -270,10 +291,13 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
       const skipTo = skipToPhaseRef.current;
       skipToPhaseRef.current = null; // Clear after reading
 
-      console.log("[ListenMode] playCardCycle started", { hasCard: !!card, isPlaying: isPlayingRef.current, skipTo });
+      const shouldShowFront = showFrontRef.current;
+      const shouldShowBack = showBackRef.current;
+
+      console.log("[Autoplay] playCardCycle started", { hasCard: !!card, isPlaying: isPlayingRef.current, skipTo, shouldShowFront, shouldShowBack });
 
       if (!card || !isPlayingRef.current) {
-        console.log("[ListenMode] playCardCycle early exit - no card or not playing");
+        console.log("[Autoplay] playCardCycle early exit - no card or not playing");
         return false;
       }
 
@@ -282,31 +306,35 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
         const skipFront = skipTo === "pause" || skipTo === "back";
         const skipPause = skipTo === "back";
 
-        // Speak front (unless skipping)
-        if (!skipFront) {
-          console.log("[ListenMode] Starting front phase");
+        // Speak front (unless skipping or showFront is false)
+        if (!skipFront && shouldShowFront) {
+          console.log("[Autoplay] Starting front phase");
           setPhase("front");
           const frontText = prepareTextForTTS(card.front, card.frontType);
-          console.log("[ListenMode] Front text:", frontText.substring(0, 50));
+          console.log("[Autoplay] Front text:", frontText.substring(0, 50));
           await speakTextAsync(frontText);
 
           if (isCancelled || !isPlayingRef.current) return false;
         }
 
-        // Pause (unless skipping)
-        if (!skipPause) {
+        // Pause phase (only if both front and back are shown, or if explicitly going to pause)
+        // Skip pause if only showing one side
+        const shouldDoPause = shouldShowFront && shouldShowBack && !skipPause;
+        if (shouldDoPause) {
           setPhase("pause");
           await startPauseTimerAsync();
 
           if (isCancelled || !isPlayingRef.current) return false;
         }
 
-        // Speak back
-        setPhase("back");
-        const backText = prepareTextForTTS(card.back, card.backType);
-        await speakTextAsync(backText);
+        // Speak back (unless showBack is false)
+        if (shouldShowBack) {
+          setPhase("back");
+          const backText = prepareTextForTTS(card.back, card.backType);
+          await speakTextAsync(backText);
 
-        if (isCancelled || !isPlayingRef.current) return false;
+          if (isCancelled || !isPlayingRef.current) return false;
+        }
 
         // Transition
         setPhase("transition");
@@ -347,7 +375,7 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
     };
 
     const runPlayback = async () => {
-      console.log("[ListenMode] runPlayback started");
+      console.log("[Autoplay] runPlayback started");
 
       while (!isCancelled && isPlayingRef.current) {
         const success = await playCardCycleAsync();
@@ -375,13 +403,13 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
         }
       }
 
-      console.log("[ListenMode] runPlayback ended", { isCancelled, isPlaying: isPlayingRef.current });
+      console.log("[Autoplay] runPlayback ended", { isCancelled, isPlaying: isPlayingRef.current });
     };
 
     runPlayback();
 
     return () => {
-      console.log("[ListenMode] Playback effect cleanup");
+      console.log("[Autoplay] Playback effect cleanup");
       isCancelled = true;
       stopSpeaking();
       if (pauseTimerRef.current) {
@@ -393,7 +421,7 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
 
   // Actions
   const play = useCallback(() => {
-    console.log("[ListenMode] play() called", { isComplete, currentCard: currentCard?.front?.substring(0, 30), voice, voicesLoaded });
+    console.log("[Autoplay] play() called", { isComplete, currentCard: currentCard?.front?.substring(0, 30), voice, voicesLoaded });
     if (isComplete) {
       // Restart if complete
       setCurrentOrderIndex(0);
@@ -450,7 +478,7 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
   }, []);
 
   const setPauseDuration = useCallback((duration: number) => {
-    const clamped = Math.max(5, Math.min(60, duration));
+    const clamped = Math.max(0, Math.min(60, duration));
     setPauseDurationState(clamped);
     saveSetting(STORAGE_KEYS.pauseDuration, clamped);
   }, []);
@@ -477,6 +505,20 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
     setCurrentOrderIndex(0);
   }, [isShuffled, cards]);
 
+  const setShowFront = useCallback((show: boolean) => {
+    // Ensure at least one is always selected
+    if (!show && !showBack) return;
+    setShowFrontState(show);
+    saveSetting(STORAGE_KEYS.showFront, show);
+  }, [showBack]);
+
+  const setShowBack = useCallback((show: boolean) => {
+    // Ensure at least one is always selected
+    if (!show && !showFront) return;
+    setShowBackState(show);
+    saveSetting(STORAGE_KEYS.showBack, show);
+  }, [showFront]);
+
   const restart = useCallback(() => {
     stopPlayback();
     setCurrentOrderIndex(0);
@@ -491,7 +533,7 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
 
   // Skip to a specific phase (front, pause, or back)
   const skipToPhase = useCallback((targetPhase: "front" | "pause" | "back") => {
-    console.log("[ListenMode] skipToPhase called:", targetPhase);
+    console.log("[Autoplay] skipToPhase called:", targetPhase);
 
     // Stop current playback
     stopSpeaking();
@@ -535,6 +577,8 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
     volume,
     loopMode,
     isShuffled,
+    showFront,
+    showBack,
 
     // Actions
     play,
@@ -548,6 +592,8 @@ export function useListenMode({ cards, onComplete }: UseListenModeOptions): UseL
     setVolume,
     setLoopMode,
     toggleShuffle,
+    setShowFront,
+    setShowBack,
     restart,
 
     // Progress

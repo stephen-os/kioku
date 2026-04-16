@@ -1,24 +1,28 @@
-import type { ListenPhase } from "@/types";
+import type { AutoplayPhase } from "@/types";
 
-interface ListenModePhaseBarProps {
-  phase: ListenPhase;
+interface AutoplayPhaseBarProps {
+  phase: AutoplayPhase;
   pauseDuration: number;
   pauseTimeRemaining: number;
+  showFront: boolean;
+  showBack: boolean;
   onSkipToPhase: (phase: "front" | "pause" | "back") => void;
   disabled?: boolean;
 }
 
-export function ListenModePhaseBar({
+export function AutoplayPhaseBar({
   phase,
   pauseDuration,
   pauseTimeRemaining,
+  showFront,
+  showBack,
   onSkipToPhase,
   disabled = false,
-}: ListenModePhaseBarProps) {
+}: AutoplayPhaseBarProps) {
   // Calculate pause progress (0-100%)
   const pauseProgress = pauseDuration > 0
     ? ((pauseDuration - pauseTimeRemaining) / pauseDuration) * 100
-    : 0;
+    : 100;
 
   // Determine which phase is active
   const isFrontActive = phase === "front";
@@ -30,6 +34,50 @@ export function ListenModePhaseBar({
   const frontComplete = isPauseActive || isBackActive;
   const pauseComplete = isBackActive;
 
+  // If only showing one side, use simplified bar
+  if (!showFront || !showBack) {
+    const activeSide = showFront ? "front" : "back";
+    const isActive = showFront ? isFrontActive : isBackActive;
+
+    return (
+      <div className="w-full">
+        {/* Phase Label */}
+        <div className="text-xs text-[#939293] mb-1 text-center">
+          <span className={isActive ? (showFront ? "text-[#78dce8]" : "text-[#a9dc76]") : ""}>
+            {showFront ? "Front" : "Back"}
+          </span>
+        </div>
+
+        {/* Simple Progress Bar */}
+        <div className="flex h-3 rounded-full overflow-hidden bg-[#2d2a2e] border border-[#5b595c]">
+          <button
+            onClick={() => onSkipToPhase(activeSide)}
+            disabled={disabled}
+            className={`relative w-full transition-colors ${
+              disabled ? "cursor-not-allowed" : "cursor-pointer hover:brightness-110"
+            } ${
+              isActive
+                ? showFront ? "bg-[#78dce8]" : "bg-[#a9dc76]"
+                : "bg-[#5b595c]/30"
+            }`}
+          >
+            {isActive && (
+              <div className={`absolute inset-0 ${showFront ? "bg-[#78dce8]" : "bg-[#a9dc76]"} animate-pulse`} />
+            )}
+          </button>
+        </div>
+
+        {/* Idle state hint */}
+        {isIdle && (
+          <p className="text-xs text-[#939293] text-center mt-2">
+            Press play to start
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Full three-phase bar
   return (
     <div className="w-full">
       {/* Phase Labels */}

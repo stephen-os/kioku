@@ -1,2 +1,2 @@
-export * from "./useListenMode";
+export * from "./useAutoplay";
 export * from "./useSearchFilter";

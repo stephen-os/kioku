@@ -156,10 +156,11 @@ function DecksSection() {
         <li>Click <span className="text-[#a9dc76]">Study Filtered</span> to study only matching cards</li>
       </ul>
 
-      <h3 className="text-lg font-medium text-[#a9dc76] mt-6 mb-3">Listen Mode</h3>
+      <h3 className="text-lg font-medium text-[#a9dc76] mt-6 mb-3">Autoplay Mode</h3>
       <p className="text-[#939293]">
-        Click <span className="text-[#78dce8]">Listen</span> on a deck to have cards read aloud using text-to-speech.
-        Useful for audio learning or accessibility.
+        Click <span className="text-[#78dce8]">Autoplay</span> on a deck to have cards automatically cycle through with text-to-speech.
+        Configure which sides to show (front, back, or both), pause duration, and playback settings.
+        Useful for hands-free review, audio learning, or accessibility.
       </p>
     </div>
   );

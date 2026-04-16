@@ -1,7 +1,7 @@
 export { DeckDashboard } from "./DeckDashboard";
 export { DeckView } from "./DeckView";
 export { StudyMode } from "./StudyMode";
-export { ListenMode } from "./ListenMode";
+export { AutoplayMode } from "./AutoplayMode";
 export { NewDeck } from "./NewDeck";
 export { Settings } from "./Settings";
 export { Login } from "./Login";

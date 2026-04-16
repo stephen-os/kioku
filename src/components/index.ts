@@ -1,7 +1,8 @@
 // Layout components
 export { Layout } from "./Layout";
 export { DropZone } from "./DropZone";
-export { ListenModeControls } from "./ListenModeControls";
+export { AutoplayControls } from "./AutoplayControls";
+export { AutoplayPhaseBar } from "./AutoplayPhaseBar";
 
 // UI components
 export {
