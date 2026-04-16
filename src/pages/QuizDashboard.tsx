@@ -2,10 +2,30 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Quiz, QuizStats } from "@/types";
-import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz } from "@/lib/db";
-import { DropZone, SearchBar, SearchToggleButton } from "@/components";
+import { getAllQuizzes, getQuizStats, deleteQuiz, importQuiz, toggleQuizFavorite } from "@/lib/db";
+import {
+  DropZone,
+  SearchBar,
+  SearchToggleButton,
+  LoadingSpinner,
+  EmptyState,
+  SectionHeader,
+  CardGrid,
+  QuizCard,
+} from "@/components";
 import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
+
+const QuizIcon = () => (
+  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-12 w-12">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+    />
+  </svg>
+);
 
 export function QuizDashboard() {
   const toast = useToast();
@@ -33,14 +53,14 @@ export function QuizDashboard() {
     storageKey: "quizzes",
   });
 
-  const loadQuizzes = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const data = await getAllQuizzes();
-      setQuizzes(data);
+      const quizzesData = await getAllQuizzes();
+      setQuizzes(quizzesData);
 
       // Load stats for each quiz
       const stats: Record<string, QuizStats> = {};
-      for (const quiz of data) {
+      for (const quiz of quizzesData) {
         try {
           stats[quiz.id] = await getQuizStats(quiz.id);
         } catch {
@@ -49,7 +69,7 @@ export function QuizDashboard() {
       }
       setQuizStats(stats);
     } catch (error) {
-      console.error("Failed to load quizzes:", error);
+      console.error("Failed to load data:", error);
       toast.error("Failed to load quizzes");
     } finally {
       setLoading(false);
@@ -57,15 +77,15 @@ export function QuizDashboard() {
   }, []);
 
   useEffect(() => {
-    loadQuizzes();
-  }, [loadQuizzes]);
+    loadData();
+  }, [loadData]);
 
   const handleDelete = async (quizId: string) => {
     setDeletingId(quizId);
     try {
       await deleteQuiz(quizId);
       toast.success("Quiz deleted");
-      loadQuizzes();
+      loadData();
     } catch (error) {
       console.error("Failed to delete quiz:", error);
       toast.error("Failed to delete quiz");
@@ -100,7 +120,7 @@ export function QuizDashboard() {
     });
 
     setImporting(false);
-    loadQuizzes();
+    loadData();
   };
 
   const handleFileDrop = useCallback(async (filePaths: string[]) => {
@@ -119,230 +139,128 @@ export function QuizDashboard() {
     });
 
     setImporting(false);
-    loadQuizzes();
-  }, [toast, loadQuizzes]);
+    loadData();
+  }, [toast, loadData]);
+
+  const handleToggleFavorite = async (quizId: string): Promise<void> => {
+    try {
+      await toggleQuizFavorite(quizId);
+      loadData();
+    } catch (error) {
+      toast.error("Failed to update favorite");
+    }
+  };
+
+  const favoriteQuizzes = filteredQuizzes.filter((q) => q.isFavorite);
+  const regularQuizzes = filteredQuizzes.filter((q) => !q.isFavorite);
 
   if (loading) {
-    return (
-      <div className="min-h-full flex items-center justify-center bg-[#2d2a2e]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#ffd866] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#939293]">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
-    <DropZone
-      onFileDrop={handleFileDrop}
-      disabled={importing}
-      label="Drop quiz files to import"
-    >
+    <DropZone onFileDrop={handleFileDrop} disabled={importing} label="Drop quiz files to import">
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">
           <div className="fade-in">
             {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <div className="flex items-center gap-2">
-              <SearchToggleButton
-                isVisible={isSearchVisible}
-                hasActiveFilters={hasActiveFilters}
-                onClick={toggleSearch}
-              />
-              <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Quizzes</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
-              <button
-                onClick={handleImport}
-                disabled={importing}
-                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#fcfcfa] bg-[#5b595c] hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
-              >
-                {importing ? "Importing..." : "Import Quiz"}
-              </button>
-              <Link
-                to="/quizzes/new"
-                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#2d2a2e] bg-[#ffd866] hover:bg-[#ffd866]/90 transition-colors"
-              >
-                + New Quiz
-              </Link>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <SearchBar
-            isVisible={isSearchVisible}
-            nameValue={filters.name}
-            descriptionValue={filters.description}
-            onNameChange={setNameFilter}
-            onDescriptionChange={setDescriptionFilter}
-            onClear={clearFilters}
-            hasActiveFilters={hasActiveFilters}
-            namePlaceholder="Filter by quiz name..."
-            descriptionPlaceholder="Filter by description..."
-          />
-
-          {/* Quizzes Grid */}
-          {filteredQuizzes.length === 0 ? (
-            <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-[#5b595c]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <SearchToggleButton
+                  isVisible={isSearchVisible}
+                  hasActiveFilters={hasActiveFilters}
+                  onClick={toggleSearch}
+                />
+                <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Quizzes</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
+                <button
+                  onClick={handleImport}
+                  disabled={importing}
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#fcfcfa] bg-[#5b595c] hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
-                  {hasActiveFilters ? "No matching quizzes" : "No quizzes"}
-                </h3>
-                <p className="mt-1 text-sm text-[#939293]">
-                  {hasActiveFilters
-                    ? "Try adjusting your search filters."
-                    : "Create your first quiz to test your knowledge."}
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="mt-3 text-sm text-[#ffd866] hover:underline"
-                  >
-                    Clear filters
-                  </button>
-                )}
+                  {importing ? "Importing..." : "Import Quiz"}
+                </button>
+                <Link
+                  to="/quizzes/new"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#2d2a2e] bg-[#ffd866] hover:bg-[#ffd866]/90 transition-colors"
+                >
+                  + New Quiz
+                </Link>
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredQuizzes.map((quiz) => (
-                <QuizCard
-                  key={quiz.id}
-                  quiz={quiz}
-                  stats={quizStats[quiz.id]}
-                  onDelete={() => handleDelete(quiz.id)}
-                  isDeleting={deletingId === quiz.id}
-                />
-              ))}
-            </div>
-          )}
+
+            <SearchBar
+              isVisible={isSearchVisible}
+              nameValue={filters.name}
+              descriptionValue={filters.description}
+              onNameChange={setNameFilter}
+              onDescriptionChange={setDescriptionFilter}
+              onClear={clearFilters}
+              hasActiveFilters={hasActiveFilters}
+              namePlaceholder="Filter by quiz name..."
+              descriptionPlaceholder="Filter by description..."
+            />
+
+            {filteredQuizzes.length === 0 ? (
+              <EmptyState
+                icon={<QuizIcon />}
+                title={hasActiveFilters ? "No matching quizzes" : "No quizzes"}
+                description={
+                  hasActiveFilters
+                    ? "Try adjusting your search filters."
+                    : "Create your first quiz to test your knowledge."
+                }
+                action={
+                  hasActiveFilters && (
+                    <button onClick={clearFilters} className="text-sm text-[#ffd866] hover:underline">
+                      Clear filters
+                    </button>
+                  )
+                }
+              />
+            ) : (
+              <>
+                {favoriteQuizzes.length > 0 && (
+                  <div className="mb-6">
+                    <SectionHeader title="Favorites" showStar />
+                    <CardGrid>
+                      {favoriteQuizzes.map((quiz) => (
+                        <QuizCard
+                          key={quiz.id}
+                          quiz={quiz}
+                          stats={quizStats[quiz.id]}
+                          onDelete={() => handleDelete(quiz.id)}
+                          onToggleFavorite={() => handleToggleFavorite(quiz.id)}
+                          isDeleting={deletingId === quiz.id}
+                        />
+                      ))}
+                    </CardGrid>
+                  </div>
+                )}
+
+                {regularQuizzes.length > 0 && (
+                  <div>
+                    {favoriteQuizzes.length > 0 && <SectionHeader title="All Quizzes" />}
+                    <CardGrid>
+                      {regularQuizzes.map((quiz) => (
+                        <QuizCard
+                          key={quiz.id}
+                          quiz={quiz}
+                          stats={quizStats[quiz.id]}
+                          onDelete={() => handleDelete(quiz.id)}
+                          onToggleFavorite={() => handleToggleFavorite(quiz.id)}
+                          isDeleting={deletingId === quiz.id}
+                        />
+                      ))}
+                    </CardGrid>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </main>
       </div>
     </DropZone>
-  );
-}
-
-interface QuizCardProps {
-  quiz: Quiz;
-  stats?: QuizStats;
-  onDelete: () => void;
-  isDeleting: boolean;
-}
-
-function QuizCard({ quiz, stats, onDelete, isDeleting }: QuizCardProps) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  return (
-    <div className="block bg-[#403e41] overflow-hidden rounded-xl border border-[#5b595c] hover:border-[#939293] transition-colors">
-      <Link to={`/quizzes/${quiz.id}`} className="block px-5 py-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
-              {quiz.questionCount ?? quiz.questions?.length ?? 0} questions
-            </span>
-            {quiz.shuffleQuestions && (
-              <span className="text-xs px-2 py-0.5 rounded bg-[#ab9df2]/20 text-[#ab9df2]">
-                Shuffle
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-[#939293] font-mono">
-            {new Date(quiz.createdAt).toLocaleDateString()}
-          </span>
-        </div>
-        <h3 className="text-base font-medium text-[#fcfcfa] truncate">
-          {quiz.name}
-        </h3>
-        <p className="mt-1 text-sm text-[#939293] line-clamp-2">
-          {quiz.description || "No description"}
-        </p>
-
-        {/* Stats */}
-        {stats && stats.totalAttempts > 0 && (
-          <div className="mt-3 pt-3 border-t border-[#5b595c] grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-lg font-bold text-[#a9dc76]">
-                {stats.bestScore}%
-              </div>
-              <div className="text-xs text-[#939293]">Best</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-[#ffd866]">
-                {Math.round(stats.averageScore)}%
-              </div>
-              <div className="text-xs text-[#939293]">Avg</div>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-[#78dce8]">
-                {stats.totalAttempts}
-              </div>
-              <div className="text-xs text-[#939293]">Attempts</div>
-            </div>
-          </div>
-        )}
-      </Link>
-
-      <div className="px-5 pb-4 flex gap-2">
-        <Link
-          to={`/quizzes/${quiz.id}/take`}
-          className="flex-1 text-center px-3 py-2 bg-[#a9dc76]/20 text-[#a9dc76] text-sm rounded-lg hover:bg-[#a9dc76]/30 transition-colors font-medium"
-        >
-          Take Quiz
-        </Link>
-        <Link
-          to={`/quizzes/${quiz.id}/edit`}
-          className="flex-1 text-center px-3 py-2 bg-[#ffd866]/20 text-[#ffd866] text-sm rounded-lg hover:bg-[#ffd866]/30 transition-colors font-medium"
-        >
-          Edit
-        </Link>
-        {showDeleteConfirm ? (
-          <div className="flex gap-1">
-            <button
-              onClick={onDelete}
-              disabled={isDeleting}
-              className="px-2 py-2 bg-[#ff6188] text-[#2d2a2e] text-sm rounded-lg hover:bg-[#ff6188]/90 transition-colors disabled:opacity-50"
-            >
-              {isDeleting ? "..." : "Yes"}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="px-2 py-2 bg-[#5b595c] text-[#fcfcfa] text-sm rounded-lg hover:bg-[#5b595c]/80 transition-colors"
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="px-3 py-2 text-[#ff6188] hover:bg-[#ff6188]/10 rounded-lg transition-colors"
-            title="Delete quiz"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
-        )}
-      </div>
-    </div>
   );
 }

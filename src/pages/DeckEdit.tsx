@@ -89,6 +89,7 @@ export function DeckEdit() {
         setName(deckData.name);
         setDescription(deckData.description || "");
         setShuffleCards(deckData.shuffleCards);
+
         // Store original values to detect unsaved changes
         originalValuesRef.current = {
           name: deckData.name,

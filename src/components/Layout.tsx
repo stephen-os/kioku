@@ -5,6 +5,7 @@ import { AvatarDisplay } from "@/components/AvatarPicker";
 
 export function Layout() {
   const _location = useLocation();
+  // TODO: review why this is here. 
   void _location; // Reserved for future active link highlighting
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -41,6 +42,12 @@ export function Layout() {
                 className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
               >
                 Quizzes
+              </Link>
+              <Link
+                to="/courses"
+                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
+              >
+                Courses
               </Link>
 
               {/* User Menu */}

@@ -212,3 +212,15 @@ pub fn get_quiz_stats(state: State<DbState>, quiz_id: String) -> Result<QuizStat
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
     db::get_quiz_stats(&conn, &quiz_id)
 }
+
+// ============================================
+// Quiz Favorite Commands
+// ============================================
+
+#[tauri::command]
+pub fn toggle_quiz_favorite(state: State<DbState>, quiz_id: String) -> Result<bool, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::toggle_quiz_favorite(&conn, &active_user.id, &quiz_id)
+}

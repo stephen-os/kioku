@@ -1,0 +1,286 @@
+use tauri::State;
+
+use crate::db::{
+    self, AddLessonItemRequest, Course, CreateCourseRequest, CreateLessonRequest, DbState, Lesson,
+    LessonItem, LessonProgress, ReorderLessonItemsRequest, ReorderLessonsRequest,
+    UpdateCourseRequest, UpdateLessonRequest,
+};
+
+// ============================================
+// Course Commands
+// ============================================
+
+#[tauri::command]
+pub fn get_all_courses(state: State<DbState>) -> Result<Vec<Course>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_all_courses(&conn, &active_user.id)
+}
+
+#[tauri::command]
+pub fn get_course(state: State<DbState>, id: String) -> Result<Option<Course>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_course(&conn, &active_user.id, &id)
+}
+
+#[tauri::command]
+pub fn get_course_with_lessons(
+    state: State<DbState>,
+    id: String,
+) -> Result<Option<Course>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_course_with_lessons(&conn, &active_user.id, &id)
+}
+
+#[tauri::command]
+pub fn create_course(
+    state: State<DbState>,
+    request: CreateCourseRequest,
+) -> Result<Course, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::create_course(
+        &conn,
+        &active_user.id,
+        &request.name,
+        request.description.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn update_course(
+    state: State<DbState>,
+    id: String,
+    request: UpdateCourseRequest,
+) -> Result<Course, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::update_course(
+        &conn,
+        &active_user.id,
+        &id,
+        &request.name,
+        request.description.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn delete_course(state: State<DbState>, id: String) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::delete_course(&conn, &id)
+}
+
+#[tauri::command]
+pub fn toggle_course_favorite(state: State<DbState>, course_id: String) -> Result<bool, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::toggle_course_favorite(&conn, &active_user.id, &course_id)
+}
+
+// ============================================
+// Lesson Commands
+// ============================================
+
+#[tauri::command]
+pub fn get_lessons(state: State<DbState>, course_id: String) -> Result<Vec<Lesson>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_lessons(&conn, &active_user.id, &course_id)
+}
+
+#[tauri::command]
+pub fn get_lesson(state: State<DbState>, lesson_id: String) -> Result<Option<Lesson>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_lesson(&conn, &active_user.id, &lesson_id)
+}
+
+#[tauri::command]
+pub fn create_lesson(
+    state: State<DbState>,
+    course_id: String,
+    request: CreateLessonRequest,
+) -> Result<Lesson, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::create_lesson(
+        &conn,
+        &course_id,
+        &request.title,
+        request.description.as_deref(),
+        request.position,
+    )
+}
+
+#[tauri::command]
+pub fn update_lesson(
+    state: State<DbState>,
+    lesson_id: String,
+    request: UpdateLessonRequest,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::update_lesson(&conn, &lesson_id, &request.title, request.description.as_deref())
+}
+
+#[tauri::command]
+pub fn delete_lesson(state: State<DbState>, lesson_id: String) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::delete_lesson(&conn, &lesson_id)
+}
+
+#[tauri::command]
+pub fn reorder_lessons(
+    state: State<DbState>,
+    course_id: String,
+    request: ReorderLessonsRequest,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::reorder_lessons(&conn, &course_id, &request.lesson_ids)
+}
+
+// ============================================
+// Lesson Item Commands
+// ============================================
+
+#[tauri::command]
+pub fn get_lesson_items(
+    state: State<DbState>,
+    lesson_id: String,
+) -> Result<Vec<LessonItem>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_lesson_items(&conn, &active_user.id, &lesson_id)
+}
+
+#[tauri::command]
+pub fn add_lesson_item(
+    state: State<DbState>,
+    lesson_id: String,
+    request: AddLessonItemRequest,
+) -> Result<LessonItem, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::add_lesson_item(
+        &conn,
+        &lesson_id,
+        &request.item_type,
+        &request.item_name,
+        request.item_id.as_deref(),
+        request.requirement_type.as_deref(),
+        request.requirement_value,
+        request.position,
+    )
+}
+
+#[tauri::command]
+pub fn remove_lesson_item(state: State<DbState>, lesson_item_id: String) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::remove_lesson_item(&conn, &lesson_item_id)
+}
+
+#[tauri::command]
+pub fn reorder_lesson_items(
+    state: State<DbState>,
+    lesson_id: String,
+    request: ReorderLessonItemsRequest,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::reorder_lesson_items(&conn, &lesson_id, &request.item_ids)
+}
+
+#[tauri::command]
+pub fn update_lesson_item_reference(
+    state: State<DbState>,
+    lesson_item_id: String,
+    item_id: String,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::update_lesson_item_reference(&conn, &lesson_item_id, &item_id)
+}
+
+// ============================================
+// Lesson Progress Commands
+// ============================================
+
+#[tauri::command]
+pub fn record_lesson_progress(
+    state: State<DbState>,
+    course_id: String,
+    lesson_id: String,
+    lesson_item_id: String,
+    score_percentage: Option<i32>,
+    attempt_id: Option<String>,
+    session_id: Option<String>,
+) -> Result<LessonProgress, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::record_lesson_progress(
+        &conn,
+        &active_user.id,
+        &course_id,
+        &lesson_id,
+        &lesson_item_id,
+        score_percentage,
+        attempt_id.as_deref(),
+        session_id.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn clear_lesson_item_progress(
+    state: State<DbState>,
+    lesson_item_id: String,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::clear_lesson_item_progress(&conn, &active_user.id, &lesson_item_id)
+}
+
+#[tauri::command]
+pub fn get_lesson_progress(
+    state: State<DbState>,
+    course_id: String,
+) -> Result<Vec<LessonProgress>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    db::get_lesson_progress(&conn, &active_user.id, &course_id)
+}
+
+// ============================================
+// Utility: Link missing items
+// ============================================
+
+#[tauri::command]
+pub fn link_course_items(
+    state: State<DbState>,
+    course_id: String,
+) -> Result<LinkItemsResult, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user =
+        db::get_active_user(&conn)?.ok_or_else(|| "No active user".to_string())?;
+    let (items_linked, items_not_found) =
+        db::link_lesson_items_by_name(&conn, &active_user.id, &course_id)?;
+    Ok(LinkItemsResult {
+        items_linked,
+        items_not_found,
+    })
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkItemsResult {
+    pub items_linked: i32,
+    pub items_not_found: Vec<String>,
+}

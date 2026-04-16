@@ -44,6 +44,7 @@ pub fn get_quiz(conn: &Connection, quiz_id: &str) -> Result<Quiz, String> {
                 updated_at: row.get(5)?,
                 questions: vec![],
                 question_count: None,
+                is_favorite: None,
             })
         })
         .map_err(|e| format!("Quiz not found: {}", e))?;
@@ -61,9 +62,14 @@ pub fn get_quiz(conn: &Connection, quiz_id: &str) -> Result<Quiz, String> {
 pub fn get_all_quizzes(conn: &Connection, user_id: &str) -> Result<Vec<Quiz>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT q.id, q.name, q.description, q.shuffle_questions, q.created_at, q.updated_at,
-                    (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as question_count
-             FROM quizzes q WHERE q.user_id = ?1 ORDER BY q.created_at DESC",
+            "SELECT q.id, q.name, q.description, q.shuffle_questions,
+                    q.created_at, q.updated_at,
+                    (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) as question_count,
+                    CASE WHEN qf.quiz_id IS NOT NULL THEN 1 ELSE 0 END as is_favorite
+             FROM quizzes q
+             LEFT JOIN quiz_favorites qf ON q.id = qf.quiz_id AND qf.user_id = ?1
+             WHERE q.user_id = ?1
+             ORDER BY q.created_at DESC",
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
@@ -78,6 +84,7 @@ pub fn get_all_quizzes(conn: &Connection, user_id: &str) -> Result<Vec<Quiz>, St
                 updated_at: row.get(5)?,
                 questions: vec![],
                 question_count: Some(row.get(6)?),
+                is_favorite: Some(row.get::<_, i32>(7)? != 0),
             })
         })
         .map_err(|e| format!("Failed to query quizzes: {}", e))?
@@ -485,5 +492,49 @@ pub fn get_quiz_tag_by_name(
         Ok(tag) => Ok(Some(tag)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(format!("Query failed: {}", e)),
+    }
+}
+
+// ============================================
+// Quiz Favorites Operations
+// ============================================
+
+pub fn add_quiz_favorite(conn: &Connection, user_id: &str, quiz_id: &str) -> Result<(), String> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT OR IGNORE INTO quiz_favorites (user_id, quiz_id, created_at) VALUES (?1, ?2, ?3)",
+        params![user_id, quiz_id, now],
+    )
+    .map_err(|e| format!("Failed to add quiz favorite: {}", e))?;
+    Ok(())
+}
+
+pub fn remove_quiz_favorite(conn: &Connection, user_id: &str, quiz_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM quiz_favorites WHERE user_id = ?1 AND quiz_id = ?2",
+        params![user_id, quiz_id],
+    )
+    .map_err(|e| format!("Failed to remove quiz favorite: {}", e))?;
+    Ok(())
+}
+
+pub fn is_quiz_favorite(conn: &Connection, user_id: &str, quiz_id: &str) -> Result<bool, String> {
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM quiz_favorites WHERE user_id = ?1 AND quiz_id = ?2",
+            params![user_id, quiz_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to check quiz favorite: {}", e))?;
+    Ok(count > 0)
+}
+
+pub fn toggle_quiz_favorite(conn: &Connection, user_id: &str, quiz_id: &str) -> Result<bool, String> {
+    if is_quiz_favorite(conn, user_id, quiz_id)? {
+        remove_quiz_favorite(conn, user_id, quiz_id)?;
+        Ok(false)
+    } else {
+        add_quiz_favorite(conn, user_id, quiz_id)?;
+        Ok(true)
     }
 }

@@ -1,5 +1,6 @@
 // Database module - organized into submodules by domain
 
+pub mod courses;
 pub mod decks;
 pub mod models;
 pub mod quizzes;
@@ -14,8 +15,23 @@ pub use state::{init_database, DbState};
 // Deck operations
 pub use decks::{
     add_tag_to_card, create_card, create_deck, create_tag, delete_card, delete_deck, delete_tag,
-    get_all_decks, get_card, get_cards_for_deck, get_deck, get_tag_by_name, get_tags_for_card,
-    get_tags_for_deck, remove_tag_from_card, update_card, update_deck,
+    get_all_decks, get_card, get_cards_for_deck, get_deck, get_tag_by_name,
+    get_tags_for_card, get_tags_for_deck, remove_tag_from_card, toggle_deck_favorite,
+    update_card, update_deck,
+};
+
+// Course operations
+pub use courses::{
+    create_course, delete_course, get_all_courses, get_course, get_course_with_lessons,
+    toggle_course_favorite, update_course,
+};
+
+// Lesson operations
+pub use courses::{
+    add_lesson_item, clear_lesson_item_progress, create_lesson, delete_lesson, get_lesson,
+    get_lesson_items, get_lesson_progress, get_lessons, link_lesson_items_by_name,
+    record_lesson_progress, remove_lesson_item, reorder_lesson_items, reorder_lessons,
+    update_lesson, update_lesson_item_reference,
 };
 
 // User operations
@@ -28,8 +44,9 @@ pub use users::{
 pub use quizzes::{
     add_tag_to_question, create_question, create_quiz, create_quiz_tag, delete_question,
     delete_quiz, delete_quiz_tag, get_all_quizzes, get_question, get_questions_for_quiz, get_quiz,
-    get_quiz_tag_by_name, get_tags_for_question, get_tags_for_quiz, remove_tag_from_question,
-    reorder_questions, update_choices_for_question, update_question, update_quiz,
+    get_quiz_tag_by_name, get_tags_for_question, get_tags_for_quiz,
+    remove_tag_from_question, reorder_questions, toggle_quiz_favorite,
+    update_choices_for_question, update_question, update_quiz,
 };
 
 // Statistics operations

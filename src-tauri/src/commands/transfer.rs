@@ -1,7 +1,10 @@
 use serde::Serialize;
 use tauri::State;
 
-use crate::db::{self, CreateCardRequest, CreateChoiceRequest, CreateQuestionRequest, CreateQuizRequest, DbState, Deck, Quiz};
+use crate::db::{
+    self, CreateCardRequest, CreateChoiceRequest, CreateQuestionRequest, CreateQuizRequest,
+    DbState, Deck, Quiz,
+};
 
 const MAX_IMPORT_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
@@ -414,4 +417,229 @@ pub fn import_quiz_from_file(
             Err(e)
         }
     }
+}
+
+// ============================================
+// Course Import / Export (Lesson-based)
+// ============================================
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseImportResult {
+    course: db::Course,
+    items_linked: i32,
+    items_not_found: Vec<String>,
+}
+
+#[tauri::command]
+pub fn import_course_from_file(
+    state: State<DbState>,
+    file_path: String,
+) -> Result<CourseImportResult, String> {
+    let metadata = std::fs::metadata(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    if metadata.len() > MAX_IMPORT_FILE_SIZE {
+        return Err(format!(
+            "File too large: {} MB (max {} MB)",
+            metadata.len() / (1024 * 1024),
+            MAX_IMPORT_FILE_SIZE / (1024 * 1024)
+        ));
+    }
+
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CourseImport {
+        name: String,
+        description: Option<String>,
+        lessons: Vec<LessonImport>,
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LessonImport {
+        title: String,
+        description: Option<String>,
+        items: Vec<LessonItemImport>,
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LessonItemImport {
+        #[serde(rename = "type")]
+        item_type: String,
+        name: String,
+        requirement_type: Option<String>,
+        requirement_value: Option<i32>,
+    }
+
+    let import_data: CourseImport = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+
+    // Get all decks and quizzes for the user to match by name
+    let all_decks = db::get_all_decks(&conn, &active_user.id)?;
+    let all_quizzes = db::get_all_quizzes(&conn, &active_user.id)?;
+
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
+
+    let result = (|| -> Result<CourseImportResult, String> {
+        // Create the course
+        let course = db::create_course(
+            &conn,
+            &active_user.id,
+            &import_data.name,
+            import_data.description.as_deref(),
+        )?;
+
+        let mut total_items_linked = 0;
+        let mut total_items_not_found: Vec<String> = Vec::new();
+
+        // Create lessons and their items
+        for (lesson_pos, lesson_import) in import_data.lessons.iter().enumerate() {
+            let lesson = db::create_lesson(
+                &conn,
+                &course.id,
+                &lesson_import.title,
+                lesson_import.description.as_deref(),
+                Some(lesson_pos as i32),
+            )?;
+
+            // Add items to this lesson
+            for (item_pos, item) in lesson_import.items.iter().enumerate() {
+                // Try to find the item by name
+                let item_id = match item.item_type.as_str() {
+                    "deck" => all_decks
+                        .iter()
+                        .find(|d| d.name == item.name)
+                        .map(|d| d.id.clone()),
+                    "quiz" => all_quizzes
+                        .iter()
+                        .find(|q| q.name == item.name)
+                        .map(|q| q.id.clone()),
+                    _ => None,
+                };
+
+                // Add the lesson item (even if item_id is None - it will be "missing")
+                db::add_lesson_item(
+                    &conn,
+                    &lesson.id,
+                    &item.item_type,
+                    &item.name,
+                    item_id.as_deref(),
+                    item.requirement_type.as_deref(),
+                    item.requirement_value,
+                    Some(item_pos as i32),
+                )?;
+
+                if item_id.is_some() {
+                    total_items_linked += 1;
+                } else {
+                    total_items_not_found.push(format!("{}: {}", item.item_type, item.name));
+                }
+            }
+        }
+
+        let final_course = db::get_course_with_lessons(&conn, &active_user.id, &course.id)?
+            .ok_or_else(|| "Failed to retrieve imported course".to_string())?;
+
+        Ok(CourseImportResult {
+            course: final_course,
+            items_linked: total_items_linked,
+            items_not_found: total_items_not_found,
+        })
+    })();
+
+    match result {
+        Ok(import_result) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(import_result)
+        }
+        Err(e) => {
+            let _ = conn.execute("ROLLBACK", []);
+            Err(e)
+        }
+    }
+}
+
+#[tauri::command]
+pub fn export_course_to_json(state: State<DbState>, course_id: String) -> Result<String, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+
+    let course = db::get_course_with_lessons(&conn, &active_user.id, &course_id)?
+        .ok_or_else(|| format!("Course not found: {}", course_id))?;
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CourseExport {
+        name: String,
+        description: Option<String>,
+        lessons: Vec<LessonExport>,
+        exported_at: String,
+    }
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LessonExport {
+        title: String,
+        description: Option<String>,
+        items: Vec<LessonItemExport>,
+    }
+
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LessonItemExport {
+        #[serde(rename = "type")]
+        item_type: String,
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        requirement_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        requirement_value: Option<i32>,
+    }
+
+    let export = CourseExport {
+        name: course.name,
+        description: course.description,
+        lessons: course
+            .lessons
+            .into_iter()
+            .map(|lesson| LessonExport {
+                title: lesson.title,
+                description: lesson.description,
+                items: lesson
+                    .items
+                    .into_iter()
+                    .map(|item| LessonItemExport {
+                        item_type: match item.item_type {
+                            db::LessonItemType::Deck => "deck".to_string(),
+                            db::LessonItemType::Quiz => "quiz".to_string(),
+                        },
+                        name: item.item_name,
+                        requirement_type: item.requirement_type.map(|rt| match rt {
+                            db::RequirementType::Study => "study".to_string(),
+                            db::RequirementType::Review => "review".to_string(),
+                            db::RequirementType::Complete => "complete".to_string(),
+                            db::RequirementType::MinScore => "min_score".to_string(),
+                        }),
+                        requirement_value: item.requirement_value,
+                    })
+                    .collect(),
+            })
+            .collect(),
+        exported_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    serde_json::to_string_pretty(&export).map_err(|e| format!("Failed to serialize: {}", e))
 }

@@ -158,3 +158,15 @@ pub fn remove_tag_from_card(
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
     db::remove_tag_from_card(&conn, &deck_id, &card_id, &tag_id)
 }
+
+// ============================================
+// Favorite Commands
+// ============================================
+
+#[tauri::command]
+pub fn toggle_deck_favorite(state: State<DbState>, deck_id: String) -> Result<bool, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::toggle_deck_favorite(&conn, &active_user.id, &deck_id)
+}

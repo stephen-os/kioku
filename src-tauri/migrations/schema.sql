@@ -23,6 +23,67 @@ CREATE TABLE IF NOT EXISTS app_state (
 );
 
 -- ============================================
+-- Courses (Ordered learning paths with lessons)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS courses (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, name)
+);
+
+-- Lessons within a course
+CREATE TABLE IF NOT EXISTS lessons (
+    id TEXT PRIMARY KEY,
+    course_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+-- Lesson items (decks/quizzes within a lesson with optional requirements)
+CREATE TABLE IF NOT EXISTS lesson_items (
+    id TEXT PRIMARY KEY,
+    lesson_id TEXT NOT NULL,
+    item_type TEXT NOT NULL,  -- 'deck' or 'quiz'
+    item_id TEXT NOT NULL,    -- FK to decks or quizzes (may be NULL if not yet imported)
+    item_name TEXT NOT NULL,  -- Name for matching during import
+    requirement_type TEXT,    -- NULL, 'study', 'review', 'complete', 'min_score'
+    requirement_value INTEGER, -- For min_score: the percentage required (e.g., 80)
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+);
+
+-- Lesson progress (tracks course-context completion per user)
+CREATE TABLE IF NOT EXISTS lesson_progress (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    lesson_id TEXT NOT NULL,
+    lesson_item_id TEXT NOT NULL,
+    completed_at TEXT,        -- NULL means not completed
+    score_percentage INTEGER, -- For quiz attempts in course context
+    attempt_id TEXT,          -- Links to quiz_attempts if applicable
+    session_id TEXT,          -- Links to study_sessions if applicable
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+    FOREIGN KEY (lesson_item_id) REFERENCES lesson_items(id) ON DELETE CASCADE,
+    UNIQUE(user_id, lesson_item_id)
+);
+
+-- ============================================
 -- Flashcards: Decks, Cards & Tags
 -- ============================================
 
@@ -174,6 +235,37 @@ CREATE TABLE IF NOT EXISTS question_results (
 );
 
 -- ============================================
+-- Favorites (user-specific, not exported)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS deck_favorites (
+    user_id TEXT NOT NULL,
+    deck_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, deck_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS quiz_favorites (
+    user_id TEXT NOT NULL,
+    quiz_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, quiz_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS course_favorites (
+    user_id TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, course_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+-- ============================================
 -- Indexes
 -- ============================================
 
@@ -205,3 +297,23 @@ CREATE INDEX IF NOT EXISTS idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_completed_at ON quiz_attempts(completed_at);
 CREATE INDEX IF NOT EXISTS idx_question_results_attempt_id ON question_results(attempt_id);
 CREATE INDEX IF NOT EXISTS idx_question_results_question_id ON question_results(question_id);
+
+-- Course indexes
+CREATE INDEX IF NOT EXISTS idx_courses_user_id ON courses(user_id);
+
+-- Lesson indexes
+CREATE INDEX IF NOT EXISTS idx_lessons_course_id ON lessons(course_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_position ON lessons(course_id, position);
+CREATE INDEX IF NOT EXISTS idx_lesson_items_lesson_id ON lesson_items(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_items_position ON lesson_items(lesson_id, position);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_user_id ON lesson_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson_id ON lesson_progress(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_course_id ON lesson_progress(course_id);
+
+-- Favorites indexes
+CREATE INDEX IF NOT EXISTS idx_deck_favorites_user_id ON deck_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_deck_favorites_deck_id ON deck_favorites(deck_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_favorites_user_id ON quiz_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_favorites_quiz_id ON quiz_favorites(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_course_favorites_user_id ON course_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_course_favorites_course_id ON course_favorites(course_id);

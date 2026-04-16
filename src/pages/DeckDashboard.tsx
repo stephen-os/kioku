@@ -2,10 +2,30 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Deck } from "@/types";
-import { getAllDecks, importDeck, deleteDeck } from "@/lib/db";
-import { DropZone, SearchBar, SearchToggleButton } from "@/components";
+import { getAllDecks, importDeck, deleteDeck, toggleDeckFavorite } from "@/lib/db";
+import {
+  DropZone,
+  SearchBar,
+  SearchToggleButton,
+  LoadingSpinner,
+  EmptyState,
+  SectionHeader,
+  CardGrid,
+  DeckCard,
+} from "@/components";
 import { useSearchFilter } from "@/hooks";
 import { useToast } from "@/context/ToastContext";
+
+const DeckIcon = () => (
+  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-12 w-12">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+    />
+  </svg>
+);
 
 export function DeckDashboard() {
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -32,20 +52,20 @@ export function DeckDashboard() {
     storageKey: "decks",
   });
 
-  const loadDecks = useCallback(async (): Promise<void> => {
+  const loadData = useCallback(async (): Promise<void> => {
     try {
-      const data = await getAllDecks();
-      setDecks(data);
+      const decksData = await getAllDecks();
+      setDecks(decksData);
     } catch (error) {
-      console.error("Failed to load decks:", error);
+      console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadDecks();
-  }, [loadDecks]);
+    loadData();
+  }, [loadData]);
 
   const handleImport = async (): Promise<void> => {
     const filePaths = await open({
@@ -73,7 +93,7 @@ export function DeckDashboard() {
     });
 
     setImporting(false);
-    loadDecks();
+    loadData();
   };
 
   const handleFileDrop = useCallback(async (filePaths: string[]): Promise<void> => {
@@ -92,15 +112,15 @@ export function DeckDashboard() {
     });
 
     setImporting(false);
-    loadDecks();
-  }, [toast, loadDecks]);
+    loadData();
+  }, [toast, loadData]);
 
   const handleDelete = async (deckId: string): Promise<void> => {
     setDeletingId(deckId);
     try {
       await deleteDeck(deckId);
       toast.success("Deck deleted");
-      loadDecks();
+      loadData();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete deck");
     } finally {
@@ -108,200 +128,123 @@ export function DeckDashboard() {
     }
   };
 
+  const handleToggleFavorite = async (deckId: string): Promise<void> => {
+    try {
+      await toggleDeckFavorite(deckId);
+      loadData();
+    } catch (error) {
+      toast.error("Failed to update favorite");
+    }
+  };
+
+  const favoriteDecks = filteredDecks.filter((d) => d.isFavorite);
+  const regularDecks = filteredDecks.filter((d) => !d.isFavorite);
+
   if (loading) {
-    return (
-      <div className="min-h-full flex items-center justify-center bg-[#2d2a2e]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#ffd866] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#939293]">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
-    <DropZone
-      onFileDrop={handleFileDrop}
-      disabled={importing}
-      label="Drop deck files to import"
-    >
+    <DropZone onFileDrop={handleFileDrop} disabled={importing} label="Drop deck files to import">
       <div className="min-h-full bg-[#2d2a2e]">
         <main className="max-w-7xl mx-auto py-6 px-6">
           <div className="fade-in">
-          {/* Header with Actions */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <div className="flex items-center gap-2">
-              <SearchToggleButton
-                isVisible={isSearchVisible}
-                hasActiveFilters={hasActiveFilters}
-                onClick={toggleSearch}
-              />
-              <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
-              <button
-                onClick={handleImport}
-                disabled={importing}
-                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#fcfcfa] bg-[#5b595c] hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
-              >
-                {importing ? "Importing..." : "Import Deck"}
-              </button>
-              <Link
-                to="/decks/new"
-                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#2d2a2e] bg-[#ffd866] hover:bg-[#ffd866]/90 transition-colors"
-              >
-                + New Deck
-              </Link>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <SearchBar
-            isVisible={isSearchVisible}
-            nameValue={filters.name}
-            descriptionValue={filters.description}
-            onNameChange={setNameFilter}
-            onDescriptionChange={setDescriptionFilter}
-            onClear={clearFilters}
-            hasActiveFilters={hasActiveFilters}
-            namePlaceholder="Filter by deck name..."
-            descriptionPlaceholder="Filter by description..."
-          />
-
-          {/* Decks Grid */}
-          {filteredDecks.length === 0 ? (
-            <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-[#5b595c]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <SearchToggleButton
+                  isVisible={isSearchVisible}
+                  hasActiveFilters={hasActiveFilters}
+                  onClick={toggleSearch}
+                />
+                <h2 className="text-2xl font-bold text-[#fcfcfa] font-mono">Decks</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:min-w-[300px]">
+                <button
+                  onClick={handleImport}
+                  disabled={importing}
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#fcfcfa] bg-[#5b595c] hover:bg-[#5b595c]/80 transition-colors disabled:opacity-50"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-[#fcfcfa]">
-                  {hasActiveFilters ? "No matching decks" : "No decks"}
-                </h3>
-                <p className="mt-1 text-sm text-[#939293]">
-                  {hasActiveFilters
-                    ? "Try adjusting your search filters."
-                    : "Get started by creating a new deck or importing one."}
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="mt-3 text-sm text-[#ffd866] hover:underline"
-                  >
-                    Clear filters
-                  </button>
-                )}
+                  {importing ? "Importing..." : "Import Deck"}
+                </button>
+                <Link
+                  to="/decks/new"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium text-[#2d2a2e] bg-[#ffd866] hover:bg-[#ffd866]/90 transition-colors"
+                >
+                  + New Deck
+                </Link>
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredDecks.map((deck) => (
-                <DeckCard
-                  key={deck.id}
-                  deck={deck}
-                  onDelete={() => handleDelete(deck.id)}
-                  isDeleting={deletingId === deck.id}
-                />
-              ))}
-            </div>
-          )}
+
+            <SearchBar
+              isVisible={isSearchVisible}
+              nameValue={filters.name}
+              descriptionValue={filters.description}
+              onNameChange={setNameFilter}
+              onDescriptionChange={setDescriptionFilter}
+              onClear={clearFilters}
+              hasActiveFilters={hasActiveFilters}
+              namePlaceholder="Filter by deck name..."
+              descriptionPlaceholder="Filter by description..."
+            />
+
+            {filteredDecks.length === 0 ? (
+              <EmptyState
+                icon={<DeckIcon />}
+                title={hasActiveFilters ? "No matching decks" : "No decks"}
+                description={
+                  hasActiveFilters
+                    ? "Try adjusting your search filters."
+                    : "Get started by creating a new deck or importing one."
+                }
+                action={
+                  hasActiveFilters && (
+                    <button onClick={clearFilters} className="text-sm text-[#ffd866] hover:underline">
+                      Clear filters
+                    </button>
+                  )
+                }
+              />
+            ) : (
+              <>
+                {favoriteDecks.length > 0 && (
+                  <div className="mb-6">
+                    <SectionHeader title="Favorites" showStar />
+                    <CardGrid>
+                      {favoriteDecks.map((deck) => (
+                        <DeckCard
+                          key={deck.id}
+                          deck={deck}
+                          onDelete={() => handleDelete(deck.id)}
+                          onToggleFavorite={() => handleToggleFavorite(deck.id)}
+                          isDeleting={deletingId === deck.id}
+                        />
+                      ))}
+                    </CardGrid>
+                  </div>
+                )}
+
+                {regularDecks.length > 0 && (
+                  <div>
+                    {favoriteDecks.length > 0 && <SectionHeader title="All Decks" />}
+                    <CardGrid>
+                      {regularDecks.map((deck) => (
+                        <DeckCard
+                          key={deck.id}
+                          deck={deck}
+                          onDelete={() => handleDelete(deck.id)}
+                          onToggleFavorite={() => handleToggleFavorite(deck.id)}
+                          isDeleting={deletingId === deck.id}
+                        />
+                      ))}
+                    </CardGrid>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </main>
       </div>
     </DropZone>
-  );
-}
-
-interface DeckCardProps {
-  deck: Deck;
-  onDelete: () => void;
-  isDeleting: boolean;
-}
-
-function DeckCard({ deck, onDelete, isDeleting }: DeckCardProps) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  return (
-    <div className="block bg-[#403e41] overflow-hidden rounded-xl border border-[#5b595c] hover:border-[#939293] transition-colors">
-      <Link to={`/decks/${deck.id}`} className="block px-5 py-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs px-2 py-0.5 rounded bg-[#78dce8]/20 text-[#78dce8]">
-              {deck.cardCount ?? 0} cards
-            </span>
-            {deck.shuffleCards && (
-              <span className="text-xs px-2 py-0.5 rounded bg-[#ab9df2]/20 text-[#ab9df2]">
-                Shuffle
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-[#939293] font-mono">
-            {new Date(deck.createdAt).toLocaleDateString()}
-          </span>
-        </div>
-        <h3 className="text-base font-medium text-[#fcfcfa] truncate">
-          {deck.name}
-        </h3>
-        <p className="mt-1 text-sm text-[#939293] line-clamp-2">
-          {deck.description || "No description"}
-        </p>
-      </Link>
-      <div className="px-5 pb-4 flex gap-2">
-        <Link
-          to={`/decks/${deck.id}/study`}
-          className="flex-1 text-center px-3 py-2 bg-[#a9dc76]/20 text-[#a9dc76] text-sm rounded-lg hover:bg-[#a9dc76]/30 transition-colors font-medium"
-        >
-          Study
-        </Link>
-        <Link
-          to={`/decks/${deck.id}`}
-          className="flex-1 text-center px-3 py-2 bg-[#ffd866]/20 text-[#ffd866] text-sm rounded-lg hover:bg-[#ffd866]/30 transition-colors font-medium"
-        >
-          Manage
-        </Link>
-        {showDeleteConfirm ? (
-          <div className="flex gap-1">
-            <button
-              onClick={onDelete}
-              disabled={isDeleting}
-              className="px-2 py-2 bg-[#ff6188] text-[#2d2a2e] text-sm rounded-lg hover:bg-[#ff6188]/90 transition-colors disabled:opacity-50"
-            >
-              {isDeleting ? "..." : "Yes"}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="px-2 py-2 bg-[#5b595c] text-[#fcfcfa] text-sm rounded-lg hover:bg-[#5b595c]/80 transition-colors"
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="px-3 py-2 text-[#ff6188] hover:bg-[#ff6188]/10 rounded-lg transition-colors"
-            title="Delete deck"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-          </button>
-        )}
-      </div>
-    </div>
   );
 }

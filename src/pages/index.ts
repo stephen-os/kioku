@@ -5,3 +5,6 @@ export { ListenMode } from "./ListenMode";
 export { NewDeck } from "./NewDeck";
 export { Settings } from "./Settings";
 export { Login } from "./Login";
+export { CourseDashboard } from "./CourseDashboard";
+export { CourseView } from "./CourseView";
+export { CourseEditor } from "./CourseEditor";

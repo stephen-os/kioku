@@ -31,8 +31,10 @@ pub fn create_deck(
 pub fn get_all_decks(conn: &Connection, user_id: &str) -> Result<Vec<Deck>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT d.id, d.name, d.description, d.shuffle_cards, d.created_at, d.updated_at,
-                    (SELECT COUNT(*) FROM cards WHERE deck_id = d.id) as card_count
+            "SELECT d.id, d.name, d.description, d.shuffle_cards,
+                    d.created_at, d.updated_at,
+                    (SELECT COUNT(*) FROM cards WHERE deck_id = d.id) as card_count,
+                    (SELECT COUNT(*) FROM deck_favorites WHERE deck_id = d.id AND user_id = ?1) as is_fav
              FROM decks d WHERE d.user_id = ?1 ORDER BY d.updated_at DESC",
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
@@ -47,6 +49,7 @@ pub fn get_all_decks(conn: &Connection, user_id: &str) -> Result<Vec<Deck>, Stri
                 created_at: row.get(4)?,
                 updated_at: row.get(5)?,
                 card_count: Some(row.get(6)?),
+                is_favorite: Some(row.get::<_, i32>(7)? > 0),
             })
         })
         .map_err(|e| format!("Failed to query decks: {}", e))?;
@@ -70,6 +73,7 @@ pub fn get_deck(conn: &Connection, id: &str) -> Result<Option<Deck>, String> {
                 created_at: row.get(4)?,
                 updated_at: row.get(5)?,
                 card_count: None,
+                is_favorite: None,
             })
         },
     ) {
@@ -348,5 +352,49 @@ pub fn get_tag_by_name(conn: &Connection, deck_id: &str, name: &str) -> Result<O
         Ok(tag) => Ok(Some(tag)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(format!("Query failed: {}", e)),
+    }
+}
+
+// ============================================
+// Favorite Operations
+// ============================================
+
+pub fn add_deck_favorite(conn: &Connection, user_id: &str, deck_id: &str) -> Result<(), String> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT OR IGNORE INTO deck_favorites (user_id, deck_id, created_at) VALUES (?1, ?2, ?3)",
+        params![user_id, deck_id, now],
+    )
+    .map_err(|e| format!("Failed to add favorite: {}", e))?;
+    Ok(())
+}
+
+pub fn remove_deck_favorite(conn: &Connection, user_id: &str, deck_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM deck_favorites WHERE user_id = ?1 AND deck_id = ?2",
+        params![user_id, deck_id],
+    )
+    .map_err(|e| format!("Failed to remove favorite: {}", e))?;
+    Ok(())
+}
+
+pub fn is_deck_favorite(conn: &Connection, user_id: &str, deck_id: &str) -> Result<bool, String> {
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM deck_favorites WHERE user_id = ?1 AND deck_id = ?2",
+            params![user_id, deck_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to check favorite: {}", e))?;
+    Ok(count > 0)
+}
+
+pub fn toggle_deck_favorite(conn: &Connection, user_id: &str, deck_id: &str) -> Result<bool, String> {
+    if is_deck_favorite(conn, user_id, deck_id)? {
+        remove_deck_favorite(conn, user_id, deck_id)?;
+        Ok(false)
+    } else {
+        add_deck_favorite(conn, user_id, deck_id)?;
+        Ok(true)
     }
 }

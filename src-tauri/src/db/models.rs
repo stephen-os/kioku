@@ -15,6 +15,8 @@ pub struct Deck {
     pub updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub card_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_favorite: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -83,6 +85,8 @@ pub struct Quiz {
     pub questions: Vec<Question>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub question_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_favorite: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -209,6 +213,193 @@ pub struct LocalUser {
 }
 
 // ============================================
+// Course Models
+// ============================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Course {
+    pub id: String,
+    pub user_id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lesson_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_lesson_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_favorite: Option<bool>,
+    #[serde(default)]
+    pub lessons: Vec<Lesson>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateCourseRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCourseRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+// ============================================
+// Lesson Models
+// ============================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Lesson {
+    pub id: String,
+    pub course_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub position: i32,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(default)]
+    pub items: Vec<LessonItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_completed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_item_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LessonItemType {
+    Deck,
+    Quiz,
+}
+
+impl LessonItemType {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "quiz" => LessonItemType::Quiz,
+            _ => LessonItemType::Deck,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LessonItemType::Deck => "deck",
+            LessonItemType::Quiz => "quiz",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementType {
+    Study,      // For decks: complete a study session
+    Review,     // For decks: just open/view the deck
+    Complete,   // For quizzes: just finish the quiz
+    MinScore,   // For quizzes: score at least X%
+}
+
+impl RequirementType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "study" => Some(RequirementType::Study),
+            "review" => Some(RequirementType::Review),
+            "complete" => Some(RequirementType::Complete),
+            "min_score" => Some(RequirementType::MinScore),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RequirementType::Study => "study",
+            RequirementType::Review => "review",
+            RequirementType::Complete => "complete",
+            RequirementType::MinScore => "min_score",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LessonItem {
+    pub id: String,
+    pub lesson_id: String,
+    pub item_type: LessonItemType,
+    pub item_id: Option<String>,  // NULL if item not yet imported
+    pub item_name: String,
+    pub requirement_type: Option<RequirementType>,
+    pub requirement_value: Option<i32>,  // For min_score: the percentage
+    pub position: i32,
+    pub created_at: String,
+    // Populated by query
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_completed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_missing: Option<bool>,  // True if item_id is NULL
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub best_score: Option<i32>,   // For quizzes: best score in course context
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LessonProgress {
+    pub id: String,
+    pub user_id: String,
+    pub course_id: String,
+    pub lesson_id: String,
+    pub lesson_item_id: String,
+    pub completed_at: Option<String>,
+    pub score_percentage: Option<i32>,
+    pub attempt_id: Option<String>,
+    pub session_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateLessonRequest {
+    pub title: String,
+    pub description: Option<String>,
+    pub position: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateLessonRequest {
+    pub title: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddLessonItemRequest {
+    pub item_type: String,
+    pub item_name: String,
+    pub item_id: Option<String>,
+    pub requirement_type: Option<String>,
+    pub requirement_value: Option<i32>,
+    pub position: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderLessonsRequest {
+    pub lesson_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderLessonItemsRequest {
+    pub item_ids: Vec<String>,
+}
+
+// ============================================
 // Request Types
 // ============================================
 
@@ -320,4 +511,3 @@ pub struct CreateUserRequest {
     pub password: Option<String>,
     pub avatar: Option<String>,
 }
-

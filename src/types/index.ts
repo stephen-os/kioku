@@ -40,6 +40,7 @@ export interface Deck {
   createdAt: string;
   updatedAt: string;
   cardCount?: number;
+  isFavorite?: boolean;
 }
 
 export interface Card {
@@ -269,6 +270,7 @@ export interface Quiz {
   updatedAt: string;
   questions: Question[];
   questionCount?: number;
+  isFavorite?: boolean;
 }
 
 export interface QuestionTag {
@@ -409,3 +411,113 @@ export interface SubmitQuizRequest {
   answers: QuestionAnswer[];
 }
 
+// ============================================
+// Course Types (Lesson-based)
+// ============================================
+
+export type LessonItemType = "deck" | "quiz";
+export type RequirementType = "study" | "review" | "complete" | "min_score";
+
+export interface Course {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lessonCount?: number;
+  completedLessonCount?: number;
+  isFavorite?: boolean;
+  lessons: Lesson[];
+}
+
+export interface Lesson {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  items: LessonItem[];
+  isCompleted?: boolean;
+  completedItemCount?: number;
+}
+
+export interface LessonItem {
+  id: string;
+  lessonId: string;
+  itemType: LessonItemType;
+  itemId: string | null; // NULL if item not yet imported
+  itemName: string;
+  requirementType: RequirementType | null;
+  requirementValue: number | null; // For min_score: the percentage
+  position: number;
+  createdAt: string;
+  isCompleted?: boolean;
+  isMissing?: boolean; // True if itemId is NULL
+  bestScore?: number; // For quizzes: best score in course context
+}
+
+export interface LessonProgress {
+  id: string;
+  userId: string;
+  courseId: string;
+  lessonId: string;
+  lessonItemId: string;
+  completedAt: string | null;
+  scorePercentage: number | null;
+  attemptId: string | null;
+  sessionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCourseRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateCourseRequest {
+  name: string;
+  description?: string;
+}
+
+export interface CreateLessonRequest {
+  title: string;
+  description?: string;
+  position?: number;
+}
+
+export interface UpdateLessonRequest {
+  title: string;
+  description?: string;
+}
+
+export interface AddLessonItemRequest {
+  itemType: string;
+  itemName: string;
+  itemId?: string;
+  requirementType?: string;
+  requirementValue?: number;
+  position?: number;
+}
+
+export interface ReorderLessonsRequest {
+  lessonIds: string[];
+}
+
+export interface ReorderLessonItemsRequest {
+  itemIds: string[];
+}
+
+export interface LinkItemsResult {
+  itemsLinked: number;
+  itemsNotFound: string[];
+}
+
+export interface CourseImportResult {
+  course: Course;
+  itemsLinked: number;
+  itemsNotFound: string[];
+}

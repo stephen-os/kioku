@@ -27,6 +27,11 @@ const QuizEditor = lazy(() => import("./pages/QuizEditor").then(m => ({ default:
 const TakeQuiz = lazy(() => import("./pages/TakeQuiz").then(m => ({ default: m.TakeQuiz })));
 const QuizResults = lazy(() => import("./pages/QuizResults").then(m => ({ default: m.QuizResults })));
 
+// Course pages (lazy-loaded)
+const CourseDashboard = lazy(() => import("./pages/CourseDashboard").then(m => ({ default: m.CourseDashboard })));
+const CourseView = lazy(() => import("./pages/CourseView").then(m => ({ default: m.CourseView })));
+const CourseEditor = lazy(() => import("./pages/CourseEditor").then(m => ({ default: m.CourseEditor })));
+
 // Loading fallback for lazy-loaded pages
 function PageLoader() {
   return (
@@ -119,6 +124,11 @@ function AppRoutes() {
           <Route path="quizzes/:id/edit" element={<QuizEditor />} />
           <Route path="quizzes/:id/take" element={<TakeQuiz />} />
           <Route path="quizzes/:id/results/:attemptId" element={<QuizResults />} />
+          {/* Course routes */}
+          <Route path="courses" element={<CourseDashboard />} />
+          <Route path="courses/new" element={<CourseEditor />} />
+          <Route path="courses/:id" element={<CourseView />} />
+          <Route path="courses/:id/edit" element={<CourseEditor />} />
           <Route path="stats" element={<Stats />} />
           <Route path="export" element={<Export />} />
           <Route path="help" element={<Help />} />

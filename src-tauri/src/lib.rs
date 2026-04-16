@@ -52,6 +52,34 @@ pub fn run() {
             commands::decks::delete_tag,
             commands::decks::add_tag_to_card,
             commands::decks::remove_tag_from_card,
+            // Deck favorite commands
+            commands::decks::toggle_deck_favorite,
+            // Course commands
+            commands::courses::get_all_courses,
+            commands::courses::get_course,
+            commands::courses::get_course_with_lessons,
+            commands::courses::create_course,
+            commands::courses::update_course,
+            commands::courses::delete_course,
+            commands::courses::toggle_course_favorite,
+            // Lesson commands
+            commands::courses::get_lessons,
+            commands::courses::get_lesson,
+            commands::courses::create_lesson,
+            commands::courses::update_lesson,
+            commands::courses::delete_lesson,
+            commands::courses::reorder_lessons,
+            // Lesson item commands
+            commands::courses::get_lesson_items,
+            commands::courses::add_lesson_item,
+            commands::courses::remove_lesson_item,
+            commands::courses::reorder_lesson_items,
+            commands::courses::update_lesson_item_reference,
+            // Lesson progress commands
+            commands::courses::record_lesson_progress,
+            commands::courses::clear_lesson_item_progress,
+            commands::courses::get_lesson_progress,
+            commands::courses::link_course_items,
             // Quiz tag commands
             commands::quizzes::get_tags_for_quiz,
             commands::quizzes::get_tags_for_question,
@@ -79,6 +107,8 @@ pub fn run() {
             commands::quizzes::get_quiz_attempt,
             commands::quizzes::get_quiz_attempts,
             commands::quizzes::get_quiz_stats,
+            // Quiz favorite commands
+            commands::quizzes::toggle_quiz_favorite,
             // Study session commands
             commands::sessions::start_study_session,
             commands::sessions::end_study_session,
@@ -88,6 +118,8 @@ pub fn run() {
             commands::transfer::export_deck_to_json,
             commands::transfer::import_quiz_from_file,
             commands::transfer::export_quiz_to_json,
+            commands::transfer::import_course_from_file,
+            commands::transfer::export_course_to_json,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

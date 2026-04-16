@@ -23,6 +23,20 @@ import type {
   // Local user types
   LocalUser,
   CreateUserRequest,
+  // Course types
+  Course,
+  Lesson,
+  LessonItem,
+  LessonProgress,
+  CreateCourseRequest,
+  UpdateCourseRequest,
+  CreateLessonRequest,
+  UpdateLessonRequest,
+  AddLessonItemRequest,
+  ReorderLessonsRequest,
+  ReorderLessonItemsRequest,
+  LinkItemsResult,
+  CourseImportResult,
 } from "@/types";
 
 // ============================================
@@ -223,6 +237,132 @@ export async function removeTagFromCard(
 }
 
 // ============================================
+// Deck Favorite Operations
+// ============================================
+
+export async function toggleDeckFavorite(deckId: string): Promise<boolean> {
+  return invoke<boolean>("toggle_deck_favorite", { deckId });
+}
+
+// ============================================
+// Course Operations
+// ============================================
+
+export async function getAllCourses(): Promise<Course[]> {
+  return invoke<Course[]>("get_all_courses");
+}
+
+export async function getCourse(id: string): Promise<Course | null> {
+  return invoke<Course | null>("get_course", { id });
+}
+
+export async function getCourseWithLessons(id: string): Promise<Course | null> {
+  return invoke<Course | null>("get_course_with_lessons", { id });
+}
+
+export async function createCourse(request: CreateCourseRequest): Promise<Course> {
+  return invoke<Course>("create_course", { request });
+}
+
+export async function updateCourse(id: string, request: UpdateCourseRequest): Promise<Course> {
+  return invoke<Course>("update_course", { id, request });
+}
+
+export async function deleteCourse(id: string): Promise<void> {
+  return invoke("delete_course", { id });
+}
+
+export async function toggleCourseFavorite(courseId: string): Promise<boolean> {
+  return invoke<boolean>("toggle_course_favorite", { courseId });
+}
+
+// ============================================
+// Lesson Operations
+// ============================================
+
+export async function getLessons(courseId: string): Promise<Lesson[]> {
+  return invoke<Lesson[]>("get_lessons", { courseId });
+}
+
+export async function getLesson(lessonId: string): Promise<Lesson | null> {
+  return invoke<Lesson | null>("get_lesson", { lessonId });
+}
+
+export async function createLesson(courseId: string, request: CreateLessonRequest): Promise<Lesson> {
+  return invoke<Lesson>("create_lesson", { courseId, request });
+}
+
+export async function updateLesson(lessonId: string, request: UpdateLessonRequest): Promise<void> {
+  return invoke("update_lesson", { lessonId, request });
+}
+
+export async function deleteLesson(lessonId: string): Promise<void> {
+  return invoke("delete_lesson", { lessonId });
+}
+
+export async function reorderLessons(courseId: string, request: ReorderLessonsRequest): Promise<void> {
+  return invoke("reorder_lessons", { courseId, request });
+}
+
+// ============================================
+// Lesson Item Operations
+// ============================================
+
+export async function getLessonItems(lessonId: string): Promise<LessonItem[]> {
+  return invoke<LessonItem[]>("get_lesson_items", { lessonId });
+}
+
+export async function addLessonItem(lessonId: string, request: AddLessonItemRequest): Promise<LessonItem> {
+  return invoke<LessonItem>("add_lesson_item", { lessonId, request });
+}
+
+export async function removeLessonItem(lessonItemId: string): Promise<void> {
+  return invoke("remove_lesson_item", { lessonItemId });
+}
+
+export async function reorderLessonItems(lessonId: string, request: ReorderLessonItemsRequest): Promise<void> {
+  return invoke("reorder_lesson_items", { lessonId, request });
+}
+
+export async function updateLessonItemReference(lessonItemId: string, itemId: string): Promise<void> {
+  return invoke("update_lesson_item_reference", { lessonItemId, itemId });
+}
+
+// ============================================
+// Lesson Progress Operations
+// ============================================
+
+export async function recordLessonProgress(
+  courseId: string,
+  lessonId: string,
+  lessonItemId: string,
+  scorePercentage?: number,
+  attemptId?: string,
+  sessionId?: string
+): Promise<LessonProgress> {
+  return invoke<LessonProgress>("record_lesson_progress", {
+    courseId,
+    lessonId,
+    lessonItemId,
+    scorePercentage,
+    attemptId,
+    sessionId,
+  });
+}
+
+export async function clearLessonItemProgress(lessonItemId: string): Promise<void> {
+  return invoke("clear_lesson_item_progress", { lessonItemId });
+}
+
+export async function getLessonProgress(courseId: string): Promise<LessonProgress[]> {
+  return invoke<LessonProgress[]>("get_lesson_progress", { courseId });
+}
+
+export async function linkCourseItems(courseId: string): Promise<LinkItemsResult> {
+  return invoke<LinkItemsResult>("link_course_items", { courseId });
+}
+
+// ============================================
 // Quiz Tag Operations
 // ============================================
 
@@ -317,6 +457,18 @@ export async function importQuiz(filePath: string): Promise<QuizImportResult> {
 
 export async function exportQuiz(quizId: string): Promise<string> {
   return invoke<string>("export_quiz_to_json", { quizId });
+}
+
+// ============================================
+// Course Import / Export
+// ============================================
+
+export async function importCourse(filePath: string): Promise<CourseImportResult> {
+  return invoke<CourseImportResult>("import_course_from_file", { filePath });
+}
+
+export async function exportCourse(courseId: string): Promise<string> {
+  return invoke<string>("export_course_to_json", { courseId });
 }
 
 // ============================================
@@ -415,6 +567,14 @@ export async function getQuizAttempts(quizId: string): Promise<QuizAttempt[]> {
 
 export async function getQuizStats(quizId: string): Promise<QuizStats> {
   return invoke<QuizStats>("get_quiz_stats", { quizId });
+}
+
+// ============================================
+// Quiz Favorite Operations
+// ============================================
+
+export async function toggleQuizFavorite(quizId: string): Promise<boolean> {
+  return invoke<boolean>("toggle_quiz_favorite", { quizId });
 }
 
 // ============================================
