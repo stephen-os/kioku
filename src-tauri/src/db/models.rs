@@ -285,13 +285,6 @@ impl LessonItemType {
             _ => LessonItemType::Deck,
         }
     }
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            LessonItemType::Deck => "deck",
-            LessonItemType::Quiz => "quiz",
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -311,15 +304,6 @@ impl RequirementType {
             "complete" => Some(RequirementType::Complete),
             "min_score" => Some(RequirementType::MinScore),
             _ => None,
-        }
-    }
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            RequirementType::Study => "study",
-            RequirementType::Review => "review",
-            RequirementType::Complete => "complete",
-            RequirementType::MinScore => "min_score",
         }
     }
 }
