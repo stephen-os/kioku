@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { Course } from "@/types";
 import { getAllCourses, deleteCourse, toggleCourseFavorite, importCourse } from "@/lib/db";
 import {
+  DropZone,
   SearchBar,
   SearchToggleButton,
   LoadingSpinner,
@@ -89,31 +90,64 @@ export function CourseDashboard() {
   };
 
   const handleImport = async (): Promise<void> => {
-    const filePath = await open({
-      multiple: false,
+    const filePaths = await open({
+      multiple: true,
       filters: [{ name: "JSON", extensions: ["json"] }],
     });
 
-    if (!filePath) return;
+    if (!filePaths || filePaths.length === 0) return;
 
     setImporting(true);
-    try {
-      const result = await importCourse(filePath as string);
-      if (result.itemsNotFound.length > 0) {
-        toast.success(
-          `Imported "${result.course.name}" with ${result.itemsLinked} items. ` +
-          `${result.itemsNotFound.length} items not found (import those decks/quizzes first).`
-        );
+    const paths = Array.isArray(filePaths) ? filePaths : [filePaths];
+    const results = await Promise.allSettled(
+      paths.map((path) => importCourse(path))
+    );
+
+    results.forEach((result, index) => {
+      const filename = paths[index].split(/[\\/]/).pop() ?? paths[index];
+      if (result.status === "fulfilled") {
+        if (result.value.itemsNotFound.length > 0) {
+          toast.success(
+            `Imported "${result.value.course.name}" with ${result.value.itemsLinked} items. ` +
+            `${result.value.itemsNotFound.length} items not found.`
+          );
+        } else {
+          toast.success(`Imported "${result.value.course.name}" with ${result.value.itemsLinked} items`);
+        }
       } else {
-        toast.success(`Imported "${result.course.name}" with ${result.itemsLinked} items`);
+        toast.error(`Failed to import ${filename}`);
       }
-      loadData();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to import course");
-    } finally {
-      setImporting(false);
-    }
+    });
+
+    setImporting(false);
+    loadData();
   };
+
+  const handleFileDrop = useCallback(async (filePaths: string[]): Promise<void> => {
+    setImporting(true);
+    const results = await Promise.allSettled(
+      filePaths.map((path) => importCourse(path))
+    );
+
+    results.forEach((result, index) => {
+      const filename = filePaths[index].split(/[\\/]/).pop() ?? filePaths[index];
+      if (result.status === "fulfilled") {
+        if (result.value.itemsNotFound.length > 0) {
+          toast.success(
+            `Imported "${result.value.course.name}" with ${result.value.itemsLinked} items. ` +
+            `${result.value.itemsNotFound.length} items not found.`
+          );
+        } else {
+          toast.success(`Imported "${result.value.course.name}" with ${result.value.itemsLinked} items`);
+        }
+      } else {
+        toast.error(`Failed to import ${filename}`);
+      }
+    });
+
+    setImporting(false);
+    loadData();
+  }, [toast, loadData]);
 
   const favoriteCourses = filteredCourses.filter((c) => c.isFavorite);
   const regularCourses = filteredCourses.filter((c) => !c.isFavorite);
@@ -123,8 +157,9 @@ export function CourseDashboard() {
   }
 
   return (
-    <div className="min-h-full bg-[#2d2a2e]">
-      <main className="max-w-7xl mx-auto py-6 px-6">
+    <DropZone onFileDrop={handleFileDrop} disabled={importing} label="Drop course files to import">
+      <div className="min-h-full bg-[#2d2a2e]">
+        <main className="max-w-7xl mx-auto py-6 px-6">
         <div className="fade-in">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
@@ -222,5 +257,6 @@ export function CourseDashboard() {
         </div>
       </main>
     </div>
+    </DropZone>
   );
 }
