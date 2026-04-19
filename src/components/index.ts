@@ -20,3 +20,6 @@ export {
 
 // Card components
 export { DeckCard, QuizCard, CourseCard } from "./cards";
+
+// Settings components
+export { PiperSettings } from "./PiperSettings";

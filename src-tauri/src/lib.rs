@@ -120,6 +120,14 @@ pub fn run() {
             commands::transfer::export_quiz_to_json,
             commands::transfer::import_course_from_file,
             commands::transfer::export_course_to_json,
+            // TTS commands
+            commands::tts::is_piper_installed,
+            commands::tts::get_piper_voices,
+            commands::tts::install_piper,
+            commands::tts::uninstall_piper,
+            commands::tts::download_voice,
+            commands::tts::delete_voice,
+            commands::tts::get_piper_storage_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

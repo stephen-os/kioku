@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { importDeck, importQuiz, deleteUser, updateUser } from "@/lib/db";
 import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
+import { PiperSettings } from "@/components";
 import type { AvatarId } from "@/types";
 
 export function Settings() {
@@ -221,6 +222,12 @@ export function Settings() {
                 </p>
               </div>
             </div>
+          </section>
+
+          {/* Text-to-Speech */}
+          <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
+            <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Text-to-Speech</h2>
+            <PiperSettings />
           </section>
 
           {/* Data Management */}
