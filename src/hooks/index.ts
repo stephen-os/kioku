@@ -4,3 +4,4 @@ export * from "./useKeyboardShortcuts";
 export * from "./useAutoSave";
 export * from "./useUnsavedChanges";
 export * from "./useSidebarState";
+export * from "./useMarkdownOutline";

@@ -10,13 +10,15 @@ import {
   updateNotebook,
   togglePagePin,
 } from "@/lib/db";
-import { LoadingSpinner, SaveStatus } from "@/components";
+import { LoadingSpinner } from "@/components";
 import { useToast } from "@/context/ToastContext";
 import { useSettings } from "@/context/SettingsContext";
-import { useAutoSave, useSidebarState } from "@/hooks";
+import { useAutoSave, useSidebarState, useMarkdownOutline } from "@/hooks";
 import { useUnsavedChanges, UnsavedChangesDialog } from "@/hooks/useUnsavedChanges";
 import { MarkdownEditor } from "@/components/notes/MarkdownEditor";
 import { NotebookSidebar } from "@/components/notes/NotebookSidebar";
+import { EditorFooter } from "@/components/notes/EditorFooter";
+import { OutlinePanel } from "@/components/notes/OutlinePanel";
 
 export function NotebookView() {
   const { notebookId, pageId } = useParams<{ notebookId: string; pageId?: string }>();
@@ -48,6 +50,10 @@ export function NotebookView() {
   const [notebookName, setNotebookName] = useState("");
   const [pageTitle, setPageTitle] = useState("");
   const [pageContent, setPageContent] = useState("");
+
+  // Outline panel state
+  const [outlineVisible, setOutlineVisible] = useState(false);
+  const headings = useMarkdownOutline(pageContent);
 
   // Auto-save data object
   const pageData = useMemo(
@@ -258,65 +264,84 @@ export function NotebookView() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Notebook Header */}
-        <div className="flex-shrink-0 px-6 py-4 border-b border-[#5b595c] bg-[#403e41]">
-          <div className="flex items-center justify-between">
-            {editingTitle ? (
-              <input
-                type="text"
-                value={notebookName}
-                onChange={(e) => setNotebookName(e.target.value)}
-                onBlur={handleSaveNotebookName}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveNotebookName();
-                  if (e.key === "Escape") {
-                    setNotebookName(notebook?.name || "");
-                    setEditingTitle(false);
-                  }
-                }}
-                autoFocus
-                className="text-xl font-bold text-[#fcfcfa] bg-transparent border-b border-[#ffd866] outline-none"
-              />
-            ) : (
-              <h1
-                onClick={() => setEditingTitle(true)}
-                className="text-xl font-bold text-[#fcfcfa] cursor-pointer hover:text-[#ffd866]"
-              >
-                {notebook?.name}
-              </h1>
-            )}
-            <SaveStatus
-              status={saveStatus}
-              lastSavedAt={lastSavedAt}
-              error={saveError}
-              size="sm"
+        <div className="flex-shrink-0 px-6 py-3 border-b border-[#5b595c] bg-[#403e41]">
+          {editingTitle ? (
+            <input
+              type="text"
+              value={notebookName}
+              onChange={(e) => setNotebookName(e.target.value)}
+              onBlur={handleSaveNotebookName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveNotebookName();
+                if (e.key === "Escape") {
+                  setNotebookName(notebook?.name || "");
+                  setEditingTitle(false);
+                }
+              }}
+              autoFocus
+              className="text-xl font-bold text-[#fcfcfa] bg-transparent border-b border-[#ffd866] outline-none"
             />
-          </div>
+          ) : (
+            <h1
+              onClick={() => setEditingTitle(true)}
+              className="text-xl font-bold text-[#fcfcfa] cursor-pointer hover:text-[#ffd866]"
+            >
+              {notebook?.name}
+            </h1>
+          )}
         </div>
 
         {/* Page Editor */}
         {selectedPage ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Page Title */}
-            <div className="px-6 py-3 border-b border-[#5b595c]">
-              <input
-                type="text"
-                value={pageTitle}
-                onChange={(e) => setPageTitle(e.target.value)}
-                onBlur={handleSavePage}
-                placeholder="Page title..."
-                className="w-full text-lg font-medium text-[#fcfcfa] bg-transparent outline-none placeholder-[#939293]"
+          <div className="flex-1 flex overflow-hidden">
+            {/* Editor Area */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Page Title */}
+              <div className="px-6 py-3 border-b border-[#5b595c]">
+                <input
+                  type="text"
+                  value={pageTitle}
+                  onChange={(e) => setPageTitle(e.target.value)}
+                  onBlur={handleSavePage}
+                  placeholder="Page title..."
+                  className="w-full text-lg font-medium text-[#fcfcfa] bg-transparent outline-none placeholder-[#939293]"
+                />
+              </div>
+
+              {/* Page Content - Milkdown Editor */}
+              <div className="flex-1 overflow-hidden">
+                <MarkdownEditor
+                  key={selectedPage.id}
+                  initialContent={pageContent}
+                  onChange={setPageContent}
+                  onSave={handleSavePage}
+                />
+              </div>
+
+              {/* Editor Footer */}
+              <EditorFooter
+                content={pageContent}
+                createdAt={selectedPage.createdAt}
+                updatedAt={selectedPage.updatedAt}
+                saveStatus={saveStatus}
+                lastSavedAt={lastSavedAt}
+                saveError={saveError}
+                showOutlineToggle={true}
+                outlineVisible={outlineVisible}
+                onToggleOutline={() => setOutlineVisible(!outlineVisible)}
               />
             </div>
 
-            {/* Page Content - Milkdown Editor */}
-            <div className="flex-1 overflow-hidden">
-              <MarkdownEditor
-                key={selectedPage.id}
-                initialContent={pageContent}
-                onChange={setPageContent}
-                onSave={handleSavePage}
-              />
-            </div>
+            {/* Outline Panel */}
+            <OutlinePanel
+              headings={headings}
+              onHeadingClick={(heading) => {
+                // For now, just log - scrolling requires editor integration
+                console.log("Navigate to heading:", heading);
+              }}
+              isVisible={outlineVisible}
+              onClose={() => setOutlineVisible(false)}
+            />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
