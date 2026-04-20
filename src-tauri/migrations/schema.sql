@@ -266,6 +266,47 @@ CREATE TABLE IF NOT EXISTS course_favorites (
 );
 
 -- ============================================
+-- Notes: Notebooks & Pages
+-- ============================================
+
+-- Notebooks table (top-level containers for notes)
+CREATE TABLE IF NOT EXISTS notebooks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT NOT NULL DEFAULT 'notebook',
+    color TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, name)
+);
+
+-- Pages table (markdown content within notebooks)
+CREATE TABLE IF NOT EXISTS pages (
+    id TEXT PRIMARY KEY,
+    notebook_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    position INTEGER NOT NULL DEFAULT 0,
+    is_pinned INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (notebook_id) REFERENCES notebooks(id) ON DELETE CASCADE
+);
+
+-- Notebook favorites (user-specific)
+CREATE TABLE IF NOT EXISTS notebook_favorites (
+    user_id TEXT NOT NULL,
+    notebook_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, notebook_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (notebook_id) REFERENCES notebooks(id) ON DELETE CASCADE
+);
+
+-- ============================================
 -- Indexes
 -- ============================================
 
@@ -317,3 +358,10 @@ CREATE INDEX IF NOT EXISTS idx_quiz_favorites_user_id ON quiz_favorites(user_id)
 CREATE INDEX IF NOT EXISTS idx_quiz_favorites_quiz_id ON quiz_favorites(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_course_favorites_user_id ON course_favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_course_favorites_course_id ON course_favorites(course_id);
+
+-- Notebook indexes
+CREATE INDEX IF NOT EXISTS idx_notebooks_user_id ON notebooks(user_id);
+CREATE INDEX IF NOT EXISTS idx_pages_notebook_id ON pages(notebook_id);
+CREATE INDEX IF NOT EXISTS idx_pages_position ON pages(notebook_id, position);
+CREATE INDEX IF NOT EXISTS idx_notebook_favorites_user_id ON notebook_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_notebook_favorites_notebook_id ON notebook_favorites(notebook_id);

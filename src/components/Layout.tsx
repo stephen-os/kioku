@@ -49,6 +49,12 @@ export function Layout() {
               >
                 Courses
               </Link>
+              <Link
+                to="/notes"
+                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
+              >
+                Notes
+              </Link>
 
               {/* User Menu */}
               <div className="relative">

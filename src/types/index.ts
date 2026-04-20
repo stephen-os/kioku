@@ -524,3 +524,63 @@ export interface CourseImportResult {
   quizzesImported: number;
   itemsLinked: number;
 }
+
+// ============================================
+// Notebook Types (Notes Feature)
+// ============================================
+
+export interface Notebook {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pageCount?: number;
+  isFavorite?: boolean;
+}
+
+export interface Page {
+  id: string;
+  notebookId: string;
+  title: string;
+  content: string;
+  position: number;
+  isPinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateNotebookRequest {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface UpdateNotebookRequest {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface CreatePageRequest {
+  title: string;
+  content?: string;
+  position?: number;
+}
+
+export interface UpdatePageRequest {
+  title: string;
+  content: string;
+  isPinned?: boolean;
+}
+
+export interface ReorderPagesRequest {
+  pageIds: string[];
+}
+
+export type NotesViewMode = 'card' | 'list';

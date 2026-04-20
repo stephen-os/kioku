@@ -1,0 +1,248 @@
+/* Kioku theme overrides for Milkdown */
+/* Based on the app's Monokai Pro-inspired dark theme */
+
+.milkdown-editor-wrapper {
+  height: 100%;
+  background: #2d2a2e;
+}
+
+.milkdown-editor {
+  height: 100%;
+}
+
+/* Override Nord theme colors with Kioku colors */
+.milkdown .editor {
+  background: #2d2a2e;
+  color: #fcfcfa;
+  padding: 1.5rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  min-height: 100%;
+}
+
+.milkdown .editor:focus {
+  outline: none;
+}
+
+/* Headings */
+.milkdown h1 {
+  color: #ffd866;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #5b595c;
+  padding-bottom: 0.5rem;
+}
+
+.milkdown h2 {
+  color: #ffd866;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.milkdown h3 {
+  color: #ffd866;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.milkdown h4,
+.milkdown h5,
+.milkdown h6 {
+  color: #ffd866;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Paragraphs */
+.milkdown p {
+  margin-bottom: 1rem;
+  color: #fcfcfa;
+}
+
+/* Links */
+.milkdown a {
+  color: #78dce8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.milkdown a:hover {
+  color: #a9dc76;
+}
+
+/* Inline code */
+.milkdown code:not(pre code) {
+  background: #403e41;
+  color: #ff6188;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+}
+
+/* Code blocks */
+.milkdown pre {
+  background: #403e41;
+  border: 1px solid #5b595c;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.milkdown pre code {
+  background: transparent;
+  color: #fcfcfa;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Blockquotes */
+.milkdown blockquote {
+  border-left: 4px solid #ab9df2;
+  background: #403e41;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.milkdown blockquote p {
+  margin-bottom: 0;
+  color: #939293;
+}
+
+/* Lists */
+.milkdown ul,
+.milkdown ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.milkdown li {
+  margin-bottom: 0.25rem;
+}
+
+.milkdown ul > li {
+  list-style-type: disc;
+}
+
+.milkdown ol > li {
+  list-style-type: decimal;
+}
+
+.milkdown li::marker {
+  color: #939293;
+}
+
+/* Checkboxes (task lists) */
+.milkdown input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  accent-color: #a9dc76;
+  cursor: pointer;
+}
+
+/* Horizontal rule */
+.milkdown hr {
+  border: none;
+  border-top: 1px solid #5b595c;
+  margin: 2rem 0;
+}
+
+/* Tables */
+.milkdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.milkdown th,
+.milkdown td {
+  border: 1px solid #5b595c;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.milkdown th {
+  background: #403e41;
+  color: #ffd866;
+  font-weight: 600;
+}
+
+.milkdown tr:nth-child(even) td {
+  background: rgba(64, 62, 65, 0.5);
+}
+
+/* Images */
+.milkdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* Strong/Bold */
+.milkdown strong {
+  color: #fcfcfa;
+  font-weight: 600;
+}
+
+/* Emphasis/Italic */
+.milkdown em {
+  color: #ab9df2;
+  font-style: italic;
+}
+
+/* Strikethrough */
+.milkdown del {
+  color: #939293;
+  text-decoration: line-through;
+}
+
+/* Selection */
+.milkdown ::selection {
+  background: #ffd866;
+  color: #2d2a2e;
+}
+
+/* Placeholder text */
+.milkdown .ProseMirror-placeholder {
+  color: #939293;
+}
+
+/* Cursor */
+.milkdown .ProseMirror-cursor {
+  border-left: 2px solid #ffd866;
+}
+
+/* Focus styles */
+.milkdown .ProseMirror-focused {
+  outline: none;
+}
+
+/* Tooltip styles */
+.milkdown-tooltip {
+  background: #403e41;
+  border: 1px solid #5b595c;
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+/* Slash menu styles */
+.milkdown-slash-menu {
+  background: #403e41;
+  border: 1px solid #5b595c;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}

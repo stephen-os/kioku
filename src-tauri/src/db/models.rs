@@ -495,3 +495,77 @@ pub struct CreateUserRequest {
     pub password: Option<String>,
     pub avatar: Option<String>,
 }
+
+// ============================================
+// Notebook Models
+// ============================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Notebook {
+    pub id: String,
+    pub user_id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub icon: String,
+    pub color: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_favorite: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Page {
+    pub id: String,
+    pub notebook_id: String,
+    pub title: String,
+    pub content: String,
+    pub position: i32,
+    pub is_pinned: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateNotebookRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub icon: Option<String>,
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateNotebookRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub icon: Option<String>,
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePageRequest {
+    pub title: String,
+    pub content: Option<String>,
+    pub position: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePageRequest {
+    pub title: String,
+    pub content: String,
+    pub is_pinned: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderPagesRequest {
+    pub page_ids: Vec<String>,
+}

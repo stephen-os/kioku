@@ -3,6 +3,7 @@
 pub mod courses;
 pub mod decks;
 pub mod models;
+pub mod notebooks;
 pub mod quizzes;
 pub mod state;
 pub mod stats;
@@ -53,4 +54,11 @@ pub use quizzes::{
 pub use stats::{
     end_study_session, get_deck_study_stats, get_quiz_attempt, get_quiz_attempts, get_quiz_stats,
     start_quiz_attempt, start_study_session, submit_quiz_attempt,
+};
+
+// Notebook operations
+pub use notebooks::{
+    create_notebook, create_page, delete_notebook, delete_page, get_all_notebooks, get_notebook,
+    get_page, get_pages_for_notebook, reorder_pages, toggle_notebook_favorite, toggle_page_pin,
+    update_notebook, update_page,
 };

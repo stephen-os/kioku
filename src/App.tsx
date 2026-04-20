@@ -32,6 +32,10 @@ const CourseDashboard = lazy(() => import("./pages/CourseDashboard").then(m => (
 const CourseView = lazy(() => import("./pages/CourseView").then(m => ({ default: m.CourseView })));
 const CourseEditor = lazy(() => import("./pages/CourseEditor").then(m => ({ default: m.CourseEditor })));
 
+// Notes pages (lazy-loaded)
+const NotesDashboard = lazy(() => import("./pages/NotesDashboard").then(m => ({ default: m.NotesDashboard })));
+const NotebookView = lazy(() => import("./pages/NotebookView").then(m => ({ default: m.NotebookView })));
+
 // Loading fallback for lazy-loaded pages
 function PageLoader() {
   return (
@@ -129,6 +133,10 @@ function AppRoutes() {
           <Route path="courses/new" element={<CourseEditor />} />
           <Route path="courses/:id" element={<CourseView />} />
           <Route path="courses/:id/edit" element={<CourseEditor />} />
+          {/* Notes routes */}
+          <Route path="notes" element={<NotesDashboard />} />
+          <Route path="notes/:notebookId" element={<NotebookView />} />
+          <Route path="notes/:notebookId/pages/:pageId" element={<NotebookView />} />
           <Route path="stats" element={<Stats />} />
           <Route path="export" element={<Export />} />
           <Route path="help" element={<Help />} />

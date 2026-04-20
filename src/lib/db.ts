@@ -37,6 +37,14 @@ import type {
   ReorderLessonItemsRequest,
   LinkItemsResult,
   CourseImportResult,
+  // Notebook types
+  Notebook,
+  Page,
+  CreateNotebookRequest,
+  UpdateNotebookRequest,
+  CreatePageRequest,
+  UpdatePageRequest,
+  ReorderPagesRequest,
 } from "@/types";
 
 // ============================================
@@ -594,4 +602,64 @@ export async function endStudySession(
 
 export async function getDeckStudyStats(deckId: string): Promise<DeckStudyStats> {
   return invoke<DeckStudyStats>("get_deck_study_stats", { deckId });
+}
+
+// ============================================
+// Notebook Operations
+// ============================================
+
+export async function getAllNotebooks(): Promise<Notebook[]> {
+  return invoke<Notebook[]>("get_all_notebooks");
+}
+
+export async function getNotebook(id: string): Promise<Notebook | null> {
+  return invoke<Notebook | null>("get_notebook", { id });
+}
+
+export async function createNotebook(request: CreateNotebookRequest): Promise<Notebook> {
+  return invoke<Notebook>("create_notebook", { request });
+}
+
+export async function updateNotebook(id: string, request: UpdateNotebookRequest): Promise<Notebook> {
+  return invoke<Notebook>("update_notebook", { id, request });
+}
+
+export async function deleteNotebook(id: string): Promise<void> {
+  return invoke("delete_notebook", { id });
+}
+
+export async function toggleNotebookFavorite(notebookId: string): Promise<boolean> {
+  return invoke<boolean>("toggle_notebook_favorite", { notebookId });
+}
+
+// ============================================
+// Page Operations
+// ============================================
+
+export async function getPagesForNotebook(notebookId: string): Promise<Page[]> {
+  return invoke<Page[]>("get_pages_for_notebook", { notebookId });
+}
+
+export async function getPage(id: string): Promise<Page | null> {
+  return invoke<Page | null>("get_page", { id });
+}
+
+export async function createPage(notebookId: string, request: CreatePageRequest): Promise<Page> {
+  return invoke<Page>("create_page", { notebookId, request });
+}
+
+export async function updatePage(id: string, request: UpdatePageRequest): Promise<Page> {
+  return invoke<Page>("update_page", { id, request });
+}
+
+export async function deletePage(id: string): Promise<void> {
+  return invoke("delete_page", { id });
+}
+
+export async function reorderPages(notebookId: string, request: ReorderPagesRequest): Promise<void> {
+  return invoke("reorder_pages", { notebookId, request });
+}
+
+export async function togglePagePin(id: string): Promise<boolean> {
+  return invoke<boolean>("toggle_page_pin", { id });
 }

@@ -128,6 +128,21 @@ pub fn run() {
             commands::tts::download_voice,
             commands::tts::delete_voice,
             commands::tts::get_piper_storage_size,
+            // Notebook commands
+            commands::notebooks::get_all_notebooks,
+            commands::notebooks::get_notebook,
+            commands::notebooks::create_notebook,
+            commands::notebooks::update_notebook,
+            commands::notebooks::delete_notebook,
+            commands::notebooks::toggle_notebook_favorite,
+            // Page commands
+            commands::notebooks::get_pages_for_notebook,
+            commands::notebooks::get_page,
+            commands::notebooks::create_page,
+            commands::notebooks::update_page,
+            commands::notebooks::delete_page,
+            commands::notebooks::reorder_pages,
+            commands::notebooks::toggle_page_pin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
