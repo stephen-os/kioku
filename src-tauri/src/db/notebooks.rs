@@ -526,3 +526,86 @@ pub fn move_page(
     get_page(conn, page_id)?
         .ok_or_else(|| "Failed to retrieve moved page".to_string())
 }
+
+// ============================================
+// Backlinks Operations
+// ============================================
+
+/// Get all pages that link to a given page using [[Page Title]] syntax
+/// Searches for [[exact_title]] pattern in page content
+pub fn get_backlinks(
+    conn: &Connection,
+    page_id: &str,
+    user_id: &str,
+) -> Result<Vec<PageSearchResult>, String> {
+    // First get the target page's title
+    let page = get_page(conn, page_id)?
+        .ok_or_else(|| format!("Page not found: {}", page_id))?;
+
+    // Search for [[Page Title]] or [[Page Title|...]] in content
+    // We need to match both [[Title]] and [[Title|Display Text]]
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.notebook_id, p.title, n.name as notebook_name, p.updated_at
+             FROM pages p
+             INNER JOIN notebooks n ON p.notebook_id = n.id
+             WHERE n.user_id = ?1
+               AND p.id != ?2
+               AND (p.content LIKE ?3 OR p.content LIKE ?4)
+             ORDER BY p.updated_at DESC",
+        )
+        .map_err(|e| format!("Failed to prepare backlinks query: {}", e))?;
+
+    // Pattern for [[Title]] anywhere in content
+    let pattern1 = format!("%[[{}]]%", page.title);
+    // Pattern for [[Title|...]] (with display text)
+    let pattern2 = format!("%[[{}|%", page.title);
+
+    let results = stmt
+        .query_map(params![user_id, page_id, pattern1, pattern2], |row| {
+            Ok(PageSearchResult {
+                id: row.get(0)?,
+                notebook_id: row.get(1)?,
+                title: row.get(2)?,
+                notebook_name: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })
+        .map_err(|e| format!("Failed to get backlinks: {}", e))?;
+
+    results
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect backlinks: {}", e))
+}
+
+/// Get all pages for autocomplete (lightweight query)
+pub fn get_all_page_titles(
+    conn: &Connection,
+    user_id: &str,
+) -> Result<Vec<PageSearchResult>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.notebook_id, p.title, n.name as notebook_name, p.updated_at
+             FROM pages p
+             INNER JOIN notebooks n ON p.notebook_id = n.id
+             WHERE n.user_id = ?1
+             ORDER BY p.title ASC",
+        )
+        .map_err(|e| format!("Failed to prepare page titles query: {}", e))?;
+
+    let results = stmt
+        .query_map(params![user_id], |row| {
+            Ok(PageSearchResult {
+                id: row.get(0)?,
+                notebook_id: row.get(1)?,
+                title: row.get(2)?,
+                notebook_name: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })
+        .map_err(|e| format!("Failed to get page titles: {}", e))?;
+
+    results
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect page titles: {}", e))
+}

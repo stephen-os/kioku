@@ -696,3 +696,15 @@ export async function movePage(
 ): Promise<Page> {
   return invoke<Page>("move_page", { pageId, targetNotebookId });
 }
+
+// ============================================
+// Backlinks Operations
+// ============================================
+
+export async function getBacklinks(pageId: string): Promise<PageSearchResult[]> {
+  return invoke<PageSearchResult[]>("get_backlinks", { pageId });
+}
+
+export async function getAllPageTitles(): Promise<PageSearchResult[]> {
+  return invoke<PageSearchResult[]>("get_all_page_titles");
+}

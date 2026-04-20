@@ -149,6 +149,9 @@ pub fn run() {
             // Page organization commands
             commands::notebooks::duplicate_page,
             commands::notebooks::move_page,
+            // Backlinks commands
+            commands::notebooks::get_backlinks,
+            commands::notebooks::get_all_page_titles,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

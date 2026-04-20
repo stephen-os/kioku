@@ -11,6 +11,7 @@ import {
   togglePagePin,
   duplicatePage,
   movePage,
+  searchPages,
 } from "@/lib/db";
 import { LoadingSpinner } from "@/components";
 import { useToast } from "@/context/ToastContext";
@@ -22,6 +23,7 @@ import { NotebookSidebar } from "@/components/notes/NotebookSidebar";
 import { EditorFooter } from "@/components/notes/EditorFooter";
 import { OutlinePanel } from "@/components/notes/OutlinePanel";
 import { MovePageModal } from "@/components/notes/MovePageModal";
+import { BacklinksPanel } from "@/components/notes/BacklinksPanel";
 
 export function NotebookView() {
   const { notebookId, pageId } = useParams<{ notebookId: string; pageId?: string }>();
@@ -57,6 +59,9 @@ export function NotebookView() {
   // Outline panel state
   const [outlineVisible, setOutlineVisible] = useState(false);
   const headings = useMarkdownOutline(pageContent);
+
+  // Backlinks panel state
+  const [backlinksVisible, setBacklinksVisible] = useState(false);
 
   // Move page modal state
   const [moveModalPage, setMoveModalPage] = useState<Page | null>(null);
@@ -284,6 +289,32 @@ export function NotebookView() {
     }
   };
 
+  // Handle wiki link click - navigate to linked page
+  const handleWikiLinkClick = useCallback(async (title: string) => {
+    try {
+      // Search for pages with exact title match
+      const results = await searchPages(title, 10);
+      const exactMatch = results.find(
+        (p) => p.title.toLowerCase() === title.toLowerCase()
+      );
+
+      if (exactMatch) {
+        // Navigate to the found page
+        navigate(`/notes/${exactMatch.notebookId}/pages/${exactMatch.id}`);
+      } else {
+        toast.error(`Page "${title}" not found`);
+      }
+    } catch (error) {
+      console.error("Failed to navigate to linked page:", error);
+      toast.error("Failed to navigate to linked page");
+    }
+  }, [navigate, toast]);
+
+  // Handle backlink navigation
+  const handleBacklinkNavigate = useCallback((targetNotebookId: string, targetPageId: string) => {
+    navigate(`/notes/${targetNotebookId}/pages/${targetPageId}`);
+  }, [navigate]);
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -362,6 +393,7 @@ export function NotebookView() {
                   initialContent={pageContent}
                   onChange={setPageContent}
                   onSave={handleSavePage}
+                  onLinkClick={handleWikiLinkClick}
                 />
               </div>
 
@@ -376,6 +408,9 @@ export function NotebookView() {
                 showOutlineToggle={true}
                 outlineVisible={outlineVisible}
                 onToggleOutline={() => setOutlineVisible(!outlineVisible)}
+                showBacklinksToggle={true}
+                backlinksVisible={backlinksVisible}
+                onToggleBacklinks={() => setBacklinksVisible(!backlinksVisible)}
               />
             </div>
 
@@ -388,6 +423,14 @@ export function NotebookView() {
               }}
               isVisible={outlineVisible}
               onClose={() => setOutlineVisible(false)}
+            />
+
+            {/* Backlinks Panel */}
+            <BacklinksPanel
+              pageId={selectedPage.id}
+              isVisible={backlinksVisible}
+              onClose={() => setBacklinksVisible(false)}
+              onNavigate={handleBacklinkNavigate}
             />
           </div>
         ) : (

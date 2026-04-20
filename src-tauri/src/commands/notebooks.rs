@@ -159,3 +159,26 @@ pub fn move_page(
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
     db::move_page(&conn, &page_id, &target_notebook_id)
 }
+
+// ============================================
+// Backlinks Commands
+// ============================================
+
+#[tauri::command]
+pub fn get_backlinks(
+    state: State<DbState>,
+    page_id: String,
+) -> Result<Vec<PageSearchResult>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::get_backlinks(&conn, &page_id, &active_user.id)
+}
+
+#[tauri::command]
+pub fn get_all_page_titles(state: State<DbState>) -> Result<Vec<PageSearchResult>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::get_all_page_titles(&conn, &active_user.id)
+}

@@ -21,6 +21,12 @@ interface EditorFooterProps {
   outlineVisible?: boolean;
   /** Callback to toggle outline panel */
   onToggleOutline?: () => void;
+  /** Whether to show backlinks toggle */
+  showBacklinksToggle?: boolean;
+  /** Current backlinks panel state */
+  backlinksVisible?: boolean;
+  /** Callback to toggle backlinks panel */
+  onToggleBacklinks?: () => void;
 }
 
 export function EditorFooter({
@@ -33,6 +39,9 @@ export function EditorFooter({
   showOutlineToggle = false,
   outlineVisible = false,
   onToggleOutline,
+  showBacklinksToggle = false,
+  backlinksVisible = false,
+  onToggleBacklinks,
 }: EditorFooterProps) {
   const { words, characters } = useWordCount(content);
 
@@ -85,6 +94,34 @@ export function EditorFooter({
                 />
               </svg>
               <span>Outline</span>
+            </button>
+          </>
+        )}
+
+        {showBacklinksToggle && onToggleBacklinks && (
+          <>
+            <span className="text-[#5b595c]">|</span>
+            <button
+              onClick={onToggleBacklinks}
+              className={`flex items-center gap-1.5 hover:text-[#fcfcfa] transition-colors ${
+                backlinksVisible ? "text-[#ab9df2]" : ""
+              }`}
+              title={backlinksVisible ? "Hide backlinks" : "Show backlinks"}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+              <span>Backlinks</span>
             </button>
           </>
         )}
