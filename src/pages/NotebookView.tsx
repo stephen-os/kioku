@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import type { Notebook, Page, CreatePageRequest, UpdatePageRequest } from "@/types";
 import {
   getNotebook,
@@ -13,9 +13,10 @@ import {
 import { LoadingSpinner, SaveStatus } from "@/components";
 import { useToast } from "@/context/ToastContext";
 import { useSettings } from "@/context/SettingsContext";
-import { useAutoSave } from "@/hooks/useAutoSave";
+import { useAutoSave, useSidebarState } from "@/hooks";
 import { useUnsavedChanges, UnsavedChangesDialog } from "@/hooks/useUnsavedChanges";
 import { MarkdownEditor } from "@/components/notes/MarkdownEditor";
+import { NotebookSidebar } from "@/components/notes/NotebookSidebar";
 
 export function NotebookView() {
   const { notebookId, pageId } = useParams<{ notebookId: string; pageId?: string }>();
@@ -27,7 +28,20 @@ export function NotebookView() {
   const [pages, setPages] = useState<Page[]>([]);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Sidebar state with persistence
+  const {
+    isCollapsed: sidebarCollapsed,
+    width: sidebarWidth,
+    setCollapsed: setSidebarCollapsed,
+    setWidth: setSidebarWidth,
+  } = useSidebarState({
+    storageKey: "notebook-sidebar",
+    defaultCollapsed: settings.sidebar.defaultCollapsed,
+    defaultWidth: settings.sidebar.width,
+    minWidth: 200,
+    maxWidth: 400,
+  });
 
   // Editing state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -219,16 +233,6 @@ export function NotebookView() {
     }
   };
 
-  // Sort pages: pinned first, then by position
-  const sortedPages = [...pages].sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    return a.position - b.position;
-  });
-
-  const pinnedPages = sortedPages.filter((p) => p.isPinned);
-  const regularPages = sortedPages.filter((p) => !p.isPinned);
-
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -236,111 +240,20 @@ export function NotebookView() {
   return (
     <div className="h-full flex bg-[#2d2a2e]">
       {/* Sidebar */}
-      <div
-        className={`flex-shrink-0 border-r border-[#5b595c] bg-[#403e41] transition-all duration-200 ${
-          sidebarCollapsed ? "w-12" : "w-64"
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          {/* Sidebar Header */}
-          <div className="p-3 border-b border-[#5b595c]">
-            {sidebarCollapsed ? (
-              <button
-                onClick={() => setSidebarCollapsed(false)}
-                className="w-full p-1 text-[#939293] hover:text-[#fcfcfa]"
-                title="Expand sidebar"
-              >
-                <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-              </button>
-            ) : (
-              <div className="flex items-center justify-between">
-                <Link
-                  to="/notes"
-                  className="text-[#939293] hover:text-[#fcfcfa] p-1"
-                  title="Back to notebooks"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </Link>
-                <button
-                  onClick={handleCreatePage}
-                  className="px-2 py-1 text-xs bg-[#ffd866] text-[#2d2a2e] rounded hover:bg-[#ffd866]/90"
-                >
-                  + Page
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Pages List */}
-          {!sidebarCollapsed && (
-            <div className="flex-1 overflow-y-auto p-2">
-              {pinnedPages.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-xs text-[#939293] px-2 mb-1 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" />
-                    </svg>
-                    Pinned
-                  </div>
-                  {pinnedPages.map((page) => (
-                    <PageListItem
-                      key={page.id}
-                      page={page}
-                      isSelected={selectedPage?.id === page.id}
-                      onSelect={() => handleSelectPage(page)}
-                      onDelete={() => handleDeletePage(page.id)}
-                      onTogglePin={() => handleTogglePin(page)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {regularPages.length > 0 && (
-                <div>
-                  {pinnedPages.length > 0 && (
-                    <div className="text-xs text-[#939293] px-2 mb-1">Pages</div>
-                  )}
-                  {regularPages.map((page) => (
-                    <PageListItem
-                      key={page.id}
-                      page={page}
-                      isSelected={selectedPage?.id === page.id}
-                      onSelect={() => handleSelectPage(page)}
-                      onDelete={() => handleDeletePage(page.id)}
-                      onTogglePin={() => handleTogglePin(page)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {pages.length === 0 && (
-                <div className="text-center text-[#939293] text-sm py-4">
-                  No pages yet
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Sidebar Footer - Collapse Toggle */}
-          {!sidebarCollapsed && (
-            <div className="p-2 border-t border-[#5b595c]">
-              <button
-                onClick={() => setSidebarCollapsed(true)}
-                className="w-full flex items-center justify-center gap-2 p-2 text-xs text-[#939293] hover:text-[#fcfcfa] hover:bg-[#5b595c]/30 rounded"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-                Collapse
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <NotebookSidebar
+        pages={pages}
+        selectedPageId={selectedPage?.id ?? null}
+        width={sidebarWidth}
+        isCollapsed={sidebarCollapsed}
+        onSelectPage={handleSelectPage}
+        onDeletePage={handleDeletePage}
+        onTogglePin={handleTogglePin}
+        onCreatePage={handleCreatePage}
+        onCollapseChange={setSidebarCollapsed}
+        onWidthChange={setSidebarWidth}
+        minWidth={200}
+        maxWidth={400}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -439,91 +352,6 @@ export function NotebookView() {
         onConfirm={proceed ?? (() => {})}
         onCancel={cancel ?? (() => {})}
       />
-    </div>
-  );
-}
-
-// Page list item component
-function PageListItem({
-  page,
-  isSelected,
-  onSelect,
-  onDelete,
-  onTogglePin,
-}: {
-  page: Page;
-  isSelected: boolean;
-  onSelect: () => void;
-  onDelete: () => void;
-  onTogglePin: () => void;
-}) {
-  const [showMenu, setShowMenu] = useState(false);
-
-  return (
-    <div
-      className={`group relative flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
-        isSelected
-          ? "bg-[#ffd866]/20 text-[#ffd866]"
-          : "text-[#fcfcfa] hover:bg-[#5b595c]/30"
-      }`}
-      onClick={onSelect}
-    >
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-      <span className="flex-1 text-sm truncate">{page.title}</span>
-
-      {/* Context menu button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowMenu(!showMenu);
-        }}
-        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#5b595c]/50 rounded"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-          />
-        </svg>
-      </button>
-
-      {/* Context menu */}
-      {showMenu && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-0 top-full mt-1 w-32 bg-[#403e41] border border-[#5b595c] rounded shadow-lg z-20 py-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePin();
-                setShowMenu(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-sm text-[#fcfcfa] hover:bg-[#5b595c]/30"
-            >
-              {page.isPinned ? "Unpin" : "Pin"}
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-                setShowMenu(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-sm text-[#ff6188] hover:bg-[#5b595c]/30"
-            >
-              Delete
-            </button>
-          </div>
-        </>
-      )}
     </div>
   );
 }
