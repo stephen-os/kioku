@@ -20,6 +20,10 @@ interface NotebookSidebarProps {
   onDeletePage: (pageId: string) => void;
   /** Called when a page's pin state should toggle */
   onTogglePin: (page: Page) => void;
+  /** Called when a page should be duplicated */
+  onDuplicatePage: (page: Page) => void;
+  /** Called when a page should be moved */
+  onMovePage: (page: Page) => void;
   /** Called when the new page button is clicked */
   onCreatePage: () => void;
   /** Called when collapse state changes */
@@ -40,6 +44,8 @@ export function NotebookSidebar({
   onSelectPage,
   onDeletePage,
   onTogglePin,
+  onDuplicatePage,
+  onMovePage,
   onCreatePage,
   onCollapseChange,
   onWidthChange,
@@ -146,6 +152,8 @@ export function NotebookSidebar({
                   onSelect={() => onSelectPage(page)}
                   onDelete={() => onDeletePage(page.id)}
                   onTogglePin={() => onTogglePin(page)}
+                  onDuplicate={() => onDuplicatePage(page)}
+                  onMove={() => onMovePage(page)}
                 />
               ))}
             </div>
@@ -164,6 +172,8 @@ export function NotebookSidebar({
                   onSelect={() => onSelectPage(page)}
                   onDelete={() => onDeletePage(page.id)}
                   onTogglePin={() => onTogglePin(page)}
+                  onDuplicate={() => onDuplicatePage(page)}
+                  onMove={() => onMovePage(page)}
                 />
               ))}
             </div>

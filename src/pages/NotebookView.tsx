@@ -9,6 +9,8 @@ import {
   deletePage,
   updateNotebook,
   togglePagePin,
+  duplicatePage,
+  movePage,
 } from "@/lib/db";
 import { LoadingSpinner } from "@/components";
 import { useToast } from "@/context/ToastContext";
@@ -19,6 +21,7 @@ import { MarkdownEditor } from "@/components/notes/MarkdownEditor";
 import { NotebookSidebar } from "@/components/notes/NotebookSidebar";
 import { EditorFooter } from "@/components/notes/EditorFooter";
 import { OutlinePanel } from "@/components/notes/OutlinePanel";
+import { MovePageModal } from "@/components/notes/MovePageModal";
 
 export function NotebookView() {
   const { notebookId, pageId } = useParams<{ notebookId: string; pageId?: string }>();
@@ -54,6 +57,9 @@ export function NotebookView() {
   // Outline panel state
   const [outlineVisible, setOutlineVisible] = useState(false);
   const headings = useMarkdownOutline(pageContent);
+
+  // Move page modal state
+  const [moveModalPage, setMoveModalPage] = useState<Page | null>(null);
 
   // Auto-save data object
   const pageData = useMemo(
@@ -219,6 +225,45 @@ export function NotebookView() {
     }
   };
 
+  const handleDuplicatePage = async (page: Page) => {
+    try {
+      const newPage = await duplicatePage(page.id);
+      setPages((prev) => [...prev, newPage]);
+      handleSelectPage(newPage);
+      toast.success("Page duplicated");
+    } catch (error) {
+      toast.error("Failed to duplicate page");
+    }
+  };
+
+  const handleMovePage = async (targetNotebookId: string) => {
+    if (!moveModalPage) return;
+
+    try {
+      await movePage(moveModalPage.id, targetNotebookId);
+      // Remove from current pages list
+      const newPages = pages.filter((p) => p.id !== moveModalPage.id);
+      setPages(newPages);
+
+      // If the moved page was selected, select another
+      if (selectedPage?.id === moveModalPage.id) {
+        if (newPages.length > 0) {
+          handleSelectPage(newPages[0]);
+        } else {
+          setSelectedPage(null);
+          setPageTitle("");
+          setPageContent("");
+          navigate(`/notes/${notebookId}`);
+        }
+      }
+
+      toast.success("Page moved");
+      setMoveModalPage(null);
+    } catch (error) {
+      toast.error("Failed to move page");
+    }
+  };
+
   const handleSaveNotebookName = async () => {
     if (!notebook || notebookName === notebook.name) {
       setEditingTitle(false);
@@ -254,6 +299,8 @@ export function NotebookView() {
         onSelectPage={handleSelectPage}
         onDeletePage={handleDeletePage}
         onTogglePin={handleTogglePin}
+        onDuplicatePage={handleDuplicatePage}
+        onMovePage={(page) => setMoveModalPage(page)}
         onCreatePage={handleCreatePage}
         onCollapseChange={setSidebarCollapsed}
         onWidthChange={setSidebarWidth}
@@ -377,6 +424,17 @@ export function NotebookView() {
         onConfirm={proceed ?? (() => {})}
         onCancel={cancel ?? (() => {})}
       />
+
+      {/* Move page modal */}
+      {moveModalPage && notebookId && (
+        <MovePageModal
+          page={moveModalPage}
+          currentNotebookId={notebookId}
+          isOpen={moveModalPage !== null}
+          onClose={() => setMoveModalPage(null)}
+          onMove={handleMovePage}
+        />
+      )}
     </div>
   );
 }

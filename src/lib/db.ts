@@ -681,3 +681,18 @@ export async function getRecentPages(
 ): Promise<PageSearchResult[]> {
   return invoke<PageSearchResult[]>("get_recent_pages", { limit });
 }
+
+// ============================================
+// Page Organization Operations
+// ============================================
+
+export async function duplicatePage(pageId: string): Promise<Page> {
+  return invoke<Page>("duplicate_page", { pageId });
+}
+
+export async function movePage(
+  pageId: string,
+  targetNotebookId: string
+): Promise<Page> {
+  return invoke<Page>("move_page", { pageId, targetNotebookId });
+}

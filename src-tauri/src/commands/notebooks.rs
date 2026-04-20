@@ -139,3 +139,23 @@ pub fn get_recent_pages(
         .ok_or_else(|| "No active user".to_string())?;
     db::get_recent_pages(&conn, &active_user.id, limit)
 }
+
+// ============================================
+// Page Organization Commands
+// ============================================
+
+#[tauri::command]
+pub fn duplicate_page(state: State<DbState>, page_id: String) -> Result<Page, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::duplicate_page(&conn, &page_id)
+}
+
+#[tauri::command]
+pub fn move_page(
+    state: State<DbState>,
+    page_id: String,
+    target_notebook_id: String,
+) -> Result<Page, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    db::move_page(&conn, &page_id, &target_notebook_id)
+}

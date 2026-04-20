@@ -435,3 +435,94 @@ pub fn get_recent_pages(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to collect recent pages: {}", e))
 }
+
+// ============================================
+// Page Organization Operations
+// ============================================
+
+/// Duplicate a page within the same notebook
+pub fn duplicate_page(conn: &Connection, page_id: &str) -> Result<Page, String> {
+    // Get the original page
+    let original = get_page(conn, page_id)?
+        .ok_or_else(|| format!("Page not found: {}", page_id))?;
+
+    let id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Get the next position in the notebook
+    let max_pos: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM pages WHERE notebook_id = ?1",
+            params![original.notebook_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+    let position = max_pos + 1;
+
+    // Create the duplicate with " (copy)" suffix
+    let title = format!("{} (copy)", original.title);
+
+    conn.execute(
+        "INSERT INTO pages (id, notebook_id, title, content, position, is_pinned, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7)",
+        params![id, original.notebook_id, title, original.content, position, now, now],
+    )
+    .map_err(|e| format!("Failed to duplicate page: {}", e))?;
+
+    // Update notebook's updated_at
+    conn.execute(
+        "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
+        params![now, original.notebook_id],
+    )
+    .ok();
+
+    get_page(conn, &id)?
+        .ok_or_else(|| "Failed to retrieve duplicated page".to_string())
+}
+
+/// Move a page to a different notebook
+pub fn move_page(
+    conn: &Connection,
+    page_id: &str,
+    target_notebook_id: &str,
+) -> Result<Page, String> {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Get the current page to find its source notebook
+    let page = get_page(conn, page_id)?
+        .ok_or_else(|| format!("Page not found: {}", page_id))?;
+
+    let source_notebook_id = page.notebook_id.clone();
+
+    // Get the next position in the target notebook
+    let max_pos: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM pages WHERE notebook_id = ?1",
+            params![target_notebook_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+    let position = max_pos + 1;
+
+    // Move the page
+    conn.execute(
+        "UPDATE pages SET notebook_id = ?1, position = ?2, updated_at = ?3 WHERE id = ?4",
+        params![target_notebook_id, position, now, page_id],
+    )
+    .map_err(|e| format!("Failed to move page: {}", e))?;
+
+    // Update both notebooks' updated_at
+    conn.execute(
+        "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
+        params![now, source_notebook_id],
+    )
+    .ok();
+    conn.execute(
+        "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
+        params![now, target_notebook_id],
+    )
+    .ok();
+
+    get_page(conn, page_id)?
+        .ok_or_else(|| "Failed to retrieve moved page".to_string())
+}
