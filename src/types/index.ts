@@ -584,3 +584,41 @@ export interface ReorderPagesRequest {
 }
 
 export type NotesViewMode = 'card' | 'list';
+
+// ============================================
+// App Settings Types
+// ============================================
+
+export interface EditorSettings {
+  autoSave: boolean;
+  autoSaveDelay: number; // milliseconds
+  fontSize: number;
+  showLineNumbers: boolean;
+  spellCheck: boolean;
+}
+
+export interface SidebarSettings {
+  defaultCollapsed: boolean;
+  width: number;
+  showPageCount: boolean;
+}
+
+export interface AppSettings {
+  editor: EditorSettings;
+  sidebar: SidebarSettings;
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  editor: {
+    autoSave: true,
+    autoSaveDelay: 2000,
+    fontSize: 16,
+    showLineNumbers: false,
+    spellCheck: true,
+  },
+  sidebar: {
+    defaultCollapsed: false,
+    width: 256,
+    showPageCount: true,
+  },
+};

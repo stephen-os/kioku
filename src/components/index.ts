@@ -16,6 +16,7 @@ export {
   SearchBar,
   SearchToggleButton,
   BackButton,
+  Toggle,
 } from "./ui";
 
 // Card components

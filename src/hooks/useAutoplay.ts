@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Card, LoopMode, AutoplayPhase, ContentType } from "@/types";
 import { speak, stopSpeaking, initializeVoices, DEFAULT_VOICE, RECOMMENDED_VOICES } from "@/lib/tts";
+import { loadFromStorage, saveToStorage } from "@/lib/storage";
 
 // localStorage keys
 const STORAGE_KEYS = {
@@ -10,28 +11,6 @@ const STORAGE_KEYS = {
   showFront: "kioku-autoplay-show-front",
   showBack: "kioku-autoplay-show-back",
 } as const;
-
-// Load persisted value from localStorage
-function loadSetting<T>(key: string, defaultValue: T): T {
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved !== null) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error(`Failed to load setting ${key}:`, e);
-  }
-  return defaultValue;
-}
-
-// Save value to localStorage
-function saveSetting(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.error(`Failed to save setting ${key}:`, e);
-  }
-}
 
 // Prepare text for TTS (handle CODE content)
 function prepareTextForTTS(content: string, contentType: ContentType): string {
@@ -107,13 +86,13 @@ export function useAutoplay({ cards, onComplete }: UseAutoplayOptions): UseAutop
   const [voicesLoaded, setVoicesLoaded] = useState(false);
 
   // Settings (persisted)
-  const [voice, setVoiceState] = useState(() => loadSetting(STORAGE_KEYS.voice, ""));
-  const [pauseDuration, setPauseDurationState] = useState(() => loadSetting(STORAGE_KEYS.pauseDuration, 15));
-  const [volume, setVolumeState] = useState(() => loadSetting(STORAGE_KEYS.volume, 0.8));
+  const [voice, setVoiceState] = useState(() => loadFromStorage(STORAGE_KEYS.voice, ""));
+  const [pauseDuration, setPauseDurationState] = useState(() => loadFromStorage(STORAGE_KEYS.pauseDuration, 15));
+  const [volume, setVolumeState] = useState(() => loadFromStorage(STORAGE_KEYS.volume, 0.8));
   const [loopMode, setLoopMode] = useState<LoopMode>("none");
   const [isShuffled, setIsShuffled] = useState(false);
-  const [showFront, setShowFrontState] = useState(() => loadSetting(STORAGE_KEYS.showFront, true));
-  const [showBack, setShowBackState] = useState(() => loadSetting(STORAGE_KEYS.showBack, true));
+  const [showFront, setShowFrontState] = useState(() => loadFromStorage(STORAGE_KEYS.showFront, true));
+  const [showBack, setShowBackState] = useState(() => loadFromStorage(STORAGE_KEYS.showBack, true));
 
   // Refs
   const pauseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -474,19 +453,19 @@ export function useAutoplay({ cards, onComplete }: UseAutoplayOptions): UseAutop
 
   const setVoice = useCallback((newVoice: string) => {
     setVoiceState(newVoice);
-    saveSetting(STORAGE_KEYS.voice, newVoice);
+    saveToStorage(STORAGE_KEYS.voice, newVoice);
   }, []);
 
   const setPauseDuration = useCallback((duration: number) => {
     const clamped = Math.max(0, Math.min(60, duration));
     setPauseDurationState(clamped);
-    saveSetting(STORAGE_KEYS.pauseDuration, clamped);
+    saveToStorage(STORAGE_KEYS.pauseDuration, clamped);
   }, []);
 
   const setVolume = useCallback((newVolume: number) => {
     const clamped = Math.max(0, Math.min(1, newVolume));
     setVolumeState(clamped);
-    saveSetting(STORAGE_KEYS.volume, clamped);
+    saveToStorage(STORAGE_KEYS.volume, clamped);
   }, []);
 
   const toggleShuffle = useCallback(() => {
@@ -509,14 +488,14 @@ export function useAutoplay({ cards, onComplete }: UseAutoplayOptions): UseAutop
     // Ensure at least one is always selected
     if (!show && !showBack) return;
     setShowFrontState(show);
-    saveSetting(STORAGE_KEYS.showFront, show);
+    saveToStorage(STORAGE_KEYS.showFront, show);
   }, [showBack]);
 
   const setShowBack = useCallback((show: boolean) => {
     // Ensure at least one is always selected
     if (!show && !showFront) return;
     setShowBackState(show);
-    saveSetting(STORAGE_KEYS.showBack, show);
+    saveToStorage(STORAGE_KEYS.showBack, show);
   }, [showFront]);
 
   const restart = useCallback(() => {

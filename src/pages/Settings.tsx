@@ -3,14 +3,16 @@ import { useNavigate, Link } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { useSettings } from "@/context/SettingsContext";
 import { importDeck, importQuiz, deleteUser, updateUser } from "@/lib/db";
 import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
-import { PiperSettings } from "@/components";
+import { PiperSettings, Toggle } from "@/components";
 import type { AvatarId } from "@/types";
 
 export function Settings() {
   const navigate = useNavigate();
   const { user, logout, refreshUser, refreshUsers } = useAuth();
+  const { settings, updateEditor, resetToDefaults } = useSettings();
   const toast = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
   const [importingDeck, setImportingDeck] = useState(false);
@@ -220,6 +222,84 @@ export function Settings() {
                 <p className="text-xs text-[#939293] mt-2">
                   Switch to a different local user profile.
                 </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Editor Settings */}
+          <section className="bg-[#403e41] rounded-xl border border-[#5b595c] p-6 mb-6">
+            <h2 className="text-lg font-semibold text-[#fcfcfa] mb-4">Editor</h2>
+
+            <div className="space-y-4">
+              {/* Auto-save toggle */}
+              <Toggle
+                checked={settings.editor.autoSave}
+                onChange={(checked) => updateEditor({ autoSave: checked })}
+                label="Auto-save"
+                description="Automatically save changes while editing notes"
+              />
+
+              {/* Auto-save delay */}
+              {settings.editor.autoSave && (
+                <div>
+                  <label className="block text-[#fcfcfa] font-medium mb-2">
+                    Auto-save delay
+                  </label>
+                  <select
+                    value={settings.editor.autoSaveDelay}
+                    onChange={(e) => updateEditor({ autoSaveDelay: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-[#2d2a2e] border border-[#5b595c] rounded-lg text-[#fcfcfa] focus:outline-none focus:border-[#ffd866]"
+                  >
+                    <option value={1000}>1 second</option>
+                    <option value={2000}>2 seconds</option>
+                    <option value={3000}>3 seconds</option>
+                    <option value={5000}>5 seconds</option>
+                  </select>
+                  <p className="text-xs text-[#939293] mt-1">
+                    How long to wait after you stop typing before saving
+                  </p>
+                </div>
+              )}
+
+              {/* Spell check toggle */}
+              <div className="pt-2 border-t border-[#5b595c]">
+                <Toggle
+                  checked={settings.editor.spellCheck}
+                  onChange={(checked) => updateEditor({ spellCheck: checked })}
+                  label="Spell check"
+                  description="Highlight spelling errors in the editor"
+                />
+              </div>
+
+              {/* Font size */}
+              <div className="pt-2 border-t border-[#5b595c]">
+                <label className="block text-[#fcfcfa] font-medium mb-2">
+                  Font size
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={12}
+                    max={24}
+                    value={settings.editor.fontSize}
+                    onChange={(e) => updateEditor({ fontSize: Number(e.target.value) })}
+                    className="flex-1 accent-[#ffd866]"
+                  />
+                  <span className="text-[#fcfcfa] w-12 text-right">{settings.editor.fontSize}px</span>
+                </div>
+              </div>
+
+              {/* Reset to defaults */}
+              <div className="pt-4 border-t border-[#5b595c]">
+                <button
+                  onClick={() => {
+                    resetToDefaults();
+                    toast.success("Settings reset to defaults");
+                  }}
+                  className="text-sm text-[#939293] hover:text-[#fcfcfa] transition-colors"
+                >
+                  Reset all settings to defaults
+                </button>
               </div>
             </div>
           </section>
