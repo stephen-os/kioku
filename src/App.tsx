@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -6,6 +6,7 @@ import { SettingsProvider } from "./context/SettingsContext";
 import { ShortcutsProvider, useShortcuts, useRegisterShortcut } from "./context/ShortcutsContext";
 import { ToastContainer } from "./components/Toast";
 import { ShortcutsHelp } from "./components/shortcuts";
+import { QuickSwitcher } from "./components/QuickSwitcher";
 import { Layout } from "./components/Layout";
 
 // Eagerly loaded pages (critical path)
@@ -99,6 +100,7 @@ function LoginRoute({ children }: { children: React.ReactNode }) {
 function GlobalShortcuts() {
   const navigate = useNavigate();
   const { showHelp, setShowHelp } = useShortcuts();
+  const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
 
   // Toggle shortcuts help modal
   useRegisterShortcut(
@@ -116,7 +118,20 @@ function GlobalShortcuts() {
     { label: "Open settings", scope: "global" }
   );
 
-  return null;
+  // Open quick switcher
+  useRegisterShortcut(
+    "quick-switcher",
+    { key: "k", ctrl: true },
+    () => setShowQuickSwitcher(true),
+    { label: "Quick switcher", description: "Jump to any page", scope: "global" }
+  );
+
+  return (
+    <QuickSwitcher
+      isOpen={showQuickSwitcher}
+      onClose={() => setShowQuickSwitcher(false)}
+    />
+  );
 }
 
 function AppRoutes() {

@@ -40,6 +40,7 @@ import type {
   // Notebook types
   Notebook,
   Page,
+  PageSearchResult,
   CreateNotebookRequest,
   UpdateNotebookRequest,
   CreatePageRequest,
@@ -662,4 +663,21 @@ export async function reorderPages(notebookId: string, request: ReorderPagesRequ
 
 export async function togglePagePin(id: string): Promise<boolean> {
   return invoke<boolean>("toggle_page_pin", { id });
+}
+
+// ============================================
+// Page Search Operations
+// ============================================
+
+export async function searchPages(
+  query: string,
+  limit?: number
+): Promise<PageSearchResult[]> {
+  return invoke<PageSearchResult[]>("search_pages", { query, limit });
+}
+
+export async function getRecentPages(
+  limit?: number
+): Promise<PageSearchResult[]> {
+  return invoke<PageSearchResult[]>("get_recent_pages", { limit });
 }

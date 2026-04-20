@@ -143,6 +143,9 @@ pub fn run() {
             commands::notebooks::delete_page,
             commands::notebooks::reorder_pages,
             commands::notebooks::toggle_page_pin,
+            // Search commands
+            commands::notebooks::search_pages,
+            commands::notebooks::get_recent_pages,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

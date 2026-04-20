@@ -569,3 +569,13 @@ pub struct UpdatePageRequest {
 pub struct ReorderPagesRequest {
     pub page_ids: Vec<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PageSearchResult {
+    pub id: String,
+    pub notebook_id: String,
+    pub title: String,
+    pub notebook_name: String,
+    pub updated_at: String,
+}

@@ -553,6 +553,14 @@ export interface Page {
   updatedAt: string;
 }
 
+export interface PageSearchResult {
+  id: string;
+  notebookId: string;
+  title: string;
+  notebookName: string;
+  updatedAt: string;
+}
+
 export interface CreateNotebookRequest {
   name: string;
   description?: string;

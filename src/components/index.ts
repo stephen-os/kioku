@@ -28,3 +28,6 @@ export { ShortcutHint, InlineShortcutHint, ShortcutsHelp } from "./shortcuts";
 
 // Settings components
 export { PiperSettings } from "./PiperSettings";
+
+// Quick Switcher
+export { QuickSwitcher } from "./QuickSwitcher";

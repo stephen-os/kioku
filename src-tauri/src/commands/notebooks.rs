@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::db::{
     self, CreateNotebookRequest, CreatePageRequest, DbState, Notebook, Page,
-    ReorderPagesRequest, UpdateNotebookRequest, UpdatePageRequest,
+    PageSearchResult, ReorderPagesRequest, UpdateNotebookRequest, UpdatePageRequest,
 };
 
 // ============================================
@@ -111,4 +111,31 @@ pub fn reorder_pages(
 pub fn toggle_page_pin(state: State<DbState>, id: String) -> Result<bool, String> {
     let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
     db::toggle_page_pin(&conn, &id)
+}
+
+// ============================================
+// Search Commands
+// ============================================
+
+#[tauri::command]
+pub fn search_pages(
+    state: State<DbState>,
+    query: String,
+    limit: Option<i32>,
+) -> Result<Vec<PageSearchResult>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::search_pages(&conn, &active_user.id, &query, limit)
+}
+
+#[tauri::command]
+pub fn get_recent_pages(
+    state: State<DbState>,
+    limit: Option<i32>,
+) -> Result<Vec<PageSearchResult>, String> {
+    let conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let active_user = db::get_active_user(&conn)?
+        .ok_or_else(|| "No active user".to_string())?;
+    db::get_recent_pages(&conn, &active_user.id, limit)
 }

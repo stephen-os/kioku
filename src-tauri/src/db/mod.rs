@@ -59,6 +59,6 @@ pub use stats::{
 // Notebook operations
 pub use notebooks::{
     create_notebook, create_page, delete_notebook, delete_page, get_all_notebooks, get_notebook,
-    get_page, get_pages_for_notebook, reorder_pages, toggle_notebook_favorite, toggle_page_pin,
-    update_notebook, update_page,
+    get_page, get_pages_for_notebook, get_recent_pages, reorder_pages, search_pages,
+    toggle_notebook_favorite, toggle_page_pin, update_notebook, update_page,
 };

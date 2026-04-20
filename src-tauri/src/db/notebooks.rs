@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection};
 use uuid::Uuid;
 
-use super::models::{CreateNotebookRequest, CreatePageRequest, Notebook, Page, UpdateNotebookRequest, UpdatePageRequest};
+use super::models::{CreateNotebookRequest, CreatePageRequest, Notebook, Page, PageSearchResult, UpdateNotebookRequest, UpdatePageRequest};
 
 // ============================================
 // Notebook Operations
@@ -350,4 +350,88 @@ pub fn toggle_notebook_favorite(conn: &Connection, user_id: &str, notebook_id: &
         add_notebook_favorite(conn, user_id, notebook_id)?;
         Ok(true)
     }
+}
+
+// ============================================
+// Search Operations
+// ============================================
+
+/// Search pages across all notebooks for a user
+/// Returns results ordered by relevance (title match) then by updated_at
+pub fn search_pages(
+    conn: &Connection,
+    user_id: &str,
+    query: &str,
+    limit: Option<i32>,
+) -> Result<Vec<PageSearchResult>, String> {
+    let limit = limit.unwrap_or(20);
+    let search_pattern = format!("%{}%", query.to_lowercase());
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.notebook_id, p.title, n.name as notebook_name, p.updated_at
+             FROM pages p
+             INNER JOIN notebooks n ON p.notebook_id = n.id
+             WHERE n.user_id = ?1 AND LOWER(p.title) LIKE ?2
+             ORDER BY
+                CASE WHEN LOWER(p.title) LIKE ?3 THEN 0 ELSE 1 END,
+                p.updated_at DESC
+             LIMIT ?4",
+        )
+        .map_err(|e| format!("Failed to prepare search query: {}", e))?;
+
+    // For ranking: exact prefix match gets priority
+    let prefix_pattern = format!("{}%", query.to_lowercase());
+
+    let results = stmt
+        .query_map(params![user_id, search_pattern, prefix_pattern, limit], |row| {
+            Ok(PageSearchResult {
+                id: row.get(0)?,
+                notebook_id: row.get(1)?,
+                title: row.get(2)?,
+                notebook_name: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })
+        .map_err(|e| format!("Failed to search pages: {}", e))?;
+
+    results
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect search results: {}", e))
+}
+
+/// Get recent pages across all notebooks for a user
+pub fn get_recent_pages(
+    conn: &Connection,
+    user_id: &str,
+    limit: Option<i32>,
+) -> Result<Vec<PageSearchResult>, String> {
+    let limit = limit.unwrap_or(10);
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.id, p.notebook_id, p.title, n.name as notebook_name, p.updated_at
+             FROM pages p
+             INNER JOIN notebooks n ON p.notebook_id = n.id
+             WHERE n.user_id = ?1
+             ORDER BY p.updated_at DESC
+             LIMIT ?2",
+        )
+        .map_err(|e| format!("Failed to prepare recent pages query: {}", e))?;
+
+    let results = stmt
+        .query_map(params![user_id, limit], |row| {
+            Ok(PageSearchResult {
+                id: row.get(0)?,
+                notebook_id: row.get(1)?,
+                title: row.get(2)?,
+                notebook_name: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })
+        .map_err(|e| format!("Failed to get recent pages: {}", e))?;
+
+    results
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect recent pages: {}", e))
 }
