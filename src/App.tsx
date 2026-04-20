@@ -1,9 +1,11 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { SettingsProvider } from "./context/SettingsContext";
+import { ShortcutsProvider, useShortcuts, useRegisterShortcut } from "./context/ShortcutsContext";
 import { ToastContainer } from "./components/Toast";
+import { ShortcutsHelp } from "./components/shortcuts";
 import { Layout } from "./components/Layout";
 
 // Eagerly loaded pages (critical path)
@@ -93,9 +95,34 @@ function LoginRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Global shortcuts that are always available
+function GlobalShortcuts() {
+  const navigate = useNavigate();
+  const { showHelp, setShowHelp } = useShortcuts();
+
+  // Toggle shortcuts help modal
+  useRegisterShortcut(
+    "show-help",
+    { key: "/", ctrl: true },
+    () => setShowHelp(!showHelp),
+    { label: "Show keyboard shortcuts", scope: "global" }
+  );
+
+  // Navigate to settings
+  useRegisterShortcut(
+    "open-settings",
+    { key: ",", ctrl: true },
+    () => navigate("/settings"),
+    { label: "Open settings", scope: "global" }
+  );
+
+  return null;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
+      <GlobalShortcuts />
       <Routes>
         {/* Login route */}
         <Route
@@ -155,10 +182,13 @@ function App() {
   return (
     <ToastProvider>
       <SettingsProvider>
-        <AuthProvider>
-          <AppRoutes />
-          <ToastContainer />
-        </AuthProvider>
+        <ShortcutsProvider>
+          <AuthProvider>
+            <AppRoutes />
+            <ToastContainer />
+            <ShortcutsHelp />
+          </AuthProvider>
+        </ShortcutsProvider>
       </SettingsProvider>
     </ToastProvider>
   );

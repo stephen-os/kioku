@@ -22,5 +22,8 @@ export {
 // Card components
 export { DeckCard, QuizCard, CourseCard } from "./cards";
 
+// Shortcuts components
+export { ShortcutHint, InlineShortcutHint, ShortcutsHelp } from "./shortcuts";
+
 // Settings components
 export { PiperSettings } from "./PiperSettings";

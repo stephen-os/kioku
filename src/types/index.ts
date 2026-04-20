@@ -622,3 +622,32 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showPageCount: true,
   },
 };
+
+// ============================================
+// Keyboard Shortcuts Types
+// ============================================
+
+export type ShortcutScope = 'global' | 'notes' | 'decks' | 'quizzes' | 'study';
+
+export interface ShortcutKey {
+  key: string;           // The key (e.g., 's', 'Enter', 'Escape')
+  ctrl?: boolean;        // Ctrl (Windows/Linux) or Cmd (Mac)
+  alt?: boolean;         // Alt (Windows/Linux) or Option (Mac)
+  shift?: boolean;       // Shift key
+  meta?: boolean;        // Windows key or Cmd (explicit, usually use ctrl which maps to Cmd on Mac)
+}
+
+export interface Shortcut {
+  id: string;            // Unique identifier (e.g., 'save', 'new-page')
+  keys: ShortcutKey;     // Key combination
+  label: string;         // Display name (e.g., 'Save')
+  description?: string;  // Optional longer description
+  scope: ShortcutScope;  // Where this shortcut is active
+  action: () => void;    // Function to execute
+}
+
+export interface ShortcutGroup {
+  scope: ShortcutScope;
+  label: string;         // Display name for the group (e.g., 'Notes')
+  shortcuts: Shortcut[];
+}
