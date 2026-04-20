@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import type { Notebook, Page, CreatePageRequest, UpdatePageRequest } from "@/types";
 import {
@@ -10,20 +10,23 @@ import {
   updateNotebook,
   togglePagePin,
 } from "@/lib/db";
-import { LoadingSpinner } from "@/components";
+import { LoadingSpinner, SaveStatus } from "@/components";
 import { useToast } from "@/context/ToastContext";
+import { useSettings } from "@/context/SettingsContext";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useUnsavedChanges, UnsavedChangesDialog } from "@/hooks/useUnsavedChanges";
 import { MarkdownEditor } from "@/components/notes/MarkdownEditor";
 
 export function NotebookView() {
   const { notebookId, pageId } = useParams<{ notebookId: string; pageId?: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const { settings } = useSettings();
 
   const [notebook, setNotebook] = useState<Notebook | null>(null);
   const [pages, setPages] = useState<Page[]>([]);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Editing state
@@ -31,6 +34,52 @@ export function NotebookView() {
   const [notebookName, setNotebookName] = useState("");
   const [pageTitle, setPageTitle] = useState("");
   const [pageContent, setPageContent] = useState("");
+
+  // Auto-save data object
+  const pageData = useMemo(
+    () => ({
+      title: pageTitle,
+      content: pageContent,
+      isPinned: selectedPage?.isPinned ?? false,
+    }),
+    [pageTitle, pageContent, selectedPage?.isPinned]
+  );
+
+  // Auto-save hook
+  const {
+    status: saveStatus,
+    lastSavedAt,
+    isDirty,
+    saveNow,
+    markClean,
+    error: saveError,
+  } = useAutoSave({
+    data: pageData,
+    onSave: async (data) => {
+      if (!selectedPage) return;
+      const request: UpdatePageRequest = {
+        title: data.title,
+        content: data.content,
+        isPinned: data.isPinned,
+      };
+      const updatedPage = await updatePage(selectedPage.id, request);
+      setSelectedPage(updatedPage);
+      setPages((prev) =>
+        prev.map((p) => (p.id === updatedPage.id ? updatedPage : p))
+      );
+    },
+    delay: settings.editor.autoSaveDelay,
+    enabled: settings.editor.autoSave && selectedPage !== null,
+    onSaveError: () => {
+      toast.error("Failed to save page");
+    },
+  });
+
+  // Navigation warning for unsaved changes
+  const { isBlocked, proceed, cancel } = useUnsavedChanges({
+    isDirty,
+    message: "You have unsaved changes. Are you sure you want to leave?",
+  });
 
   const loadData = useCallback(async () => {
     if (!notebookId) return;
@@ -78,15 +127,17 @@ export function NotebookView() {
     loadData();
   }, [loadData]);
 
-  const handleSelectPage = (page: Page) => {
-    // Auto-save current page if changed
-    if (selectedPage && (pageTitle !== selectedPage.title || pageContent !== selectedPage.content)) {
-      handleSavePage();
+  const handleSelectPage = async (page: Page) => {
+    // Auto-save current page if dirty
+    if (isDirty && selectedPage) {
+      await saveNow();
     }
 
     setSelectedPage(page);
     setPageTitle(page.title);
     setPageContent(page.content);
+    // Mark clean after setting new page data (will be updated by useEffect)
+    setTimeout(() => markClean(), 0);
     navigate(`/notes/${notebookId}/pages/${page.id}`);
   };
 
@@ -106,27 +157,11 @@ export function NotebookView() {
     }
   };
 
-  const handleSavePage = async () => {
-    if (!selectedPage) return;
-
-    setSaving(true);
-    try {
-      const request: UpdatePageRequest = {
-        title: pageTitle,
-        content: pageContent,
-        isPinned: selectedPage.isPinned,
-      };
-      const updatedPage = await updatePage(selectedPage.id, request);
-      setSelectedPage(updatedPage);
-      setPages((prev) =>
-        prev.map((p) => (p.id === updatedPage.id ? updatedPage : p))
-      );
-    } catch (error) {
-      toast.error("Failed to save page");
-    } finally {
-      setSaving(false);
-    }
-  };
+  // Manual save trigger (used by editor Ctrl+S and title blur)
+  const handleSavePage = useCallback(async () => {
+    if (!selectedPage || !isDirty) return;
+    await saveNow();
+  }, [selectedPage, isDirty, saveNow]);
 
   const handleDeletePage = async (pageIdToDelete: string) => {
     try {
@@ -336,9 +371,12 @@ export function NotebookView() {
                 {notebook?.name}
               </h1>
             )}
-            <div className="flex items-center gap-2 text-sm text-[#939293]">
-              {saving && <span>Saving...</span>}
-            </div>
+            <SaveStatus
+              status={saveStatus}
+              lastSavedAt={lastSavedAt}
+              error={saveError}
+              size="sm"
+            />
           </div>
         </div>
 
@@ -394,6 +432,13 @@ export function NotebookView() {
           </div>
         )}
       </div>
+
+      {/* Unsaved changes dialog */}
+      <UnsavedChangesDialog
+        isOpen={isBlocked}
+        onConfirm={proceed ?? (() => {})}
+        onCancel={cancel ?? (() => {})}
+      />
     </div>
   );
 }
