@@ -145,6 +145,9 @@ pub fn create_card(
 }
 
 pub fn get_cards_for_deck(conn: &Connection, deck_id: &str) -> Result<Vec<Card>, String> {
+    use std::collections::HashMap;
+
+    // Query 1: Get all cards for the deck
     let mut stmt = conn
         .prepare(
             "SELECT id, deck_id, front, front_type, front_language,
@@ -154,7 +157,7 @@ pub fn get_cards_for_deck(conn: &Connection, deck_id: &str) -> Result<Vec<Card>,
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
-    let cards: Vec<Card> = stmt
+    let mut cards: Vec<Card> = stmt
         .query_map(params![deck_id], |row| {
             Ok(Card {
                 id: row.get(0)?,
@@ -175,13 +178,44 @@ pub fn get_cards_for_deck(conn: &Connection, deck_id: &str) -> Result<Vec<Card>,
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to collect cards: {}", e))?;
 
-    let mut result = Vec::with_capacity(cards.len());
-    for mut card in cards {
-        card.tags = get_tags_for_card(conn, &card.id)?;
-        result.push(card);
+    // Query 2: Get all tags for all cards in this deck (single query instead of N queries)
+    let mut tags_stmt = conn
+        .prepare(
+            "SELECT ct.card_id, t.id, t.name
+             FROM card_tags ct
+             INNER JOIN tags t ON t.id = ct.tag_id
+             INNER JOIN cards c ON c.id = ct.card_id
+             WHERE c.deck_id = ?1
+             ORDER BY t.name",
+        )
+        .map_err(|e| format!("Failed to prepare tags query: {}", e))?;
+
+    let mut tags_by_card: HashMap<String, Vec<CardTag>> = HashMap::new();
+    let tags_iter = tags_stmt
+        .query_map(params![deck_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?, // card_id
+                CardTag {
+                    id: row.get(1)?,
+                    name: row.get(2)?,
+                },
+            ))
+        })
+        .map_err(|e| format!("Failed to query tags: {}", e))?;
+
+    for tag_result in tags_iter {
+        let (card_id, tag) = tag_result.map_err(|e| format!("Failed to read tag: {}", e))?;
+        tags_by_card.entry(card_id).or_default().push(tag);
     }
 
-    Ok(result)
+    // Assign tags to cards
+    for card in &mut cards {
+        if let Some(tags) = tags_by_card.remove(&card.id) {
+            card.tags = tags;
+        }
+    }
+
+    Ok(cards)
 }
 
 pub fn get_card(conn: &Connection, id: &str, deck_id: &str) -> Result<Card, String> {

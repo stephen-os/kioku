@@ -210,6 +210,9 @@ pub fn create_lesson(
 }
 
 pub fn get_lessons(conn: &Connection, user_id: &str, course_id: &str) -> Result<Vec<Lesson>, String> {
+    use std::collections::HashMap;
+
+    // Query 1: Get all lessons for the course
     let mut stmt = conn
         .prepare(
             "SELECT id, course_id, title, description, position, created_at, updated_at
@@ -219,7 +222,7 @@ pub fn get_lessons(conn: &Connection, user_id: &str, course_id: &str) -> Result<
         )
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
-    let lessons: Vec<Lesson> = stmt
+    let mut lessons: Vec<Lesson> = stmt
         .query_map(params![course_id], |row| {
             Ok(Lesson {
                 id: row.get(0)?,
@@ -238,10 +241,56 @@ pub fn get_lessons(conn: &Connection, user_id: &str, course_id: &str) -> Result<
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to collect lessons: {}", e))?;
 
-    // Load items for each lesson and calculate completion
-    let mut result = Vec::new();
-    for mut lesson in lessons {
-        let items = get_lesson_items(conn, user_id, &lesson.id)?;
+    // Query 2: Get all lesson items for all lessons in this course (single query instead of N)
+    let mut items_stmt = conn
+        .prepare(
+            "SELECT li.lesson_id, li.id, li.item_type, li.item_id, li.item_name,
+                    li.requirement_type, li.requirement_value, li.position, li.created_at,
+                    lp.completed_at IS NOT NULL as is_completed,
+                    li.item_id IS NULL as is_missing,
+                    lp.score_percentage as best_score
+             FROM lesson_items li
+             INNER JOIN lessons l ON l.id = li.lesson_id
+             LEFT JOIN lesson_progress lp ON lp.lesson_item_id = li.id AND lp.user_id = ?1
+             WHERE l.course_id = ?2
+             ORDER BY li.position ASC",
+        )
+        .map_err(|e| format!("Failed to prepare items query: {}", e))?;
+
+    let mut items_by_lesson: HashMap<String, Vec<LessonItem>> = HashMap::new();
+    let items_iter = items_stmt
+        .query_map(params![user_id, course_id], |row| {
+            let lesson_id: String = row.get(0)?;
+            let item_type_str: String = row.get(2)?;
+            let req_type_str: Option<String> = row.get(5)?;
+            Ok((
+                lesson_id,
+                LessonItem {
+                    id: row.get(1)?,
+                    lesson_id: row.get(0)?,
+                    item_type: LessonItemType::from_str(&item_type_str),
+                    item_id: row.get(3)?,
+                    item_name: row.get(4)?,
+                    requirement_type: req_type_str.and_then(|s| RequirementType::from_str(&s)),
+                    requirement_value: row.get(6)?,
+                    position: row.get(7)?,
+                    created_at: row.get(8)?,
+                    is_completed: Some(row.get::<_, i32>(9)? == 1),
+                    is_missing: Some(row.get::<_, i32>(10)? == 1),
+                    best_score: row.get(11)?,
+                },
+            ))
+        })
+        .map_err(|e| format!("Failed to query items: {}", e))?;
+
+    for item_result in items_iter {
+        let (lesson_id, item) = item_result.map_err(|e| format!("Failed to read item: {}", e))?;
+        items_by_lesson.entry(lesson_id).or_default().push(item);
+    }
+
+    // Assign items to lessons and calculate completion
+    for lesson in &mut lessons {
+        let items = items_by_lesson.remove(&lesson.id).unwrap_or_default();
         let completed_count = items.iter()
             .filter(|i| i.is_completed.unwrap_or(false))
             .count() as i32;
@@ -250,10 +299,9 @@ pub fn get_lessons(conn: &Connection, user_id: &str, course_id: &str) -> Result<
         lesson.items = items;
         lesson.completed_item_count = Some(completed_count);
         lesson.is_completed = Some(all_completed);
-        result.push(lesson);
     }
 
-    Ok(result)
+    Ok(lessons)
 }
 
 pub fn get_lesson(conn: &Connection, user_id: &str, lesson_id: &str) -> Result<Option<Lesson>, String> {
