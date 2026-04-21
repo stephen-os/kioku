@@ -353,10 +353,23 @@ pub fn delete_tag(conn: &Connection, deck_id: &str, id: &str) -> Result<(), Stri
 
 pub fn add_tag_to_card(
     conn: &Connection,
-    _deck_id: &str,
+    deck_id: &str,
     card_id: &str,
     tag_id: &str,
 ) -> Result<(), String> {
+    // Verify card belongs to the deck
+    let card_deck_id: String = conn
+        .query_row(
+            "SELECT deck_id FROM cards WHERE id = ?1",
+            params![card_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Card not found".to_string())?;
+
+    if card_deck_id != deck_id {
+        return Err("Card does not belong to this deck".to_string());
+    }
+
     conn.execute(
         "INSERT OR IGNORE INTO card_tags (card_id, tag_id) VALUES (?1, ?2)",
         params![card_id, tag_id],
@@ -367,10 +380,23 @@ pub fn add_tag_to_card(
 
 pub fn remove_tag_from_card(
     conn: &Connection,
-    _deck_id: &str,
+    deck_id: &str,
     card_id: &str,
     tag_id: &str,
 ) -> Result<(), String> {
+    // Verify card belongs to the deck
+    let card_deck_id: String = conn
+        .query_row(
+            "SELECT deck_id FROM cards WHERE id = ?1",
+            params![card_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Card not found".to_string())?;
+
+    if card_deck_id != deck_id {
+        return Err("Card does not belong to this deck".to_string());
+    }
+
     conn.execute(
         "DELETE FROM card_tags WHERE card_id = ?1 AND tag_id = ?2",
         params![card_id, tag_id],

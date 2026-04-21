@@ -16,6 +16,7 @@ import { LoadingSpinner } from "@/components";
 import { useToast } from "@/context/ToastContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useAutoSave, useSidebarState } from "@/hooks";
+import { useBlockNoteOutline } from "@/hooks/useMarkdownOutline";
 import { useUnsavedChanges, UnsavedChangesDialog } from "@/hooks/useUnsavedChanges";
 import { NotesBlockEditor } from "@/components/notes/BlockNoteEditor";
 import { NotebookSidebar } from "@/components/notes/NotebookSidebar";
@@ -57,8 +58,8 @@ export function NotebookView() {
 
   // Outline panel state
   const [outlineVisible, setOutlineVisible] = useState(false);
-  // TODO: Parse headings from BlockNote JSON content for outline
-  const headings: { level: number; text: string; id: string; position: number }[] = [];
+  // Parse headings from BlockNote JSON content for outline
+  const headings = useBlockNoteOutline(pageContent);
 
   // Backlinks panel state
   const [backlinksVisible, setBacklinksVisible] = useState(false);

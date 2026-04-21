@@ -4,10 +4,24 @@ import { useAuth } from "@/context/AuthContext";
 import { AvatarDisplay } from "@/components/AvatarPicker";
 
 export function Layout() {
-  const _location = useLocation();
-  // TODO: review why this is here. 
-  void _location; // Reserved for future active link highlighting
+  const location = useLocation();
   const navigate = useNavigate();
+
+  // Helper to check if a nav link is active
+  const isActive = (path: string) => {
+    if (path === "/") {
+      // Decks is active for "/" and "/decks/*" paths
+      return location.pathname === "/" || location.pathname.startsWith("/decks");
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  const navLinkClass = (path: string) =>
+    `transition-colors ${
+      isActive(path)
+        ? "text-[#ffd866] font-medium"
+        : "text-[#939293] hover:text-[#fcfcfa]"
+    }`;
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -31,28 +45,16 @@ export function Layout() {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <Link
-                to="/"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
+              <Link to="/" className={navLinkClass("/")}>
                 Decks
               </Link>
-              <Link
-                to="/quizzes"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
+              <Link to="/quizzes" className={navLinkClass("/quizzes")}>
                 Quizzes
               </Link>
-              <Link
-                to="/courses"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
+              <Link to="/courses" className={navLinkClass("/courses")}>
                 Courses
               </Link>
-              <Link
-                to="/notes"
-                className="text-[#939293] hover:text-[#fcfcfa] transition-colors"
-              >
+              <Link to="/notes" className={navLinkClass("/notes")}>
                 Notes
               </Link>
 

@@ -5,10 +5,93 @@ export interface OutlineHeading {
   level: number;
   /** Heading text */
   text: string;
-  /** Character position in the content */
+  /** Character position in the content (or block index for BlockNote) */
   position: number;
   /** Unique ID for this heading */
   id: string;
+}
+
+// BlockNote block content types
+interface BlockNoteTextContent {
+  type: "text";
+  text: string;
+  styles?: Record<string, boolean | string>;
+}
+
+interface BlockNoteBlock {
+  id?: string;
+  type: string;
+  props?: {
+    level?: number;
+    [key: string]: unknown;
+  };
+  content?: BlockNoteTextContent[] | string;
+  children?: BlockNoteBlock[];
+}
+
+/**
+ * Extract text content from BlockNote content array
+ */
+function extractBlockText(content: BlockNoteTextContent[] | string | undefined): string {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  return content
+    .filter((item): item is BlockNoteTextContent => item.type === "text")
+    .map((item) => item.text)
+    .join("");
+}
+
+/**
+ * Parse BlockNote JSON content to extract headings for outline
+ */
+export function parseBlockNoteHeadings(content: string): OutlineHeading[] {
+  if (!content || content.trim() === "") return [];
+
+  // Check if content is JSON (BlockNote format)
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+    return []; // Not BlockNote JSON format
+  }
+
+  try {
+    const blocks: BlockNoteBlock[] = JSON.parse(content);
+    const headings: OutlineHeading[] = [];
+
+    blocks.forEach((block, index) => {
+      if (block.type === "heading") {
+        const level = block.props?.level ?? 1;
+        const text = extractBlockText(block.content);
+
+        if (text.trim()) {
+          const id =
+            block.id ||
+            `heading-${index}-${text
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, "")
+              .replace(/\s+/g, "-")
+              .substring(0, 50)}`;
+
+          headings.push({
+            level,
+            text: text.trim(),
+            position: index,
+            id,
+          });
+        }
+      }
+    });
+
+    return headings;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Hook to parse BlockNote JSON content for outline headings
+ */
+export function useBlockNoteOutline(content: string): OutlineHeading[] {
+  return useMemo(() => parseBlockNoteHeadings(content), [content]);
 }
 
 /**
