@@ -1,5 +1,4 @@
-import { useEffect, useCallback } from "react";
-import { useBlocker, type Location } from "react-router-dom";
+import { useEffect } from "react";
 
 interface UseUnsavedChangesOptions {
   /** Whether there are unsaved changes */
@@ -12,7 +11,8 @@ interface UseUnsavedChangesOptions {
 
 /**
  * Hook to warn users before leaving a page with unsaved changes
- * Handles both browser navigation (refresh, close) and React Router navigation
+ * Handles browser navigation (refresh, close tab)
+ * Note: In-app navigation blocking requires a data router which is not currently used
  */
 export function useUnsavedChanges({
   isDirty,
@@ -35,27 +35,15 @@ export function useUnsavedChanges({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty, message, onBeforeUnload]);
 
-  // Handle React Router navigation
-  const blocker = useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }: { currentLocation: Location; nextLocation: Location }) => {
-        // Only block if dirty and actually navigating to a different page
-        return isDirty && currentLocation.pathname !== nextLocation.pathname;
-      },
-      [isDirty]
-    )
-  );
-
-  // Return blocker state for custom UI handling
+  // Note: useBlocker requires a data router (createBrowserRouter) which is not used
+  // For now, only browser navigation is blocked, not in-app React Router navigation
   return {
     /** Whether navigation is currently blocked */
-    isBlocked: blocker.state === "blocked",
-    /** Proceed with navigation (discard changes) */
-    proceed: blocker.proceed,
-    /** Cancel navigation (stay on page) */
-    cancel: blocker.reset,
-    /** The blocker object for advanced use */
-    blocker,
+    isBlocked: false,
+    /** Proceed with navigation (no-op without data router) */
+    proceed: () => {},
+    /** Cancel navigation (no-op without data router) */
+    cancel: () => {},
   };
 }
 

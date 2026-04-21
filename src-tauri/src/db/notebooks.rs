@@ -7,6 +7,41 @@ use super::models::{CreateNotebookRequest, CreatePageRequest, Notebook, Page, Pa
 // Notebook Operations
 // ============================================
 
+/// Generate a unique notebook name by appending a number if needed
+fn get_unique_notebook_name(conn: &Connection, user_id: &str, base_name: &str) -> Result<String, String> {
+    // Check if the base name is available
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM notebooks WHERE user_id = ?1 AND name = ?2)",
+            params![user_id, base_name],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to check notebook name: {}", e))?;
+
+    if !exists {
+        return Ok(base_name.to_string());
+    }
+
+    // Find the next available number
+    for i in 2..=100 {
+        let candidate = format!("{} {}", base_name, i);
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM notebooks WHERE user_id = ?1 AND name = ?2)",
+                params![user_id, &candidate],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to check notebook name: {}", e))?;
+
+        if !exists {
+            return Ok(candidate);
+        }
+    }
+
+    // Fallback: use timestamp
+    Ok(format!("{} {}", base_name, chrono::Utc::now().timestamp()))
+}
+
 pub fn create_notebook(
     conn: &Connection,
     user_id: &str,
@@ -15,11 +50,12 @@ pub fn create_notebook(
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let icon = request.icon.as_deref().unwrap_or("notebook");
+    let name = get_unique_notebook_name(conn, user_id, &request.name)?;
 
     conn.execute(
         "INSERT INTO notebooks (id, user_id, name, description, icon, color, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![id, user_id, request.name, request.description, icon, request.color, now, now],
+        params![id, user_id, name, request.description, icon, request.color, now, now],
     )
     .map_err(|e| format!("Failed to create notebook: {}", e))?;
 
