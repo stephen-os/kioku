@@ -138,9 +138,17 @@ pub fn update_course(
         .ok_or_else(|| format!("Course not found after update: {}", id))
 }
 
-pub fn delete_course(conn: &Connection, id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM courses WHERE id = ?1", params![id])
+pub fn delete_course(conn: &Connection, user_id: &str, id: &str) -> Result<(), String> {
+    let rows_affected = conn
+        .execute(
+            "DELETE FROM courses WHERE id = ?1 AND user_id = ?2",
+            params![id, user_id],
+        )
         .map_err(|e| format!("Failed to delete course: {}", e))?;
+
+    if rows_affected == 0 {
+        return Err("Course not found or access denied".to_string());
+    }
     Ok(())
 }
 

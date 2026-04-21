@@ -141,9 +141,17 @@ pub fn update_notebook(
         .ok_or_else(|| format!("Notebook not found after update: {}", id))
 }
 
-pub fn delete_notebook(conn: &Connection, id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM notebooks WHERE id = ?1", params![id])
+pub fn delete_notebook(conn: &Connection, user_id: &str, id: &str) -> Result<(), String> {
+    let rows_affected = conn
+        .execute(
+            "DELETE FROM notebooks WHERE id = ?1 AND user_id = ?2",
+            params![id, user_id],
+        )
         .map_err(|e| format!("Failed to delete notebook: {}", e))?;
+
+    if rows_affected == 0 {
+        return Err("Notebook not found or access denied".to_string());
+    }
     Ok(())
 }
 

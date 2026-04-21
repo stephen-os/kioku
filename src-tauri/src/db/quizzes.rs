@@ -112,9 +112,17 @@ pub fn update_quiz(
     get_quiz(conn, quiz_id)
 }
 
-pub fn delete_quiz(conn: &Connection, quiz_id: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM quizzes WHERE id = ?1", params![quiz_id])
+pub fn delete_quiz(conn: &Connection, user_id: &str, quiz_id: &str) -> Result<(), String> {
+    let rows_affected = conn
+        .execute(
+            "DELETE FROM quizzes WHERE id = ?1 AND user_id = ?2",
+            params![quiz_id, user_id],
+        )
         .map_err(|e| format!("Failed to delete quiz: {}", e))?;
+
+    if rows_affected == 0 {
+        return Err("Quiz not found or access denied".to_string());
+    }
     Ok(())
 }
 
