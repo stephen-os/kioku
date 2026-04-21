@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { Editor, rootCtx, defaultValueCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
@@ -6,7 +6,6 @@ import { history } from "@milkdown/kit/plugin/history";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { cursor } from "@milkdown/kit/plugin/cursor";
 import { indent } from "@milkdown/kit/plugin/indent";
-import { trailing } from "@milkdown/kit/plugin/trailing";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { wikiLinkPlugin } from "./wikiLinkPlugin";
 import "@milkdown/theme-nord/style.css";
@@ -23,35 +22,32 @@ interface MarkdownEditorProps {
 export function MarkdownEditor({ initialContent, onChange, onSave, onLinkClick }: MarkdownEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
-  const initialContentRef = useRef(initialContent);
+
+  // Use refs to always have latest callbacks without triggering re-init
+  const onChangeRef = useRef(onChange);
   const onLinkClickRef = useRef(onLinkClick);
+  const onSaveRef = useRef(onSave);
 
-  // Keep callback ref updated
+  // Keep callback refs updated
   useEffect(() => {
+    onChangeRef.current = onChange;
     onLinkClickRef.current = onLinkClick;
-  }, [onLinkClick]);
+    onSaveRef.current = onSave;
+  }, [onChange, onLinkClick, onSave]);
 
-  const handleLinkClick = useCallback((title: string) => {
-    onLinkClickRef.current?.(title);
-  }, []);
-
+  // Initialize editor once on mount (parent uses key prop to remount for new pages)
   useEffect(() => {
     if (!editorRef.current) return;
 
     const initEditor = async () => {
-      // Destroy previous instance if exists
-      if (editorInstanceRef.current) {
-        await editorInstanceRef.current.destroy();
-      }
-
       const editor = await Editor.make()
         .config((ctx) => {
           ctx.set(rootCtx, editorRef.current);
-          ctx.set(defaultValueCtx, initialContentRef.current);
+          ctx.set(defaultValueCtx, initialContent);
 
-          // Set up listener for content changes
+          // Set up listener for content changes - use ref to avoid stale closure
           ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
-            onChange(markdown);
+            onChangeRef.current(markdown);
           });
         })
         .use(commonmark)
@@ -60,9 +56,8 @@ export function MarkdownEditor({ initialContent, onChange, onSave, onLinkClick }
         .use(clipboard)
         .use(cursor)
         .use(indent)
-        .use(trailing)
         .use(listener)
-        .use(wikiLinkPlugin({ onLinkClick: handleLinkClick }))
+        .use(wikiLinkPlugin({ onLinkClick: (title) => onLinkClickRef.current?.(title) }))
         .create();
 
       editorInstanceRef.current = editor;
@@ -73,22 +68,25 @@ export function MarkdownEditor({ initialContent, onChange, onSave, onLinkClick }
     return () => {
       if (editorInstanceRef.current) {
         editorInstanceRef.current.destroy();
+        editorInstanceRef.current = null;
       }
     };
-  }, [handleLinkClick]); // Include handleLinkClick in deps
+    // Only run on mount - parent handles remounting via key prop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle Ctrl+S for save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        onSave?.();
+        onSaveRef.current?.();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onSave]);
+  }, []);
 
   return (
     <div className="milkdown-editor-wrapper h-full overflow-auto">

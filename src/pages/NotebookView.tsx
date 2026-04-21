@@ -164,11 +164,12 @@ export function NotebookView() {
       await saveNow();
     }
 
+    // Update state for the new page
     setSelectedPage(page);
     setPageTitle(page.title);
     setPageContent(page.content);
-    // Mark clean after setting new page data (will be updated by useEffect)
-    setTimeout(() => markClean(), 0);
+    // Mark clean immediately - the editor will remount with fresh content due to key change
+    markClean();
     navigate(`/notes/${notebookId}/pages/${page.id}`);
   };
 
@@ -390,7 +391,7 @@ export function NotebookView() {
               <div className="flex-1 overflow-hidden">
                 <MarkdownEditor
                   key={selectedPage.id}
-                  initialContent={pageContent}
+                  initialContent={selectedPage.content}
                   onChange={setPageContent}
                   onSave={handleSavePage}
                   onLinkClick={handleWikiLinkClick}
