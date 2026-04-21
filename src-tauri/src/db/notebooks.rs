@@ -47,10 +47,19 @@ pub fn create_notebook(
     user_id: &str,
     request: &CreateNotebookRequest,
 ) -> Result<Notebook, String> {
+    // Input validation
+    let base_name = request.name.trim();
+    if base_name.is_empty() {
+        return Err("Notebook name cannot be empty".to_string());
+    }
+    if base_name.len() > 255 {
+        return Err("Notebook name cannot exceed 255 characters".to_string());
+    }
+
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let icon = request.icon.as_deref().unwrap_or("notebook");
-    let name = get_unique_notebook_name(conn, user_id, &request.name)?;
+    let name = get_unique_notebook_name(conn, user_id, base_name)?;
 
     conn.execute(
         "INSERT INTO notebooks (id, user_id, name, description, icon, color, created_at, updated_at)
@@ -164,6 +173,15 @@ pub fn create_page(
     notebook_id: &str,
     request: &CreatePageRequest,
 ) -> Result<Page, String> {
+    // Input validation
+    let title = request.title.trim();
+    if title.is_empty() {
+        return Err("Page title cannot be empty".to_string());
+    }
+    if title.len() > 255 {
+        return Err("Page title cannot exceed 255 characters".to_string());
+    }
+
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let content = request.content.as_deref().unwrap_or("");
@@ -186,7 +204,7 @@ pub fn create_page(
     conn.execute(
         "INSERT INTO pages (id, notebook_id, title, content, position, is_pinned, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7)",
-        params![id, notebook_id, request.title, content, position, now, now],
+        params![id, notebook_id, title, content, position, now, now],
     )
     .map_err(|e| format!("Failed to create page: {}", e))?;
 

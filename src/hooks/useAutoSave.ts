@@ -52,9 +52,11 @@ export function useAutoSave<T>({
   // Refs to track current values without triggering effects
   const dataRef = useRef(data);
   const initialDataRef = useRef(data);
+  const initialDataHashRef = useRef(() => JSON.stringify(data));
   const onSaveRef = useRef(onSave);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
+  const lastDataHashRef = useRef<string | null>(null);
 
   // Update refs
   useEffect(() => {
@@ -79,6 +81,9 @@ export function useAutoSave<T>({
       setLastSavedAt(new Date());
       setIsDirty(false);
       initialDataRef.current = dataRef.current;
+      const newHash = JSON.stringify(dataRef.current);
+      initialDataHashRef.current = () => newHash;
+      lastDataHashRef.current = newHash;
       onSaveSuccess?.();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Save failed";
@@ -105,14 +110,25 @@ export function useAutoSave<T>({
     setIsDirty(false);
     setStatus("idle");
     initialDataRef.current = dataRef.current;
+    const newHash = JSON.stringify(dataRef.current);
+    initialDataHashRef.current = () => newHash;
+    lastDataHashRef.current = newHash;
   }, []);
 
   // Detect changes and schedule auto-save
   useEffect(() => {
-    // Skip if not enabled or data hasn't actually changed
-    const hasChanged = JSON.stringify(data) !== JSON.stringify(initialDataRef.current);
+    // Compute hash only when data reference changes (more efficient than every render)
+    const currentHash = JSON.stringify(data);
 
-    if (!hasChanged) {
+    // Skip if hash is same as last computed (no change since last effect run)
+    if (currentHash === lastDataHashRef.current) {
+      return;
+    }
+    lastDataHashRef.current = currentHash;
+
+    // Check against initial data hash
+    const initialHash = initialDataHashRef.current();
+    if (currentHash === initialHash) {
       return;
     }
 

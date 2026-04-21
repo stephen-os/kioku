@@ -63,8 +63,9 @@ export function QuizDashboard() {
       for (const quiz of quizzesData) {
         try {
           stats[quiz.id] = await getQuizStats(quiz.id);
-        } catch {
-          // Quiz might not have any attempts yet
+        } catch (error) {
+          // Stats are non-critical - quiz card can still render without them
+          console.error(`Failed to load stats for quiz ${quiz.id}:`, error);
         }
       }
       setQuizStats(stats);

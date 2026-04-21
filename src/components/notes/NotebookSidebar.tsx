@@ -63,17 +63,27 @@ export function NotebookSidebar({
     });
   }, [pages]);
 
-  // Filter pages by search query
-  const filteredPages = useMemo(() => {
-    if (!searchQuery.trim()) return sortedPages;
-    const query = searchQuery.toLowerCase();
-    return sortedPages.filter((page) =>
-      page.title.toLowerCase().includes(query)
-    );
-  }, [sortedPages, searchQuery]);
+  // Filter pages by search query and split into pinned/regular in single pass
+  const { pinnedPages, regularPages } = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const pinned: Page[] = [];
+    const regular: Page[] = [];
 
-  const pinnedPages = filteredPages.filter((p) => p.isPinned);
-  const regularPages = filteredPages.filter((p) => !p.isPinned);
+    for (const page of sortedPages) {
+      // Apply search filter
+      if (query && !page.title.toLowerCase().includes(query)) {
+        continue;
+      }
+      // Split into pinned/regular
+      if (page.isPinned) {
+        pinned.push(page);
+      } else {
+        regular.push(page);
+      }
+    }
+
+    return { pinnedPages: pinned, regularPages: regular };
+  }, [sortedPages, searchQuery]);
 
   // Collapsed view
   if (isCollapsed) {
@@ -185,7 +195,7 @@ export function NotebookSidebar({
             </div>
           )}
 
-          {pages.length > 0 && filteredPages.length === 0 && (
+          {pages.length > 0 && pinnedPages.length === 0 && regularPages.length === 0 && (
             <div className="text-center text-[#939293] text-sm py-4">
               No matching pages
             </div>

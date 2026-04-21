@@ -21,6 +21,7 @@ export function PageListItem({
   onMove,
 }: PageListItemProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <div
@@ -62,7 +63,7 @@ export function PageListItem({
       {/* Context menu */}
       {showMenu && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+          <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setShowDeleteConfirm(false); }} />
           <div className="absolute right-0 top-full mt-1 w-36 bg-[#403e41] border border-[#5b595c] rounded shadow-lg z-20 py-1">
             <button
               onClick={(e) => {
@@ -114,24 +115,51 @@ export function PageListItem({
               Move to...
             </button>
             <div className="border-t border-[#5b595c] my-1" />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-                setShowMenu(false);
-              }}
-              className="w-full text-left px-3 py-1.5 text-sm text-[#ff6188] hover:bg-[#5b595c]/30 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-              Delete
-            </button>
+            {showDeleteConfirm ? (
+              <div className="px-3 py-1.5">
+                <p className="text-xs text-[#ff6188] mb-2">Delete this page?</p>
+                <div className="flex gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                      setShowMenu(false);
+                      setShowDeleteConfirm(false);
+                    }}
+                    className="flex-1 px-2 py-1 text-xs bg-[#ff6188] text-[#2d2a2e] rounded hover:bg-[#ff6188]/90"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(false);
+                    }}
+                    className="flex-1 px-2 py-1 text-xs bg-[#5b595c] text-[#fcfcfa] rounded hover:bg-[#5b595c]/80"
+                  >
+                    No
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(true);
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm text-[#ff6188] hover:bg-[#5b595c]/30 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Delete
+              </button>
+            )}
           </div>
         </>
       )}

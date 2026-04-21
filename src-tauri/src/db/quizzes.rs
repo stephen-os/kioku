@@ -11,6 +11,15 @@ use super::models::{
 // ============================================
 
 pub fn create_quiz(conn: &Connection, user_id: &str, request: &CreateQuizRequest) -> Result<Quiz, String> {
+    // Input validation
+    let name = request.name.trim();
+    if name.is_empty() {
+        return Err("Quiz name cannot be empty".to_string());
+    }
+    if name.len() > 255 {
+        return Err("Quiz name cannot exceed 255 characters".to_string());
+    }
+
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let shuffle = request.shuffle_questions.unwrap_or(false);
@@ -18,7 +27,7 @@ pub fn create_quiz(conn: &Connection, user_id: &str, request: &CreateQuizRequest
     conn.execute(
         "INSERT INTO quizzes (id, user_id, name, description, shuffle_questions, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![id, user_id, request.name, request.description, shuffle as i32, now, now],
+        params![id, user_id, name, request.description, shuffle as i32, now, now],
     )
     .map_err(|e| format!("Failed to create quiz: {}", e))?;
 

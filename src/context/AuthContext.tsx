@@ -20,6 +20,8 @@ interface AuthContextType {
   users: LocalUser[];
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** Error from initial load, null if successful */
+  loadError: string | null;
   login: (userId: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
   createUser: (request: CreateUserRequest) => Promise<LocalUser>;
@@ -33,10 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [users, setUsers] = useState<LocalUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load users and check for active session on mount
   const loadInitialState = useCallback(async () => {
     try {
+      setLoadError(null);
       const [allUsers, activeUser] = await Promise.all([
         getAllUsers(),
         getActiveUser(),
@@ -44,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUsers(allUsers);
       setUser(activeUser);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load user data";
       console.error("Failed to load initial state:", error);
+      setLoadError(message);
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         users,
         isLoading,
         isAuthenticated: user !== null,
+        loadError,
         login,
         logout,
         createUser,

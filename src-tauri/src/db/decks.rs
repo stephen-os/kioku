@@ -14,6 +14,15 @@ pub fn create_deck(
     description: Option<&str>,
     shuffle_cards: bool,
 ) -> Result<Deck, String> {
+    // Input validation
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Deck name cannot be empty".to_string());
+    }
+    if name.len() > 255 {
+        return Err("Deck name cannot exceed 255 characters".to_string());
+    }
+
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 

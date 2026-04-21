@@ -7,7 +7,13 @@ import { useSettings } from "@/context/SettingsContext";
 import { importDeck, importQuiz, deleteUser, updateUser } from "@/lib/db";
 import { AvatarPicker, AvatarDisplay } from "@/components/AvatarPicker";
 import { PiperSettings, Toggle } from "@/components";
-import type { AvatarId } from "@/types";
+import { AVATARS, type AvatarId } from "@/types";
+
+const DEFAULT_AVATAR: AvatarId = "avatar-smile";
+
+function isValidAvatar(avatar: string | undefined): avatar is AvatarId {
+  return avatar !== undefined && (AVATARS as readonly string[]).includes(avatar);
+}
 
 export function Settings() {
   const navigate = useNavigate();
@@ -24,13 +30,13 @@ export function Settings() {
   // Profile editing state
   const [editingProfile, setEditingProfile] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
-  const [editAvatar, setEditAvatar] = useState<AvatarId>((user?.avatar as AvatarId) || "avatar-smile");
+  const [editAvatar, setEditAvatar] = useState<AvatarId>(isValidAvatar(user?.avatar) ? user.avatar : DEFAULT_AVATAR);
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     if (user) {
       setEditName(user.name);
-      setEditAvatar((user.avatar as AvatarId) || "avatar-smile");
+      setEditAvatar(isValidAvatar(user.avatar) ? user.avatar : DEFAULT_AVATAR);
     }
   }, [user]);
 
@@ -65,7 +71,7 @@ export function Settings() {
   const handleCancelEdit = () => {
     setEditingProfile(false);
     setEditName(user?.name || "");
-    setEditAvatar((user?.avatar as AvatarId) || "avatar-smile");
+    setEditAvatar(isValidAvatar(user?.avatar) ? user.avatar : DEFAULT_AVATAR);
   };
 
   const handleImportDeck = async () => {

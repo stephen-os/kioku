@@ -58,6 +58,15 @@ pub fn get_user(conn: &Connection, id: &str) -> Result<LocalUser, String> {
 
 /// Create a new user
 pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<LocalUser, String> {
+    // Input validation
+    let name = request.name.trim();
+    if name.is_empty() {
+        return Err("User name cannot be empty".to_string());
+    }
+    if name.len() > 100 {
+        return Err("User name cannot exceed 100 characters".to_string());
+    }
+
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let avatar = request.avatar.as_deref().unwrap_or("avatar-smile");
@@ -70,7 +79,7 @@ pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<Loc
     conn.execute(
         "INSERT INTO users (id, name, password_hash, avatar, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, request.name, password_hash, avatar, now],
+        params![id, name, password_hash, avatar, now],
     )
     .map_err(|e| format!("Failed to create user: {}", e))?;
 

@@ -26,7 +26,8 @@ export function AutoplayMode() {
   const urlFrontSearch = searchParams.get("front") || "";
   const urlBackSearch = searchParams.get("back") || "";
   const urlTagsRaw = searchParams.get("tags") || "";
-  const urlTagMode = (searchParams.get("tagMode") as FilterLogic) || "any";
+  const rawTagMode = searchParams.get("tagMode");
+  const urlTagMode: FilterLogic = rawTagMode === "all" ? "all" : "any";
   const hasUrlFilters = urlFrontSearch || urlBackSearch || urlTagsRaw.length > 0;
 
   const urlTagIds = useMemo(() =>
