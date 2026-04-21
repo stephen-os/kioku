@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import type { Quiz, QuestionAnswer } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getQuiz, startQuizAttempt, submitQuizAttempt } from "@/lib/db";
+import { shuffle } from "@/lib/utils";
 import { CodeBlock } from "@/components/CodeEditor";
 import { BackButton } from "@/components";
 import { useToast } from "@/context/ToastContext";
@@ -24,7 +25,7 @@ export function TakeQuiz() {
     if (!quiz?.questions) return [];
     const sorted = [...quiz.questions].sort((a, b) => a.position - b.position);
     if (quiz.shuffleQuestions) {
-      return sorted.sort(() => Math.random() - 0.5);
+      return shuffle(sorted);
     }
     return sorted;
   }, [quiz]);

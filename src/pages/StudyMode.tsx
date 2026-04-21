@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import type { Card, Deck, Tag } from "@/types";
 import { CODE_LANGUAGE_LABELS } from "@/types";
 import { getCardsForDeck, getDeck, getTagsForDeck, startStudySession, endStudySession } from "@/lib/db";
+import { shuffle } from "@/lib/utils";
 import { isTauri } from "@/lib/auth";
 import { CodeBlock } from "@/components/CodeEditor";
 import { BackButton } from "@/components";
@@ -115,12 +116,12 @@ export function StudyMode() {
               });
             }
 
-            const shuffled = [...filteredCards].sort(() => Math.random() - 0.5);
+            const shuffled = shuffle(filteredCards);
             setCards(shuffled);
             setStudyStarted(true);
           } else {
             // No URL filters - study all cards immediately
-            const shuffled = [...cardsData].sort(() => Math.random() - 0.5);
+            const shuffled = shuffle(cardsData);
             setCards(shuffled);
             setStudyStarted(true);
           }
@@ -226,7 +227,7 @@ export function StudyMode() {
 
   const handleStartStudy = () => {
     // Always use filteredCards - it includes both URL search and tag filters
-    const shuffled = [...filteredCards].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(filteredCards);
     setCards(shuffled);
     setShowTagFilter(false);
     setStudyStarted(true);
@@ -319,7 +320,7 @@ export function StudyMode() {
     setSwipeOffset(0);
     setShowCard(true);
     // Reshuffle
-    const shuffled = [...cards].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(cards);
     setCards(shuffled);
   }, [cards]);
 

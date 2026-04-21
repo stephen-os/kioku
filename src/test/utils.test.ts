@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { shuffle } from "@/lib/utils";
 
 // Example utility function tests
 // These demonstrate how to test pure functions
@@ -7,13 +8,16 @@ describe("Example utility tests", () => {
   describe("Array utilities", () => {
     it("should shuffle an array", () => {
       const original = [1, 2, 3, 4, 5];
-      const shuffled = [...original].sort(() => Math.random() - 0.5);
+      const shuffled = shuffle(original);
 
       // Shuffled should have same length
       expect(shuffled).toHaveLength(original.length);
 
       // Shuffled should contain same elements
-      expect(shuffled.sort()).toEqual(original.sort());
+      expect(shuffled.sort()).toEqual([...original].sort());
+
+      // Original should not be modified
+      expect(original).toEqual([1, 2, 3, 4, 5]);
     });
   });
 
