@@ -152,6 +152,12 @@ pub fn run() {
             // Backlinks commands
             commands::notebooks::get_backlinks,
             commands::notebooks::get_all_page_titles,
+            // Image commands
+            commands::images::save_image,
+            commands::images::get_image_path,
+            commands::images::delete_image,
+            commands::images::list_images,
+            commands::images::get_images_dir_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

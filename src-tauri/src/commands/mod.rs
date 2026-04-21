@@ -1,5 +1,6 @@
 pub mod courses;
 pub mod decks;
+pub mod images;
 pub mod notebooks;
 pub mod quizzes;
 pub mod sessions;

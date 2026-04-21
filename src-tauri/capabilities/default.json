@@ -34,6 +34,18 @@
         { "path": "$DESKTOP/**" },
         { "path": "$HOME/**" }
       ]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
     }
   ]
 }

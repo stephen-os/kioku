@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
@@ -27,6 +27,7 @@ zip = { version = "0.6", default-features = false, features = ["deflate"] }
 tokio = { version = "1", features = ["fs"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+base64 = "0.22"
 
 [profile.dev]
 incremental = true

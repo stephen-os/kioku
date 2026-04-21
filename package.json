@@ -19,6 +19,9 @@
     "url": "git+https://github.com/stephen-os/kioku-desktop.git"
   },
   "dependencies": {
+    "@blocknote/core": "^0.48.1",
+    "@blocknote/mantine": "^0.48.1",
+    "@blocknote/react": "^0.48.1",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-cpp": "^6.0.3",
@@ -41,6 +44,7 @@
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.39.11",
     "@lezer/highlight": "^1.2.3",
+    "@mantine/core": "^8.3.18",
     "@milkdown/kit": "^7.20.0",
     "@milkdown/plugin-listener": "^7.20.0",
     "@milkdown/theme-nord": "^7.20.0",

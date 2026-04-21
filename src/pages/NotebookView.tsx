@@ -11,14 +11,13 @@ import {
   togglePagePin,
   duplicatePage,
   movePage,
-  searchPages,
 } from "@/lib/db";
 import { LoadingSpinner } from "@/components";
 import { useToast } from "@/context/ToastContext";
 import { useSettings } from "@/context/SettingsContext";
-import { useAutoSave, useSidebarState, useMarkdownOutline } from "@/hooks";
+import { useAutoSave, useSidebarState } from "@/hooks";
 import { useUnsavedChanges, UnsavedChangesDialog } from "@/hooks/useUnsavedChanges";
-import { MarkdownEditor } from "@/components/notes/MarkdownEditor";
+import { NotesBlockEditor } from "@/components/notes/BlockNoteEditor";
 import { NotebookSidebar } from "@/components/notes/NotebookSidebar";
 import { EditorFooter } from "@/components/notes/EditorFooter";
 import { OutlinePanel } from "@/components/notes/OutlinePanel";
@@ -58,7 +57,8 @@ export function NotebookView() {
 
   // Outline panel state
   const [outlineVisible, setOutlineVisible] = useState(false);
-  const headings = useMarkdownOutline(pageContent);
+  // TODO: Parse headings from BlockNote JSON content for outline
+  const headings: { level: number; text: string; id: string; position: number }[] = [];
 
   // Backlinks panel state
   const [backlinksVisible, setBacklinksVisible] = useState(false);
@@ -290,27 +290,6 @@ export function NotebookView() {
     }
   };
 
-  // Handle wiki link click - navigate to linked page
-  const handleWikiLinkClick = useCallback(async (title: string) => {
-    try {
-      // Search for pages with exact title match
-      const results = await searchPages(title, 10);
-      const exactMatch = results.find(
-        (p) => p.title.toLowerCase() === title.toLowerCase()
-      );
-
-      if (exactMatch) {
-        // Navigate to the found page
-        navigate(`/notes/${exactMatch.notebookId}/pages/${exactMatch.id}`);
-      } else {
-        toast.error(`Page "${title}" not found`);
-      }
-    } catch (error) {
-      console.error("Failed to navigate to linked page:", error);
-      toast.error("Failed to navigate to linked page");
-    }
-  }, [navigate, toast]);
-
   // Handle backlink navigation
   const handleBacklinkNavigate = useCallback((targetNotebookId: string, targetPageId: string) => {
     navigate(`/notes/${targetNotebookId}/pages/${targetPageId}`);
@@ -387,14 +366,13 @@ export function NotebookView() {
                 />
               </div>
 
-              {/* Page Content - Milkdown Editor */}
+              {/* Page Content - BlockNote Editor */}
               <div className="flex-1 overflow-hidden">
-                <MarkdownEditor
+                <NotesBlockEditor
                   key={selectedPage.id}
                   initialContent={selectedPage.content}
                   onChange={setPageContent}
                   onSave={handleSavePage}
-                  onLinkClick={handleWikiLinkClick}
                 />
               </div>
 

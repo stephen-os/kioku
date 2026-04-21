@@ -708,3 +708,27 @@ export async function getBacklinks(pageId: string): Promise<PageSearchResult[]> 
 export async function getAllPageTitles(): Promise<PageSearchResult[]> {
   return invoke<PageSearchResult[]>("get_all_page_titles");
 }
+
+// ============================================
+// Image Operations
+// ============================================
+
+export async function saveImage(base64Data: string, extension: string): Promise<string> {
+  return invoke<string>("save_image", { base64Data, extension });
+}
+
+export async function getImagePath(filename: string): Promise<string> {
+  return invoke<string>("get_image_path", { filename });
+}
+
+export async function deleteImage(filename: string): Promise<void> {
+  return invoke("delete_image", { filename });
+}
+
+export async function listImages(): Promise<string[]> {
+  return invoke<string[]>("list_images");
+}
+
+export async function getImagesDirUrl(): Promise<string> {
+  return invoke<string>("get_images_dir_url");
+}
