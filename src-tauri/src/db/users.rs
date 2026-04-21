@@ -1,3 +1,7 @@
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
 use rusqlite::{params, Connection};
 use uuid::Uuid;
 
@@ -58,7 +62,10 @@ pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<Loc
     let now = chrono::Utc::now().to_rfc3339();
     let avatar = request.avatar.as_deref().unwrap_or("avatar-smile");
 
-    let password_hash = request.password.as_ref().map(|p| hash_password(p));
+    let password_hash = match &request.password {
+        Some(p) => Some(hash_password(p)?),
+        None => None,
+    };
 
     conn.execute(
         "INSERT INTO users (id, name, password_hash, avatar, created_at)
@@ -70,7 +77,7 @@ pub fn create_user(conn: &Connection, request: &CreateUserRequest) -> Result<Loc
     get_user(conn, &id)
 }
 
-/// Verify a user's password
+/// Verify a user's password (timing-safe using argon2)
 pub fn verify_user_password(
     conn: &Connection,
     user_id: &str,
@@ -87,10 +94,7 @@ pub fn verify_user_password(
     match (stored_hash, password) {
         (None, _) => Ok(true),
         (Some(_), None) => Ok(false),
-        (Some(stored), Some(provided)) => {
-            let provided_hash = hash_password(provided);
-            Ok(stored == provided_hash)
-        }
+        (Some(stored), Some(provided)) => verify_password(provided, &stored),
     }
 }
 
@@ -178,7 +182,10 @@ pub fn update_user(
     password: Option<&str>,
     avatar: Option<&str>,
 ) -> Result<LocalUser, String> {
-    let password_hash = password.map(|p| hash_password(p));
+    let password_hash = match password {
+        Some(p) => Some(hash_password(p)?),
+        None => None,
+    };
 
     match (password_hash, avatar) {
         (Some(hash), Some(av)) => conn.execute(
@@ -214,11 +221,23 @@ pub fn remove_user_password(conn: &Connection, user_id: &str) -> Result<LocalUse
     get_user(conn, user_id)
 }
 
-/// Hash a password (simple hash for local use)
-fn hash_password(password: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    password.hash(&mut hasher);
-    format!("{:x}", hasher.finish())
+/// Hash a password using Argon2 (cryptographically secure)
+fn hash_password(password: &str) -> Result<String, String> {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+
+    argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map(|hash| hash.to_string())
+        .map_err(|e| format!("Failed to hash password: {}", e))
+}
+
+/// Verify a password against an Argon2 hash (timing-safe)
+fn verify_password(password: &str, hash: &str) -> Result<bool, String> {
+    let parsed_hash =
+        PasswordHash::new(hash).map_err(|e| format!("Invalid password hash: {}", e))?;
+
+    Ok(Argon2::default()
+        .verify_password(password.as_bytes(), &parsed_hash)
+        .is_ok())
 }
