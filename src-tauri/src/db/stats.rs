@@ -63,46 +63,68 @@ pub fn submit_quiz_attempt(
         .map_err(|e| format!("Invalid end time: {}", e))?;
     let duration = (end - start).num_seconds() as i32;
 
-    // Grade each answer
-    let mut correct_count = 0;
-    for answer in answers {
-        let is_correct = grade_answer(conn, &answer.question_id, &answer.answer)?;
-        if is_correct {
-            correct_count += 1;
+    // Begin transaction for atomic quiz submission
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
+
+    let result = (|| -> Result<(), String> {
+        // Grade each answer
+        let mut correct_count = 0;
+        for answer in answers {
+            let is_correct = grade_answer(conn, &answer.question_id, &answer.answer)?;
+            if is_correct {
+                correct_count += 1;
+            }
+
+            // Save question result
+            let result_id = Uuid::new_v4().to_string();
+            conn.execute(
+                "INSERT INTO question_results (id, attempt_id, question_id, user_answer, is_correct)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![result_id, attempt_id, answer.question_id, answer.answer, is_correct as i32],
+            )
+            .map_err(|e| format!("Failed to save question result: {}", e))?;
         }
 
-        // Save question result
-        let result_id = Uuid::new_v4().to_string();
+        // Calculate score
+        let total: i32 = conn
+            .query_row(
+                "SELECT total_questions FROM quiz_attempts WHERE id = ?1",
+                params![attempt_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let score_percentage = if total > 0 {
+            ((correct_count as f64 / total as f64) * 100.0).round() as i32
+        } else {
+            0
+        };
+
+        // Update attempt
         conn.execute(
-            "INSERT INTO question_results (id, attempt_id, question_id, user_answer, is_correct)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![result_id, attempt_id, answer.question_id, answer.answer, is_correct as i32],
+            "UPDATE quiz_attempts SET completed_at = ?1, duration_seconds = ?2,
+             correct_answers = ?3, score_percentage = ?4 WHERE id = ?5",
+            params![now, duration, correct_count, score_percentage, attempt_id],
         )
-        .map_err(|e| format!("Failed to save question result: {}", e))?;
+        .map_err(|e| format!("Failed to complete attempt: {}", e))?;
+
+        Ok(())
+    })();
+
+    // Commit or rollback based on result
+    match result {
+        Ok(()) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                eprintln!("Warning: Failed to rollback transaction: {}", rollback_err);
+            }
+            return Err(e);
+        }
     }
-
-    // Calculate score
-    let total: i32 = conn
-        .query_row(
-            "SELECT total_questions FROM quiz_attempts WHERE id = ?1",
-            params![attempt_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    let score_percentage = if total > 0 {
-        ((correct_count as f64 / total as f64) * 100.0).round() as i32
-    } else {
-        0
-    };
-
-    // Update attempt
-    conn.execute(
-        "UPDATE quiz_attempts SET completed_at = ?1, duration_seconds = ?2,
-         correct_answers = ?3, score_percentage = ?4 WHERE id = ?5",
-        params![now, duration, correct_count, score_percentage, attempt_id],
-    )
-    .map_err(|e| format!("Failed to complete attempt: {}", e))?;
 
     get_quiz_attempt(conn, attempt_id)
 }

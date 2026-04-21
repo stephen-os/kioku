@@ -396,23 +396,43 @@ pub fn delete_lesson(conn: &Connection, lesson_id: &str) -> Result<(), String> {
 pub fn reorder_lessons(conn: &Connection, course_id: &str, lesson_ids: &[String]) -> Result<(), String> {
     let now = chrono::Utc::now().to_rfc3339();
 
-    for (i, lesson_id) in lesson_ids.iter().enumerate() {
-        conn.execute(
-            "UPDATE lessons SET position = ?1, updated_at = ?2 WHERE id = ?3 AND course_id = ?4",
-            params![i as i32, now, lesson_id, course_id],
-        )
-        .map_err(|e| format!("Failed to reorder lesson: {}", e))?;
-    }
+    // Begin transaction for atomic reordering
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
 
-    // Update course's updated_at
-    if let Err(e) = conn.execute(
-        "UPDATE courses SET updated_at = ?1 WHERE id = ?2",
-        params![now, course_id],
-    ) {
-        eprintln!("Warning: Failed to update course timestamp: {}", e);
-    }
+    let result = (|| -> Result<(), String> {
+        for (i, lesson_id) in lesson_ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE lessons SET position = ?1, updated_at = ?2 WHERE id = ?3 AND course_id = ?4",
+                params![i as i32, now, lesson_id, course_id],
+            )
+            .map_err(|e| format!("Failed to reorder lesson: {}", e))?;
+        }
 
-    Ok(())
+        // Update course's updated_at
+        if let Err(e) = conn.execute(
+            "UPDATE courses SET updated_at = ?1 WHERE id = ?2",
+            params![now, course_id],
+        ) {
+            eprintln!("Warning: Failed to update course timestamp: {}", e);
+        }
+
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(())
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                eprintln!("Warning: Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
+    }
 }
 
 // ============================================
@@ -582,23 +602,43 @@ pub fn remove_lesson_item(conn: &Connection, lesson_item_id: &str) -> Result<(),
 pub fn reorder_lesson_items(conn: &Connection, lesson_id: &str, item_ids: &[String]) -> Result<(), String> {
     let now = chrono::Utc::now().to_rfc3339();
 
-    for (i, item_id) in item_ids.iter().enumerate() {
-        conn.execute(
-            "UPDATE lesson_items SET position = ?1 WHERE id = ?2 AND lesson_id = ?3",
-            params![i as i32, item_id, lesson_id],
-        )
-        .map_err(|e| format!("Failed to reorder lesson item: {}", e))?;
-    }
+    // Begin transaction for atomic reordering
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
 
-    // Update timestamps
-    if let Err(e) = conn.execute(
-        "UPDATE lessons SET updated_at = ?1 WHERE id = ?2",
-        params![now, lesson_id],
-    ) {
-        eprintln!("Warning: Failed to update lesson timestamp: {}", e);
-    }
+    let result = (|| -> Result<(), String> {
+        for (i, item_id) in item_ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE lesson_items SET position = ?1 WHERE id = ?2 AND lesson_id = ?3",
+                params![i as i32, item_id, lesson_id],
+            )
+            .map_err(|e| format!("Failed to reorder lesson item: {}", e))?;
+        }
 
-    Ok(())
+        // Update timestamps
+        if let Err(e) = conn.execute(
+            "UPDATE lessons SET updated_at = ?1 WHERE id = ?2",
+            params![now, lesson_id],
+        ) {
+            eprintln!("Warning: Failed to update lesson timestamp: {}", e);
+        }
+
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(())
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                eprintln!("Warning: Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
+    }
 }
 
 // ============================================

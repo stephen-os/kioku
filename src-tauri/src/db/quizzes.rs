@@ -306,14 +306,34 @@ pub fn reorder_questions(
     quiz_id: &str,
     question_ids: &[String],
 ) -> Result<(), String> {
-    for (idx, qid) in question_ids.iter().enumerate() {
-        conn.execute(
-            "UPDATE questions SET position = ?1 WHERE id = ?2 AND quiz_id = ?3",
-            params![idx as i32, qid, quiz_id],
-        )
-        .map_err(|e| format!("Failed to reorder question: {}", e))?;
+    // Begin transaction for atomic reordering
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
+
+    let result = (|| -> Result<(), String> {
+        for (idx, qid) in question_ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE questions SET position = ?1 WHERE id = ?2 AND quiz_id = ?3",
+                params![idx as i32, qid, quiz_id],
+            )
+            .map_err(|e| format!("Failed to reorder question: {}", e))?;
+        }
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(())
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                eprintln!("Warning: Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
     }
-    Ok(())
 }
 
 // ============================================

@@ -314,23 +314,43 @@ pub fn delete_page(conn: &Connection, id: &str) -> Result<(), String> {
 pub fn reorder_pages(conn: &Connection, notebook_id: &str, page_ids: &[String]) -> Result<(), String> {
     let now = chrono::Utc::now().to_rfc3339();
 
-    for (index, page_id) in page_ids.iter().enumerate() {
-        conn.execute(
-            "UPDATE pages SET position = ?1, updated_at = ?2 WHERE id = ?3 AND notebook_id = ?4",
-            params![index as i32, now, page_id, notebook_id],
-        )
-        .map_err(|e| format!("Failed to reorder page {}: {}", page_id, e))?;
-    }
+    // Begin transaction for atomic reordering
+    conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
 
-    // Update notebook's updated_at
-    if let Err(e) = conn.execute(
-        "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
-        params![now, notebook_id],
-    ) {
-        eprintln!("Warning: Failed to update notebook timestamp: {}", e);
-    }
+    let result = (|| -> Result<(), String> {
+        for (index, page_id) in page_ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE pages SET position = ?1, updated_at = ?2 WHERE id = ?3 AND notebook_id = ?4",
+                params![index as i32, now, page_id, notebook_id],
+            )
+            .map_err(|e| format!("Failed to reorder page {}: {}", page_id, e))?;
+        }
 
-    Ok(())
+        // Update notebook's updated_at
+        if let Err(e) = conn.execute(
+            "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
+            params![now, notebook_id],
+        ) {
+            eprintln!("Warning: Failed to update notebook timestamp: {}", e);
+        }
+
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            conn.execute("COMMIT", [])
+                .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+            Ok(())
+        }
+        Err(e) => {
+            if let Err(rollback_err) = conn.execute("ROLLBACK", []) {
+                eprintln!("Warning: Failed to rollback transaction: {}", rollback_err);
+            }
+            Err(e)
+        }
+    }
 }
 
 pub fn toggle_page_pin(conn: &Connection, id: &str) -> Result<bool, String> {
