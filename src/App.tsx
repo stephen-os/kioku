@@ -8,6 +8,7 @@ import { ToastContainer } from "./components/Toast";
 import { ShortcutsHelp } from "./components/shortcuts";
 import { QuickSwitcher } from "./components/QuickSwitcher";
 import { Layout } from "./components/Layout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Eagerly loaded pages (critical path)
 import { DeckDashboard } from "./pages/DeckDashboard";
@@ -195,17 +196,19 @@ function AppRoutes() {
 
 function App() {
   return (
-    <ToastProvider>
-      <SettingsProvider>
-        <ShortcutsProvider>
-          <AuthProvider>
-            <AppRoutes />
-            <ToastContainer />
-            <ShortcutsHelp />
-          </AuthProvider>
-        </ShortcutsProvider>
-      </SettingsProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <SettingsProvider>
+          <ShortcutsProvider>
+            <AuthProvider>
+              <AppRoutes />
+              <ToastContainer />
+              <ShortcutsHelp />
+            </AuthProvider>
+          </ShortcutsProvider>
+        </SettingsProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 
