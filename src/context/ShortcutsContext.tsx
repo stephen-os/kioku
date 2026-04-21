@@ -180,11 +180,21 @@ export function useRegisterShortcut(
   const { register, unregister } = useShortcuts();
   const { label, description, scope = "global", enabled = true } = options;
 
-  // Use ref to keep action stable
+  // Use refs to keep values stable and avoid infinite loops
   const actionRef = useRef(action);
+  const keysRef = useRef(keys);
+  const labelRef = useRef(label);
+  const descriptionRef = useRef(description);
+  const scopeRef = useRef(scope);
+
+  // Update refs when values change
   useEffect(() => {
     actionRef.current = action;
-  }, [action]);
+    keysRef.current = keys;
+    labelRef.current = label;
+    descriptionRef.current = description;
+    scopeRef.current = scope;
+  });
 
   useEffect(() => {
     if (!enabled) {
@@ -194,13 +204,13 @@ export function useRegisterShortcut(
 
     register({
       id,
-      keys,
-      label,
-      description,
-      scope,
+      keys: keysRef.current,
+      label: labelRef.current,
+      description: descriptionRef.current,
+      scope: scopeRef.current,
       action: () => actionRef.current(),
     });
 
     return () => unregister(id);
-  }, [id, keys, label, description, scope, enabled, register, unregister]);
+  }, [id, enabled, register, unregister]);
 }
