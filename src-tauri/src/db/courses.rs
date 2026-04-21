@@ -189,11 +189,12 @@ pub fn create_lesson(
     .map_err(|e| format!("Failed to create lesson: {}", e))?;
 
     // Update course's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE courses SET updated_at = ?1 WHERE id = ?2",
         params![now, course_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update course timestamp: {}", e);
+    }
 
     Ok(Lesson {
         id,
@@ -356,11 +357,12 @@ pub fn update_lesson(
     .map_err(|e| format!("Failed to update lesson: {}", e))?;
 
     // Update course's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE courses SET updated_at = ?1 WHERE id = (SELECT course_id FROM lessons WHERE id = ?2)",
         params![now, lesson_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update course timestamp: {}", e);
+    }
 
     Ok(())
 }
@@ -381,11 +383,12 @@ pub fn delete_lesson(conn: &Connection, lesson_id: &str) -> Result<(), String> {
         .map_err(|e| format!("Failed to delete lesson: {}", e))?;
 
     // Update course's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE courses SET updated_at = ?1 WHERE id = ?2",
         params![now, course_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update course timestamp: {}", e);
+    }
 
     Ok(())
 }
@@ -402,11 +405,12 @@ pub fn reorder_lessons(conn: &Connection, course_id: &str, lesson_ids: &[String]
     }
 
     // Update course's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE courses SET updated_at = ?1 WHERE id = ?2",
         params![now, course_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update course timestamp: {}", e);
+    }
 
     Ok(())
 }
@@ -492,17 +496,19 @@ pub fn add_lesson_item(
     .map_err(|e| format!("Failed to add lesson item: {}", e))?;
 
     // Update lesson's and course's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE lessons SET updated_at = ?1 WHERE id = ?2",
         params![now, lesson_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update lesson timestamp: {}", e);
+    }
 
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE courses SET updated_at = ?1 WHERE id = (SELECT course_id FROM lessons WHERE id = ?2)",
         params![now, lesson_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update course timestamp: {}", e);
+    }
 
     Ok(LessonItem {
         id,
@@ -534,11 +540,12 @@ pub fn update_lesson_item_reference(
     .map_err(|e| format!("Failed to update lesson item reference: {}", e))?;
 
     // Update timestamps
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE lessons SET updated_at = ?1 WHERE id = (SELECT lesson_id FROM lesson_items WHERE id = ?2)",
         params![now, lesson_item_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update lesson timestamp: {}", e);
+    }
 
     Ok(())
 }
@@ -562,11 +569,12 @@ pub fn remove_lesson_item(conn: &Connection, lesson_item_id: &str) -> Result<(),
     .map_err(|e| format!("Failed to remove lesson item: {}", e))?;
 
     // Update timestamps
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE lessons SET updated_at = ?1 WHERE id = ?2",
         params![now, lesson_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update lesson timestamp: {}", e);
+    }
 
     Ok(())
 }
@@ -583,11 +591,12 @@ pub fn reorder_lesson_items(conn: &Connection, lesson_id: &str, item_ids: &[Stri
     }
 
     // Update timestamps
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE lessons SET updated_at = ?1 WHERE id = ?2",
         params![now, lesson_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update lesson timestamp: {}", e);
+    }
 
     Ok(())
 }

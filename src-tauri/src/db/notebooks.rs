@@ -191,11 +191,12 @@ pub fn create_page(
     .map_err(|e| format!("Failed to create page: {}", e))?;
 
     // Update notebook's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
         params![now, notebook_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update notebook timestamp: {}", e);
+    }
 
     get_page(conn, &id)?
         .ok_or_else(|| "Failed to retrieve created page".to_string())
@@ -271,11 +272,12 @@ pub fn update_page(
 
     // Update parent notebook's updated_at
     if let Ok(Some(page)) = get_page(conn, id) {
-        conn.execute(
+        if let Err(e) = conn.execute(
             "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
             params![now, page.notebook_id],
-        )
-        .ok();
+        ) {
+            eprintln!("Warning: Failed to update notebook timestamp: {}", e);
+        }
     }
 
     get_page(conn, id)?
@@ -298,11 +300,12 @@ pub fn delete_page(conn: &Connection, id: &str) -> Result<(), String> {
     // Update parent notebook's updated_at
     if let Some(nb_id) = notebook_id {
         let now = chrono::Utc::now().to_rfc3339();
-        conn.execute(
+        if let Err(e) = conn.execute(
             "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
             params![now, nb_id],
-        )
-        .ok();
+        ) {
+            eprintln!("Warning: Failed to update notebook timestamp: {}", e);
+        }
     }
 
     Ok(())
@@ -320,11 +323,12 @@ pub fn reorder_pages(conn: &Connection, notebook_id: &str, page_ids: &[String]) 
     }
 
     // Update notebook's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
         params![now, notebook_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update notebook timestamp: {}", e);
+    }
 
     Ok(())
 }
@@ -514,11 +518,12 @@ pub fn duplicate_page(conn: &Connection, page_id: &str) -> Result<Page, String> 
     .map_err(|e| format!("Failed to duplicate page: {}", e))?;
 
     // Update notebook's updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
         params![now, original.notebook_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update notebook timestamp: {}", e);
+    }
 
     get_page(conn, &id)?
         .ok_or_else(|| "Failed to retrieve duplicated page".to_string())
@@ -556,16 +561,18 @@ pub fn move_page(
     .map_err(|e| format!("Failed to move page: {}", e))?;
 
     // Update both notebooks' updated_at
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
         params![now, source_notebook_id],
-    )
-    .ok();
-    conn.execute(
+    ) {
+        eprintln!("Warning: Failed to update source notebook timestamp: {}", e);
+    }
+    if let Err(e) = conn.execute(
         "UPDATE notebooks SET updated_at = ?1 WHERE id = ?2",
         params![now, target_notebook_id],
-    )
-    .ok();
+    ) {
+        eprintln!("Warning: Failed to update target notebook timestamp: {}", e);
+    }
 
     get_page(conn, page_id)?
         .ok_or_else(|| "Failed to retrieve moved page".to_string())

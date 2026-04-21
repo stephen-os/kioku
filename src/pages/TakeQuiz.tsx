@@ -34,6 +34,8 @@ export function TakeQuiz() {
   const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
 
   useEffect(() => {
+    let cancelled = false;
+
     // Reset state when quiz ID changes
     setAnswers({});
     setCurrentIndex(0);
@@ -47,16 +49,24 @@ export function TakeQuiz() {
           getQuiz(id),
           startQuizAttempt(id),
         ]);
+        if (cancelled) return;
         setQuiz(quizData);
         setAttemptId(attempt.id);
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load quiz:", error);
         toast.error("Failed to load quiz");
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
     loadQuiz();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const handleSelectChoice = useCallback((questionId: string, choiceId: string, multipleAnswers: boolean) => {

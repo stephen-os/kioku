@@ -71,6 +71,8 @@ export function StudyMode() {
   const studyCompleteRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadDeckAndCards() {
       if (!id) return;
       try {
@@ -80,6 +82,7 @@ export function StudyMode() {
             getCardsForDeck(id),
             getTagsForDeck(id),
           ]);
+          if (cancelled) return;
           setDeck(deckData);
           setAllCards(cardsData);
           setTags(tagsData);
@@ -127,13 +130,20 @@ export function StudyMode() {
           }
         }
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to load cards:", error);
         toast.error("Failed to load cards");
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
     loadDeckAndCards();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, hasUrlFilters, urlFrontSearch, urlBackSearch, urlTagsRaw, urlTagMode]);
 
   // Start study session when studying begins
